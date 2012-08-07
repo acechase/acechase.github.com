@@ -4,6 +4,10 @@ body {
   background-color: #fff;
 }
 
+.flash-content {
+  height: 100px;
+}
+
 
 /* Tweak navbar brand link to be super sleek
 -------------------------------------------------- */
