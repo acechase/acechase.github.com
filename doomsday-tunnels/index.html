@@ -34,25 +34,34 @@ body{margin:0;background:var(--void);color:var(--ink);overflow:hidden;font-famil
 #probe{position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;
   padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
 #tune{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);box-sizing:border-box;
-  padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));
+  padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));
   display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--void) 80%,transparent)}
 #tune.rot{transform:translate(-50%,-50%) rotate(90deg)}
-.tcard{container-type:inline-size;width:min(660px,100%);max-height:100%;overflow:auto;box-sizing:border-box;
-  border:1px solid var(--dim);background:var(--void);padding:14px 18px;display:flex;flex-direction:column;gap:12px}
-.thead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px}
+.tcard{container-type:inline-size;width:min(780px,100%);max-height:100%;overflow:auto;box-sizing:border-box;
+  border:1px solid var(--dim);background:var(--void);padding:10px 18px 12px;display:flex;flex-direction:column;gap:8px}
+.thead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px}
 .thead h2{margin:0;font:700 14px var(--display);letter-spacing:.08em}
-.thead p{margin:0;color:var(--dim);font-size:12px}
-#tune-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 26px}
+.tctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px}
+.tseg{display:inline-flex}
+.tctl button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--ink);padding:7px 14px;min-height:36px;cursor:pointer}
+.tctl button[aria-pressed="true"]{background:var(--ink);color:var(--void)}
+.tseg button+button{border-left:0}
+.tchk{display:inline-flex;align-items:center;gap:7px;min-height:36px}
+.tchk input{width:20px;height:20px;margin:0;accent-color:var(--s1)}
+.tchk:has(input:disabled){color:var(--dim)}
+#ctl-note{margin:0;color:var(--dim);font-size:11px;min-height:1.3em}
+#tune-rows{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 22px}
+@container (max-width:640px){#tune-rows{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container (max-width:430px){#tune-rows{grid-template-columns:minmax(0,1fr)}}
 .trow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 8px;align-items:baseline;font-size:13px}
 .thint{grid-column:1/-1;color:var(--dim);font-size:11px}
 .trow input{grid-column:1/-1;width:100%;height:28px;margin:0;accent-color:var(--s1)}
 .tval{font-variant-numeric:tabular-nums;color:var(--s1)}
-.tfoot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+.tfoot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .tfoot button{font:inherit;font-size:13px;letter-spacing:.06em;color:var(--ink);background:transparent;
-  border:1px solid var(--ink);padding:9px 18px;min-height:40px;cursor:pointer}
+  border:1px solid var(--ink);padding:7px 16px;min-height:36px;cursor:pointer}
 #tune-done{background:var(--ink);color:var(--void)}
-.tfoot button:focus-visible,.trow input:focus-visible{outline:2px solid var(--gate);outline-offset:2px}
+.tfoot button:focus-visible,.trow input:focus-visible,.tctl button:focus-visible,.tchk input:focus-visible{outline:2px solid var(--gate);outline-offset:2px}
 
 html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);background:var(--void)}
 </style>
@@ -64,9 +73,15 @@ html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-
 <div id="probe"></div>
 <div id="tune" hidden>
   <div class="tcard" role="dialog" aria-modal="true" aria-labelledby="tune-title">
-    <div class="thead"><h2 id="tune-title">TUNE THE FEEL</h2><p>Changes apply right away and are saved on this device.</p></div>
+    <div class="thead"><h2 id="tune-title">CONTROLS AND FEEL</h2>
+      <div class="tfoot"><button type="button" id="tune-reset">Reset sliders</button><button type="button" id="tune-done">Done</button></div></div>
+    <div class="tctl" role="group" aria-label="Steering">
+      <span>Steering</span>
+      <span class="tseg"><button type="button" id="ctl-stick" aria-pressed="true">Thumb stick</button><button type="button" id="ctl-tilt" aria-pressed="false">Tilt phone</button></span>
+      <label class="tchk" for="ctl-invert"><input type="checkbox" id="ctl-invert"> Invert tilt up/down</label>
+    </div>
+    <p id="ctl-note" role="status"></p>
     <div id="tune-rows"></div>
-    <div class="tfoot"><button type="button" id="tune-reset">Reset to defaults</button><button type="button" id="tune-done">Done</button></div>
   </div>
 </div>
 <script>
@@ -100,15 +115,57 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 /* ---------- feel tuning (adjustable from the TUNE panel) ---------- */
 const TUNE_DEFS = [
   { k: 'steer', label: 'Steering speed', hint: 'How fast the ship slides sideways', min: 1.4, max: 4.4, step: 0.1, def: 2.6 },
-  { k: 'snap',  label: 'Steering snap',  hint: 'Lower is smoother, higher is more instant', min: 2, max: 12, step: 0.5, def: 4.5 },
+  { k: 'snap',  label: 'Steering snap',  hint: 'Lower is smoother, higher snappier', min: 2, max: 12, step: 0.5, def: 4.5 },
   { k: 'speed', label: 'Flight speed',   hint: 'Forward speed through the tunnel', min: 0.6, max: 1.4, step: 0.05, def: 1 },
-  { k: 'pull',  label: 'Curve pull',     hint: 'How hard bends push you toward the wall', min: 0, max: 0.4, step: 0.01, def: 0.14 },
+  { k: 'pull',  label: 'Curve pull',     hint: 'How hard bends push you outward', min: 0, max: 0.4, step: 0.01, def: 0.14 },
   { k: 'twist', label: 'Tunnel twist',   hint: 'How sharply the tunnel bends', min: 0, max: 1.5, step: 0.05, def: 0.7 },
-  { k: 'sway',  label: 'Camera sway',    hint: 'Banking and shake on impacts', min: 0, max: 1.5, step: 0.05, def: 0.4 }
+  { k: 'sway',  label: 'Camera sway',    hint: 'Banking and shake on impacts', min: 0, max: 1.5, step: 0.05, def: 0.4 },
+  { k: 'tilt',  label: 'Tilt range',     hint: 'Degrees of tilt for full steering', min: 8, max: 35, step: 1, def: 18 }
 ];
 const TUNE = {}; TUNE_DEFS.forEach(d => { TUNE[d.k] = d.def; });
 try { const sv = JSON.parse(localStorage.getItem('doomsday-tune') || '{}');
   TUNE_DEFS.forEach(d => { if (typeof sv[d.k] === 'number' && isFinite(sv[d.k])) TUNE[d.k] = clamp(sv[d.k], d.min, d.max); }); } catch (_) {}
+
+/* ---------- tilt steering ---------- */
+// In tilt mode the phone's tilt steers the ship and the thumb stick aims the guns instead.
+const ctl = { mode: 'stick', invertY: false };
+try { const sv = JSON.parse(localStorage.getItem('doomsday-ctl') || '{}'); if (sv.mode === 'tilt') ctl.mode = 'tilt'; ctl.invertY = !!sv.invertY; } catch (_) {}
+function saveCtl() { try { localStorage.setItem('doomsday-ctl', JSON.stringify(ctl)); } catch (_) {} }
+const tilt = { listening: false, denied: false, ok: false, t0: 0, lastT: 0, roll: 0, pitch: 0, roll0: 0, pitch0: 0, fx: 0, fy: 0, needCal: true };
+const AIM_MAX_X = 0.24, AIM_MAX_Y = 0.17, AIM_D = 20;
+let aimSX = 0, aimSY = 0;
+function onOrient(e) {
+  if (e.beta == null || e.gamma == null) return;
+  const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+  // Which way is "up", in the phone's own axes (x toward its right edge, y toward its top edge, z out of the screen).
+  // Working from this vector rather than the raw angles avoids the jumps the angles make when a phone is held sideways.
+  const ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b), uz = Math.cos(b) * Math.cos(g);
+  let ang = 0;
+  try { ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0); } catch (_) {}
+  ang = (((Math.round(ang / 90) * 90 + (rot ? 90 : 0)) % 360) + 360) % 360;
+  let ur, uu;                                    // "up" measured along the game picture's right and up directions
+  if (ang === 0) { ur = ux; uu = uy; } else if (ang === 90) { ur = -uy; uu = ux; } else if (ang === 180) { ur = -ux; uu = -uy; } else { ur = uy; uu = -ux; }
+  tilt.roll = Math.asin(clamp(-ur, -1, 1));      // positive when the right side of the picture dips
+  tilt.pitch = Math.atan2(uz, uu);               // 0 when the screen is upright, a quarter turn when it lies flat
+  tilt.ok = true; tilt.lastT = performance.now();
+  if (tilt.needCal) { tilt.roll0 = tilt.roll; tilt.pitch0 = tilt.pitch; tilt.fx = tilt.fy = 0; tilt.needCal = false; }
+}
+function enableTilt() {                          // call from inside a tap: iPhones ask for motion access
+  if (tilt.listening || tilt.denied) return;
+  const D = window.DeviceOrientationEvent; if (!D) return;
+  const listen = () => { if (tilt.listening) return; window.addEventListener('deviceorientation', onOrient); tilt.listening = true; tilt.t0 = performance.now(); };
+  if (typeof D.requestPermission === 'function') {
+    try { D.requestPermission().then(r => { if (r === 'granted') listen(); else tilt.denied = true; }).catch(() => {}); } catch (_) {}
+  } else listen();
+}
+const tiltActive = () => ctl.mode === 'tilt' && tilt.ok && performance.now() - tilt.lastT < 1500;
+function tiltStatus() {                          // 'on' | 'wait' | 'denied' | 'none'
+  if (tilt.denied) return 'denied';
+  if (!window.DeviceOrientationEvent) return 'none';
+  if (tiltActive()) return 'on';
+  if (tilt.listening && performance.now() - tilt.t0 > 2000) return 'none';
+  return 'wait';
+}
 
 /* ---------- view ---------- */
 const HW = 1.3, HH = 0.85, SEG = 2, NR = 38, NEAR = 0.35, RNEAR = 0.06, DEPTH = NR * SEG;
@@ -266,25 +323,27 @@ function attract() { lv = makeLevel(1); lv.L = 1e9; objs = []; pz = 0; rx = ry =
 function startLevel(n) {
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
-  state = 'play'; stateT = 0; paused = false;
+  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true;
 }
 function newGame() {
-  score = 0; shield = 100; startLevel(1);
+  score = 0; shield = 100;
+  if (!seenIntro) { seenIntro = true; playScene(STORY.intro(), () => startLevel(1)); } else startLevel(1);
 }
 let wakeLock = null;
 function keepAwake() {
   try {
-    if (wakeLock || !navigator.wakeLock || state !== 'play') return;
+    if (wakeLock || !navigator.wakeLock || state === 'title') return;
     navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => { wakeLock = null; }); }).catch(() => {});
   } catch (_) {}
 }
 function advance() {
   if (stateT < 0.6) return;
   if (state === 'title' || state === 'over') newGame();
-  else if (state === 'clear') startLevel(level);
+  else if (state === 'clear') { const n = level, sc = sceneFor(n); if (sc) playScene(sc, () => startLevel(n)); else startLevel(n); }
 }
-function togglePause() { if (state === 'play') paused = !paused; }
+function togglePause() { if (state === 'play') { paused = !paused; if (!paused) tilt.needCal = true; } }
 function gameOver(why) {
+  const q = QUIPS[why === 'SHIP LOST' ? 'ship' : 'time']; deadQuip = q[Math.floor(Math.random() * q.length)];
   deadWhy = why; state = 'over'; stateT = 0; saveBest(); sfx.boom(); flash = 1; flashCol = C.warn; shake = 1;
   burst(0, 0, C.warn, 40, 420 * u); burst(0, 0, C.ink, 20, 260 * u);
 }
@@ -311,6 +370,7 @@ cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audioInit();
   if (e.pointerType === 'touch' && !touchUI) { touchUI = true; resize(); }
   const [x, y] = toLogical(e);
+  if (state === 'scene') { sceneTap(x, y); return; }
   if (hit(muteBtn, x, y)) { toggleMute(); return; }
   if ((state !== 'play' || paused) && hit(tuneBtn, x, y)) { openTune(); return; }
   if (state !== 'play') { if (e.pointerType === 'touch' && !document.fullscreenElement) pendingFS = true; advance(); return; }
@@ -337,6 +397,7 @@ cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', 
 let pendingFS = false;
 function unlock() {
   silentSwitchBypass(); audioInit(); keepAwake();
+  if (ctl.mode === 'tilt') enableTilt();
   if (pendingFS) { pendingFS = false; tryFullscreen(); }
 }
 ['touchend', 'pointerup', 'click'].forEach(t => window.addEventListener(t, unlock, true));
@@ -347,6 +408,7 @@ window.addEventListener('keydown', e => {
   if (!tuneOpen && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if (tuneOpen) { if (e.code === 'Escape' || e.code === 'KeyT') closeTune(); return; }
   if (e.repeat) return;
+  if (state === 'scene') { silentSwitchBypass(); audioInit(); if (e.code === 'Escape') endScene(); else if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') sceneAdvance(); return; }
   if (e.code === 'KeyT') { openTune(); return; }
   keys[e.code] = true; silentSwitchBypass(); audioInit();
   if (e.code === 'KeyF') { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else tryFullscreen(); }
@@ -421,6 +483,7 @@ function updateFx(dt) {
 }
 function update(dt) {
   tNow += dt; stateT += dt; updateFx(dt);
+  if (state === 'scene') { if (scene.shots) updateScene(dt); return; }
   const boostNow = state === 'play' && (keys.ShiftLeft || keys.ShiftRight || boostId !== null);
   boostEase += ((boostNow ? 1 : 0) - boostEase) * Math.min(1, dt * 3);       // boosting widens the view a little
   focal = focal0 * (1 - (reduceMotion ? 0 : 0.1) * boostEase);
@@ -435,10 +498,22 @@ function update(dt) {
   if (keys.ArrowRight || keys.KeyD) ix += 1;
   if (keys.ArrowUp || keys.KeyW) iy += 1;
   if (keys.ArrowDown || keys.KeyS) iy -= 1;
+  let jx = 0, jy = 0, tsx = 0, tsy = 0;
   if (stick.id !== null) {                       // dead zone, then a soft curve so small thumb moves stay small
     const m = Math.hypot(stick.x, stick.y), dz = 0.07;
-    if (m > dz) { const g = Math.pow((Math.min(1, m) - dz) / (1 - dz), 1.5) / m; ix += stick.x * g; iy -= stick.y * g; }
+    if (m > dz) { const g = Math.pow((Math.min(1, m) - dz) / (1 - dz), 1.5) / m; jx = stick.x * g; jy = -stick.y * g; }
   }
+  if (tiltActive()) {                            // tilt steers; the stick aims the guns
+    const range = TUNE.tilt * Math.PI / 180;
+    let dp = tilt.pitch - tilt.pitch0; if (dp > Math.PI) dp -= 2 * Math.PI; else if (dp < -Math.PI) dp += 2 * Math.PI;
+    let tx = (tilt.roll - tilt.roll0) / range;
+    let ty = -dp / (range * 0.8) * (ctl.invertY ? -1 : 1);     // top edge tipped away = dive, like a flight yoke
+    const m = Math.hypot(tx, ty), dz = 0.08;
+    if (m > dz) { const g = Math.min(1, (m - dz) / (1 - dz)) / m; tx *= g; ty *= g; } else { tx = ty = 0; }
+    const k = Math.min(1, dt * 14); tilt.fx += (tx - tilt.fx) * k; tilt.fy += (ty - tilt.fy) * k;
+    ix += tilt.fx; iy += tilt.fy; tsx = jx * AIM_MAX_X; tsy = jy * AIM_MAX_Y;
+  } else { ix += jx; iy += jy; }
+  { const k = Math.min(1, dt * 14); aimSX += (tsx - aimSX) * k; aimSY += (tsy - aimSY) * k; }
   const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
   const boost = keys.ShiftLeft || keys.ShiftRight || boostId !== null;
   const firing = keys.Space || fireId !== null;
@@ -474,11 +549,12 @@ function update(dt) {
   fireCd -= dt;
   if (firing && fireCd <= 0) {
     fireCd = 0.14; gunSide = -gunSide; sfx.laser();
-    bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, dead: false });
+    bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, sx: aimSX, sy: aimSY, dead: false });
   }
   for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i], z0 = b.z; b.z += (speed + 95) * dt;
+    const b = bullets[i], z0 = b.z, step = (speed + 95) * dt; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
     for (const o of objs) { if (o.z <= z0) continue; if (o.z > b.z) break; if (bulletHit(o, b)) { b.dead = true; break; } }
+    if (!b.dead && (Math.abs(b.x) > HW || Math.abs(b.y) > HH)) { burstAt(clamp(b.x, -HW, HW), clamp(b.y, -HH, HH), b.z, C.ink, 3); b.dead = true; }
     if (b.dead || b.z - pz > 75 || b.z > lv.L) bullets.splice(i, 1);
   }
 
@@ -644,7 +720,7 @@ function drawWorld() {
   // lasers: coloured glow with a white core
   for (const b of bullets) {
     const d1 = b.z - pz; if (d1 < NEAR) continue;
-    const p = projTo(tmp, b.x, b.y, b.z), x1 = p.x, y1 = p.y, w = clamp(0.045 * p.s, 1.6 * u, 6 * u); projTo(tmp, b.x, b.y, b.z + 2.6);
+    const p = projTo(tmp, b.x, b.y, b.z), x1 = p.x, y1 = p.y, w = clamp(0.045 * p.s, 1.6 * u, 6 * u); projTo(tmp, b.x + b.sx * 2.6, b.y + b.sy * 2.6, b.z + 2.6);
     const al = Math.max(0.3, fog(d1));
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(tmp.x, tmp.y);
     ctx.globalAlpha = al * 0.5; ctx.strokeStyle = rgb(lv.pal.line); ctx.lineWidth = w * 2.6; ctx.stroke();
@@ -664,8 +740,9 @@ function drawWorld() {
   ctx.globalCompositeOperation = 'source-over';
   // aim point
   if (state === 'play') {
-    const p = projTo(tmp, rx, ry - 0.09, pz + 26), g = 9 * u;
+    const p = projTo(tmp, rx + aimSX * AIM_D, ry - 0.09 + aimSY * AIM_D, pz + AIM_D), g = 9 * u;
     ctx.beginPath();
+    if (tiltActive()) { ctx.moveTo(p.x + g * 1.25, p.y); ctx.arc(p.x, p.y, g * 1.25, 0, 6.283); }
     ctx.moveTo(p.x - g * 1.8, p.y); ctx.lineTo(p.x - g * 0.6, p.y); ctx.moveTo(p.x + g * 0.6, p.y); ctx.lineTo(p.x + g * 1.8, p.y);
     ctx.moveTo(p.x, p.y - g * 1.8); ctx.lineTo(p.x, p.y - g * 0.6); ctx.moveTo(p.x, p.y + g * 0.6); ctx.lineTo(p.x, p.y + g * 1.8);
     ctx.globalAlpha = 0.6; ctx.strokeStyle = C.void; ctx.lineWidth = 3.4 * u; ctx.stroke();
@@ -710,7 +787,7 @@ function drawHUD() {
   ctx.globalAlpha = 1; ctx.fillStyle = lv.color; ctx.fillRect(W / 2 - pw / 2, py - u, pw * prog, 4 * u);
   ctx.fillStyle = C.ink; ctx.fillRect(W / 2 - pw / 2 + pw * prog - u, py - 4 * u, 2 * u, 10 * u);
   ctx.textBaseline = 'bottom';
-  txt('VEL ' + String(Math.round(speed * 12)).padStart(3, '0'), W / 2, H - 10 * u, FONT_M, 12 * u, C.dim, 'center');
+  txt('VEL ' + String(Math.round(speed * 12)).padStart(3, '0') + (tiltActive() ? '  /  TILT' : ''), W / 2, H - 10 * u, FONT_M, 12 * u, C.dim, 'center');
   ctx.textBaseline = 'middle';
   for (const p of popups) { ctx.globalAlpha = clamp(1 - p.t / 1.2, 0, 1); txt(p.s, W / 2, H * 0.3 - p.t * 34 * u, FONT_M, 18 * u, C.pick, 'center'); }
   ctx.globalAlpha = 1;
@@ -724,7 +801,7 @@ function drawControls() {
   ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5 * u; ctx.globalAlpha = on ? 0.8 : 0.55; ctx.stroke();
   ctx.globalAlpha = on ? 0.55 : 0.22; ctx.fillStyle = C.ink;
   ctx.beginPath(); ctx.arc(ax + stick.x * R, ay + stick.y * R, 22 * u, 0, 6.283); ctx.fill();
-  if (!on) { ctx.globalAlpha = 0.7; ctx.textBaseline = 'middle'; txt('STEER', ax, ay, FONT_M, 11 * u, C.ink, 'center'); }
+  if (!on) { ctx.globalAlpha = 0.7; ctx.textBaseline = 'middle'; txt(tiltActive() ? 'AIM' : 'STEER', ax, ay, FONT_M, 11 * u, C.ink, 'center'); }
   ctx.globalAlpha = 1;
   ringBtn(fireBtn, 'FIRE', fireId !== null, 15);
   ringBtn(boostBtn, 'BOOST', boostId !== null, 12);
@@ -748,7 +825,8 @@ function drawOverlay() {
     txt('TUNNELS', cx, cy - 92 * u + big * 1.15, FONT_D, big, lv.color, 'center');
     txt('Reach the end of each sector before the countdown hits zero.', cx, cy + 6 * u, FONT_M, Math.min(15 * u, W * 0.026), C.ink, 'center');
     legend(cy + 36 * u, Math.min(13 * u, W * 0.021));
-    txt(touchUI ? 'LEFT THUMB STEERS  /  RIGHT THUMB FIRES  /  BOOST FOR SPEED' : 'ARROWS OR WASD STEER  /  SPACE FIRES  /  SHIFT BOOSTS  /  F FULL SCREEN',
+    const tiltOn = ctl.mode === 'tilt' && tiltStatus() !== 'none' && tiltStatus() !== 'denied';
+    txt(touchUI && tiltOn ? 'TILT STEERS  /  LEFT THUMB AIMS  /  RIGHT THUMB FIRES' : touchUI ? 'LEFT THUMB STEERS  /  RIGHT THUMB FIRES  /  BOOST FOR SPEED' : 'ARROWS OR WASD STEER  /  SPACE FIRES  /  SHIFT BOOSTS  /  F FULL SCREEN',
       cx, cy + 62 * u, FONT_M, Math.min(12 * u, W * 0.02), C.dim, 'center');
     if (blink) txt(go + ' TO LAUNCH', cx, cy + 104 * u, FONT_D, 15 * u, C.ink, 'center');
     if (best > 0) txt('BEST ' + String(best).padStart(6, '0'), cx, cy + 136 * u, FONT_M, 13 * u, C.dim, 'center');
@@ -760,7 +838,8 @@ function drawOverlay() {
     txt('SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy + 36 * u, FONT_M, 16 * u, lv.color, 'center');
     if (blink) txt(go + ' FOR SECTOR ' + String(level).padStart(2, '0'), cx, cy + 86 * u, FONT_D, 14 * u, C.ink, 'center');
   } else {
-    txt(deadWhy, cx, cy - 64 * u, FONT_D, big * 0.8, C.warn, 'center');
+    txt(deadWhy, cx, cy - 70 * u, FONT_D, big * 0.8, C.warn, 'center');
+    txt(deadQuip, cx, cy - 34 * u, FONT_M, Math.min(13 * u, W * 0.021), C.ink, 'center');
     txt('SECTOR ' + String(level).padStart(2, '0') + '   SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy - 8 * u, FONT_M, 17 * u, C.ink, 'center');
     txt('BEST ' + String(best).padStart(6, '0'), cx, cy + 18 * u, FONT_M, 14 * u, C.dim, 'center');
     if (blink && stateT > 0.6) txt(go + ' TO RETRY', cx, cy + 74 * u, FONT_D, 15 * u, C.ink, 'center');
@@ -768,6 +847,7 @@ function drawOverlay() {
 }
 function render() {
   baseTransform();
+  if (state === 'scene' && scene.shots) { ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; drawScene(); return; }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = lv ? rgb(lv.pal.haze) : C.void; ctx.fillRect(0, 0, W, H);
   ctx.save();
   const k = reduceMotion ? 0 : shake * 12 * u * TUNE.sway;
@@ -781,7 +861,7 @@ function render() {
 /* ---------- tuning panel ---------- */
 const tunePanel = document.getElementById('tune'), tuneRows = document.getElementById('tune-rows');
 let tuneOpen = false;
-const tuneFmt = (d, v) => v.toFixed(d.step < 0.1 ? 2 : 1);
+const tuneFmt = (d, v) => v.toFixed(d.step >= 1 ? 0 : d.step < 0.1 ? 2 : 1);
 function saveTune() { try { localStorage.setItem('doomsday-tune', JSON.stringify(TUNE)); } catch (_) {} }
 TUNE_DEFS.forEach(d => {
   const row = document.createElement('label'); row.className = 'trow'; row.htmlFor = 'tune-' + d.k;
@@ -797,14 +877,462 @@ document.getElementById('tune-reset').addEventListener('click', () => {
   TUNE_DEFS.forEach(d => { TUNE[d.k] = d.def; d.inp.value = d.def; d.out.textContent = tuneFmt(d, d.def); }); saveTune();
 });
 document.getElementById('tune-done').addEventListener('click', closeTune);
-function openTune() { tuneOpen = true; tunePanel.hidden = false; if (state === 'play') paused = true; }
+const ctlStick = document.getElementById('ctl-stick'), ctlTilt = document.getElementById('ctl-tilt');
+const ctlInvert = document.getElementById('ctl-invert'), ctlNote = document.getElementById('ctl-note');
+function refreshCtl() {
+  const t = ctl.mode === 'tilt';
+  ctlStick.setAttribute('aria-pressed', String(!t)); ctlTilt.setAttribute('aria-pressed', String(t));
+  ctlInvert.checked = ctl.invertY; ctlInvert.disabled = !t;
+  let note = 'Changes apply right away and are saved on this device.';
+  if (t) {
+    const st = tiltStatus();
+    note = st === 'on' ? 'Tilt steers and the thumb stick aims. It re-centres to how you are holding the phone each time you launch or resume.'
+      : st === 'denied' ? 'Motion access was declined, so the thumb stick still steers. Reload the page and allow motion access to use tilt.'
+      : st === 'none' ? 'No motion sensor is available here, so the thumb stick still steers.'
+      : 'Waiting for the motion sensor...';
+  }
+  if (ctlNote.textContent !== note) ctlNote.textContent = note;
+}
+ctlStick.addEventListener('click', () => { ctl.mode = 'stick'; saveCtl(); refreshCtl(); });
+ctlTilt.addEventListener('click', () => { ctl.mode = 'tilt'; saveCtl(); enableTilt(); tilt.needCal = true; refreshCtl(); });
+ctlInvert.addEventListener('change', () => { ctl.invertY = ctlInvert.checked; saveCtl(); });
+function openTune() { tuneOpen = true; tunePanel.hidden = false; if (state === 'play') paused = true; refreshCtl(); }
 function closeTune() { tuneOpen = false; tunePanel.hidden = true; cv.focus({ preventScroll: true }); }
+
+/* ---------- cut scenes: engine and cast ---------- */
+// Pictures are painted on a tiny 320-pixel-wide canvas and blown up without smoothing, for a chunky late-80s look.
+const K = { night: '#0b0820', navy: '#1b1147', indigo: '#3a1578', purple: '#5a1fb0', magenta: '#c42bd0', pink: '#ff3ea5', orange: '#ff8a3c',
+  yellow: '#ffe14a', cyan: '#35d9ff', white: '#f4f7ff', black: '#05040a', red: '#e8263c', dkred: '#5a0f24', skin: '#f2b38a', skinS: '#c98562',
+  grey: '#8b93a8', dgrey: '#3b4058', steel: '#a9b6d3', olive: '#5f7a3a', dolive: '#3a4d26', green: '#4dffa6', brown: '#6b3b1e',
+  cat: '#f29a2e', catS: '#b9651a', sea: '#2b6cff', land: '#3fbf5a', glass: '#bfe9ff' };
+const scv = document.createElement('canvas'), sg = scv.getContext('2d');
+const VW = 320; let VH = 110;
+const bx = (x, y, w, h, c) => { sg.fillStyle = c; sg.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const ov = (x, y, rx, ry, c) => { sg.fillStyle = c; sg.beginPath(); sg.ellipse(x, y, rx, ry, 0, 0, 6.283); sg.fill(); };
+const pg = (p, c) => { sg.fillStyle = c; sg.beginPath(); sg.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) sg.lineTo(p[i], p[i + 1]); sg.closePath(); sg.fill(); };
+const li = (x1, y1, x2, y2, c, w) => { sg.strokeStyle = c; sg.lineWidth = w || 1; sg.beginPath(); sg.moveTo(x1, y1); sg.lineTo(x2, y2); sg.stroke(); };
+const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const flap = (t, n) => Math.round(Math.abs(Math.sin(t * 13)) * n);
+function star4(x, y, r, c) { pg([x, y - r, x + r * 0.25, y - r * 0.25, x + r, y, x + r * 0.25, y + r * 0.25, x, y + r, x - r * 0.25, y + r * 0.25, x - r, y, x - r * 0.25, y - r * 0.25], c || K.white); }
+const SEG7 = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgedc', 'abc', 'abcdefg', 'abcdfg'];
+function digit7(x, y, d, c) {
+  const s = d < 0 ? 'g' : SEG7[d], on = k => s.indexOf(k) >= 0;
+  if (on('a')) bx(x + 1, y, 5, 2, c); if (on('g')) bx(x + 1, y + 6, 5, 2, c); if (on('d')) bx(x + 1, y + 12, 5, 2, c);
+  if (on('f')) bx(x, y + 1, 2, 6, c); if (on('b')) bx(x + 5, y + 1, 2, 6, c); if (on('e')) bx(x, y + 7, 2, 6, c); if (on('c')) bx(x + 5, y + 7, 2, 6, c);
+}
+function chrome(text, cx, cy, size) {             // big chrome lettering, as seen on every 1987 film poster
+  sg.textAlign = 'center'; sg.textBaseline = 'middle';
+  do { sg.font = '700 ' + size + 'px ' + FONT_D; size -= 1; } while (sg.measureText(text).width > VW - 28 && size > 8);
+  size += 1;
+  sg.fillStyle = K.black; sg.fillText(text, cx + 2, cy + 2);
+  sg.lineJoin = 'round'; sg.lineWidth = 3; sg.strokeStyle = K.navy; sg.strokeText(text, cx, cy);
+  const gr = sg.createLinearGradient(0, cy - size * 0.5, 0, cy + size * 0.5);
+  gr.addColorStop(0, K.white); gr.addColorStop(0.46, K.cyan); gr.addColorStop(0.5, K.navy); gr.addColorStop(0.56, K.pink); gr.addColorStop(1, K.yellow);
+  sg.fillStyle = gr; sg.fillText(text, cx, cy);
+}
+function earthIcon(x, y, r, t, armed) {
+  ov(x, y, r + 2, r + 2, '#16306e'); ov(x, y, r, r, K.sea);
+  sg.save(); sg.beginPath(); sg.arc(x, y, r, 0, 6.283); sg.clip();
+  const o = (t * 4) % (r * 4);
+  for (let i = 0; i < 6; i++) ov(x - r * 2 + ((i * r * 0.9 + o) % (r * 4)), y + (rnd(i) - 0.5) * r * 1.4, r * (0.25 + rnd(i + 9) * 0.3), r * (0.18 + rnd(i + 5) * 0.25), K.land);
+  sg.globalAlpha = 0.35; ov(x + r * 0.5, y + r * 0.35, r, r, K.night); sg.globalAlpha = 1;
+  sg.restore();
+  if (armed === false) return;
+  const p = (t * 1.5) % 1; sg.strokeStyle = K.red; sg.lineWidth = 1; sg.globalAlpha = 1 - p;
+  sg.beginPath(); sg.arc(x, y, 2 + p * r * 0.8, 0, 6.283); sg.stroke(); sg.globalAlpha = 1;
+  if ((t * 4) % 1 < 0.6) bx(x - 1, y - 1, 3, 3, K.red);
+}
+function drawBaron(x, by, t, talk, laugh) {
+  const y = by - 78 + (laugh ? Math.round(Math.sin(t * 18) * 1.5) : 0);
+  pg([x - 34, by, x - 26, y + 34, x - 14, y + 26, x + 14, y + 26, x + 26, y + 34, x + 34, by], K.navy);                 // cape
+  pg([x - 20, y + 30, x - 27, y + 3, x - 8, y + 24], K.dkred); pg([x + 20, y + 30, x + 27, y + 3, x + 8, y + 24], K.dkred);  // collar
+  pg([x - 10, y + 26, x, y + 40, x + 10, y + 26], K.white); bx(x - 2, y + 30, 4, 4, K.red);
+  ov(x, y + 12, 13, 15, K.skin);
+  pg([x - 13, y + 8, x - 12, y - 2, x - 4, y - 5, x, y + 2, x + 4, y - 5, x + 12, y - 2, x + 13, y + 8, x + 8, y + 1, x, y + 5, x - 8, y + 1], K.black);  // widow's peak
+  li(x - 10, y + 6, x - 3, y + 10, K.black, 2); li(x + 10, y + 6, x + 3, y + 10, K.black, 2);                          // scheming eyebrows
+  bx(x - 7, y + 11, 3, 2, K.white); bx(x + 4, y + 11, 3, 2, K.white); bx(x - 6, y + 11, 1, 2, K.black); bx(x + 5, y + 11, 1, 2, K.black);
+  sg.strokeStyle = K.yellow; sg.lineWidth = 1; sg.beginPath(); sg.arc(x + 5.5, y + 12, 4, 0, 6.283); sg.stroke(); li(x + 9, y + 14, x + 12, y + 27, K.yellow, 1);  // monocle
+  if ((t * 1.1) % 3 < 0.18) star4(x + 4, y + 10, 3, K.white);
+  bx(x - 1, y + 13, 2, 4, K.skinS);
+  pg([x, y + 18, x - 9, y + 17, x - 13, y + 12, x - 10, y + 20, x, y + 21, x + 10, y + 20, x + 13, y + 12, x + 9, y + 17], K.black);  // moustache
+  bx(x - 3, y + 22, 6, talk || laugh ? 2 + flap(t, 3) : 1, K.dkred);
+  pg([x - 2, y + 26, x + 2, y + 26, x, y + 31], K.black);
+  const fy = y + 20 + Math.round(Math.sin(t * (laugh ? 20 : 3)) * 2);                                                    // shaking fist
+  pg([x + 24, by, x + 30, fy + 8, x + 38, fy + 8, x + 36, by], K.navy); bx(x + 30, fy, 8, 8, K.purple);
+}
+function drawCat(x, by, t, talk) {
+  const tail = Math.sin(t * 3) * 4;
+  pg([x + 10, by - 2, x + 20, by - 4, x + 24 + tail, by - 15, x + 21 + tail, by - 16, x + 17, by - 7, x + 10, by - 5], K.catS);
+  ov(x, by - 6, 13, 7, K.cat); bx(x - 2, by - 12, 2, 4, K.catS); bx(x + 3, by - 12, 2, 4, K.catS);
+  ov(x - 9, by - 13, 7, 6, K.cat);
+  pg([x - 16, by - 15, x - 15, by - 23, x - 10, by - 18], K.cat); pg([x - 8, by - 18, x - 4, by - 23, x - 2, by - 15], K.cat);
+  if (t % 4 < 0.15) { bx(x - 13, by - 13, 3, 1, K.black); bx(x - 7, by - 13, 3, 1, K.black); }
+  else { bx(x - 13, by - 15, 3, 3, K.green); bx(x - 7, by - 15, 3, 3, K.green); bx(x - 12, by - 15, 1, 3, K.black); bx(x - 6, by - 15, 1, 3, K.black); }
+  bx(x - 10, by - 11, 1, 1, K.pink);
+  if (talk) bx(x - 11, by - 10, 3, 1 + flap(t, 2), K.dkred);
+  li(x - 13, by - 10, x - 20, by - 11, K.white, 1); li(x - 6, by - 10, x + 1, by - 11, K.white, 1);
+}
+function drawGeneral(x, by, t, talk) {
+  const y = by - 76;
+  pg([x - 38, by, x - 34, y + 38, x - 12, y + 32, x + 12, y + 32, x + 34, y + 38, x + 38, by], K.olive);
+  bx(x - 37, y + 36, 11, 4, K.yellow); bx(x + 26, y + 36, 11, 4, K.yellow);
+  pg([x - 9, y + 32, x, y + 45, x + 9, y + 32], K.white); bx(x - 1, y + 36, 3, 12, K.black);
+  for (let i = 0; i < 6; i++) bx(x + 13 + (i % 3) * 5, y + 44 + Math.floor(i / 3) * 4, 4, 3, [K.red, K.yellow, K.cyan, K.pink, K.white, K.orange][i]);
+  bx(x - 7, y + 26, 14, 8, K.skinS);
+  pg([x - 13, y, x + 13, y, x + 14, y + 18, x + 9, y + 28, x - 9, y + 28, x - 14, y + 18], K.skin);                    // a jaw you could park a jeep on
+  bx(x - 14, y - 5, 28, 7, K.grey); bx(x - 14, y + 2, 3, 7, K.grey); bx(x + 11, y + 2, 3, 7, K.grey);
+  bx(x - 12, y + 5, 10, 2, K.dgrey); bx(x + 2, y + 5, 10, 2, K.dgrey);
+  bx(x - 12, y + 8, 10, 6, K.black); bx(x + 2, y + 8, 10, 6, K.black); bx(x - 2, y + 9, 4, 1, K.black);               // aviators
+  const gl = (t * 16) % 44; if (gl < 7) { bx(x - 11 + gl, y + 9, 2, 1, K.cyan); bx(x + 3 + gl, y + 9, 2, 1, K.cyan); }
+  bx(x - 1, y + 13, 3, 5, K.skinS); bx(x - 8, y + 19, 16, 3, K.grey);
+  bx(x - 4, y + 23, 8, talk ? 1 + flap(t, 3) : 1, talk ? K.dkred : K.brown);
+  bx(x, y + 26, 1, 2, K.skinS);
+}
+function drawAce(x, by, t, talk) {
+  const y = by - 76;
+  pg([x - 36, by, x - 32, y + 38, x - 10, y + 32, x + 10, y + 32, x + 32, y + 38, x + 36, by], K.orange);
+  pg([x - 10, y + 32, x, y + 43, x + 10, y + 32], K.white); bx(x - 24, y + 46, 9, 6, K.cyan); bx(x - 22, y + 48, 5, 2, K.white);
+  bx(x - 6, y + 26, 12, 8, K.skinS);
+  pg([x - 12, y + 4, x + 12, y + 4, x + 13, y + 18, x + 7, y + 28, x - 7, y + 28, x - 13, y + 18], K.skin);
+  sg.fillStyle = K.white; sg.beginPath(); sg.arc(x, y + 6, 16, Math.PI, 0); sg.fill(); bx(x - 16, y + 6, 4, 12, K.white); bx(x + 12, y + 6, 4, 12, K.white);  // helmet
+  bx(x - 2, y - 10, 4, 13, K.red); bx(x - 14, y + 2, 28, 4, K.cyan);
+  bx(x - 9, y + 9, 6, 1, K.brown); bx(x + 3, y + 9, 6, 1, K.brown);
+  if (t % 3.2 < 0.12) { bx(x - 8, y + 12, 4, 1, K.brown); bx(x + 4, y + 12, 4, 1, K.brown); }
+  else { bx(x - 8, y + 11, 4, 3, K.white); bx(x + 4, y + 11, 4, 3, K.white); bx(x - 6, y + 12, 2, 2, K.black); bx(x + 6, y + 12, 2, 2, K.black); }
+  bx(x - 1, y + 14, 2, 4, K.skinS);
+  if (talk) { bx(x - 5, y + 21, 10, 2 + flap(t, 2), K.dkred); bx(x - 5, y + 21, 10, 1, K.white); }
+  else { bx(x - 6, y + 21, 12, 3, K.white); bx(x - 7, y + 20, 1, 1, K.brown); bx(x + 6, y + 20, 1, 1, K.brown); }
+  const sp = t % 2.4; if (sp < 0.36 && !talk) star4(x + 4, y + 22, 6 * (1 - Math.abs(sp - 0.18) / 0.18), K.white);       // the tooth sparkle
+  bx(x + 30, y + 41, 9, 9, K.skin); bx(x + 32, y + 34, 4, 8, K.skin);                                                    // thumbs up
+}
+function drawBuddyFace(x, y, w, h, t, talk) {
+  bx(x, y, w, h, '#052b16');
+  const es = Math.max(5, Math.round(w * 0.13)), ex = w * 0.27;
+  if (t % 2.9 < 0.1) { bx(x + ex - es / 2, y + h * 0.36, es, 1, K.green); bx(x + w - ex - es / 2, y + h * 0.36, es, 1, K.green); }
+  else { bx(x + ex - es / 2, y + h * 0.22, es, es, K.green); bx(x + w - ex - es / 2, y + h * 0.22, es, es, K.green); }
+  sg.strokeStyle = K.green; sg.lineWidth = Math.max(1, w / 60); sg.beginPath();
+  for (let i = 0; i <= 12; i++) {
+    const px = x + w * 0.2 + i * (w * 0.6 / 12), amp = talk ? Math.sin(t * 30 + i * 1.7) * h * 0.14 : -Math.cos(i / 12 * 6.283) * h * 0.05;
+    if (i) sg.lineTo(px, y + h * 0.72 + amp); else sg.moveTo(px, y + h * 0.72 + amp);
+  }
+  sg.stroke();
+  sg.globalAlpha = 0.25; for (let r = 0; r < h; r += 3) bx(x, y + r, w, 1, K.black); sg.globalAlpha = 1;
+}
+function drawShip(x, y, s, t) {                    // the rental, seen from behind
+  const f = (t * 23) % 1;
+  pg([x - 3 * s, y + 4 * s, x + 3 * s, y + 4 * s, x, y + (9 + f * 7) * s], K.orange); pg([x - 2 * s, y + 4 * s, x + 2 * s, y + 4 * s, x, y + (6 + f * 3) * s], K.yellow);
+  pg([x - 6 * s, y, x - 21 * s, y + 5 * s, x - 6 * s, y + 4 * s], K.red); pg([x + 6 * s, y, x + 21 * s, y + 5 * s, x + 6 * s, y + 4 * s], K.red);
+  pg([x, y - 10 * s, x + 7 * s, y + 3 * s, x - 7 * s, y + 3 * s], K.steel); pg([x, y - 10 * s, x + 2 * s, y + 3 * s, x - 2 * s, y + 3 * s], K.white);
+  bx(x - s, y - 15 * s, 2 * s, 7 * s, K.red);
+  ov(x, y + 3 * s, 4 * s, 2.4 * s, K.yellow); ov(x, y + 3 * s, 2 * s, 1.2 * s, K.white);
+}
+/* ---------- cut scenes: sets ---------- */
+// Each painter gets (time in shot, who is speaking, whether they are mid-sentence, the shot, the line).
+const PAINT = {
+  card(t, who, talk, sh) {                         // neon sunset over an endless grid
+    const hz = Math.round(VH * 0.62), cx = VW / 2, bands = [K.night, K.navy, K.indigo, K.purple, K.magenta, K.pink, K.orange];
+    bands.forEach((c, i) => bx(0, i * hz / bands.length, VW, hz / bands.length + 1, c));
+    for (let i = 0; i < 44; i++) if ((t * 1.7 + i * 0.61) % 3 > 0.5) bx(rnd(i) * VW, rnd(i + 50) * hz * 0.55, 1, 1, K.white);
+    const sr = hz * 0.6;
+    sg.save(); sg.beginPath(); sg.arc(cx, hz, sr, Math.PI, 0); sg.clip();
+    [K.yellow, '#ffb347', K.orange, K.pink, K.magenta].forEach((c, i) => bx(cx - sr, hz - sr + i * sr / 5, sr * 2, sr / 5 + 1, c));
+    for (let k = 0; k < 6; k++) { const yy = hz - ((k + (t * 0.35) % 1) / 6) * sr * 0.8; bx(cx - sr, yy, sr * 2, 1 + (5 - k) * 0.5, K.indigo); }
+    sg.restore();
+    pg([0, hz, 0, hz - 10, 22, hz - 24, 40, hz - 9, 58, hz - 19, 86, hz], K.night); pg([VW, hz, VW, hz - 14, VW - 26, hz - 27, VW - 48, hz - 8, VW - 66, hz - 17, VW - 92, hz], K.night);
+    bx(0, hz, VW, VH - hz, K.night);
+    for (let i = -9; i <= 9; i++) li(cx + i * 7, hz, cx + i * 52, VH, K.magenta, 1);
+    for (let j = 0; j < 7; j++) { const f = (j + (t * 0.9) % 1) / 7, yy = hz + (VH - hz) * f * f; li(0, yy, VW, yy, K.pink, 1); }
+    bx(0, hz, VW, 1, K.cyan);
+    if (sh.title) {
+      const z = Math.min(1, t / 0.5), size = Math.round((VH * 0.26) * (0.4 + 0.6 * z));
+      chrome(sh.title, cx, VH * 0.36, size);
+      if (t > 0.5) { const s = (t * 0.9) % 2; if (s < 0.4) star4(cx - 70 + rnd(Math.floor(t * 0.45)) * 140, VH * 0.3, 7 * (1 - Math.abs(s - 0.2) / 0.2), K.white); }
+    }
+  },
+  lair(t, who, talk, sh, ln) {                     // Baron Von Kaboom's regrettably damp headquarters
+    const ft = t % 3.7, fl = ft < 0.1 || (ft > 0.18 && ft < 0.25), cx = VW / 2;
+    bx(0, 0, VW, VH, '#1c0714');
+    for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) if (rnd(r * 9 + c) > 0.45) bx(c * 40 - (r % 2) * 20, r * 18, 38, 16, '#260a1c');
+    const wx = 30, wy = VH * 0.2, ww = 42, wh = VH * 0.46, sky = fl ? K.white : K.indigo;       // window, with weather
+    ov(wx + ww / 2, wy, ww / 2 + 3, 13, '#0d0309'); bx(wx - 3, wy, ww + 6, wh + 3, '#0d0309');
+    ov(wx + ww / 2, wy, ww / 2, 10, sky); bx(wx, wy, ww, wh, sky);
+    if (fl) pg([wx + 27, wy - 6, wx + 14, wy + wh * 0.45, wx + 22, wy + wh * 0.45, wx + 10, wy + wh, wx + 31, wy + wh * 0.38, wx + 23, wy + wh * 0.38, wx + 33, wy - 6], K.yellow);
+    else ov(wx + 30, wy + 8, 6, 6, '#e9e2ff');
+    bx(wx + ww / 2 - 1, wy - 10, 2, wh + 10, '#0d0309'); bx(wx, wy + wh * 0.45, ww, 2, '#0d0309');
+    const mx = VW - 90, my = VH * 0.14, mw = 62, mh = VH * 0.42;                                  // scheming monitor
+    bx(mx - 3, my - 3, mw + 6, mh + 6, K.dgrey); bx(mx, my, mw, mh, '#06121f'); earthIcon(mx + mw / 2, my + mh / 2, mh * 0.34, t);
+    for (let i = 0; i < 6; i++) bx(mx + 2 + i * 7, my + mh + 6, 4, 2, (t * 3 + i * 0.4) % 1 < 0.5 ? [K.red, K.yellow, K.green][i % 3] : '#3a0d1e');
+    pg([cx - 30, VH, cx - 26, VH - 92, cx - 18, VH - 100, cx - 10, VH - 92, cx, VH - 104, cx + 10, VH - 92, cx + 18, VH - 100, cx + 26, VH - 92, cx + 30, VH], '#3a0d4d');  // throne
+    drawBaron(cx, VH, t, who === 'baron' && talk, who === 'baron' && ln.fx === 'laugh');
+    bx(cx - 90, VH - 15, 46, 15, '#2a0b1e'); ov(cx - 67, VH - 16, 21, 4, K.pink);
+    drawCat(cx - 65, VH - 18, t, who === 'cat' && talk);
+    if (fl) { sg.globalAlpha = 0.22; bx(0, 0, VW, VH, K.white); sg.globalAlpha = 1; }
+  },
+  hq(t, who, talk) {                               // Earth Defence Command, budget permitting
+    bx(0, 0, VW, VH, '#06202b');
+    for (let y = 6; y < VH - 26; y += 5) for (let x = 4; x < VW; x += 5)
+      if (Math.sin(x * 0.045 + 1) * Math.cos(y * 0.09) + Math.sin(x * 0.11) * 0.4 > 0.25) bx(x, y, 2, 2, '#0f6b7a');
+    for (let i = 0; i < 10; i++) if ((t * 1.5 + i * 0.37) % 1 < 0.5) bx(16 + rnd(i) * (VW - 32), 8 + rnd(i + 3) * (VH - 46), 2, 2, i % 3 ? K.yellow : K.red);
+    const qx = 46, qy = VH * 0.42, rr = Math.min(26, VH * 0.25);                                  // radar
+    ov(qx, qy, rr + 3, rr + 3, K.dgrey); ov(qx, qy, rr, rr, '#052b16');
+    sg.strokeStyle = K.green; sg.lineWidth = 1; sg.beginPath(); sg.arc(qx, qy, rr * 0.55, 0, 6.283); sg.stroke();
+    li(qx, qy, qx + Math.cos(t * 2.5) * rr, qy + Math.sin(t * 2.5) * rr, K.green, 1);
+    if ((t * 2.5) % 6.283 < 2.4) bx(qx + rr * 0.45, qy + rr * 0.25, 2, 2, K.green);
+    const mx = VW - 86, my = VH * 0.13, mw = 60, mh = VH * 0.44;
+    bx(mx - 3, my - 3, mw + 6, mh + 6, K.dgrey); bx(mx, my, mw, mh, '#06121f'); earthIcon(mx + mw / 2, my + mh / 2, mh * 0.34, t);
+    drawGeneral(VW / 2, VH, t, who === 'general' && talk);
+    bx(0, VH - 9, VW, 9, '#0a1319');
+    bx(VW / 2 + 46, VH - 15, 16, 7, K.red); bx(VW / 2 + 44, VH - 18, 20, 4, K.red);                // the red phone
+    if ((t * 3) % 1 < 0.5) bx(VW / 2 + 53, VH - 12, 3, 2, K.yellow);
+  },
+  cockpit(t, who, talk) {
+    const cx = VW / 2, cy = VH * 0.4;
+    bx(0, 0, VW, VH, K.night);
+    for (let i = 0; i < 28; i++) {                                                                // tunnel lights streaking past
+      const a = rnd(i) * 6.283, f = (t * (0.5 + rnd(i + 7)) + rnd(i + 3)) % 1, d = 8 + f * f * 190, e = d + 4 + f * 24;
+      li(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, cx + Math.cos(a) * e, cy + Math.sin(a) * e * 0.7, i % 4 ? K.cyan : K.pink, 1);
+    }
+    pg([0, 0, 28, 0, 9, VH, 0, VH], K.dgrey); pg([VW, 0, VW - 28, 0, VW - 9, VH, VW, VH], K.dgrey);
+    pg([cx - 54, VH, cx - 48, VH - 72, cx - 2, VH - 72, cx + 4, VH], '#2a2f47');
+    drawAce(cx - 25, VH, t, who === 'ace' && talk);
+    const kx = cx + 44, ky = VH - 54;                                                             // console, with B.U.D.D.Y.
+    pg([kx - 10, VH, kx, ky - 6, kx + 86, ky - 6, kx + 96, VH], '#2a2f47');
+    bx(kx + 4, ky - 2, 48, 34, K.black); drawBuddyFace(kx + 7, ky + 1, 42, 28, t, who === 'buddy' && talk);
+    for (let i = 0; i < 8; i++) bx(kx + 58 + (i % 4) * 7, ky + 2 + Math.floor(i / 4) * 8, 4, 4, (t * 2 + i * 0.3) % 1 < 0.5 ? [K.red, K.yellow, K.green, K.cyan][i % 4] : K.dgrey);
+    bx(0, VH - 7, VW, 7, '#1a1d30');
+  },
+  buddy(t, who, talk) {                            // close on the ship's computer
+    const cx = VW / 2, w = 150, h = VH * 0.62, y = VH * 0.14;
+    bx(0, 0, VW, VH, '#1a1d30');
+    for (let i = 0; i < 12; i++) bx(14 + (i % 2) * 12, 12 + Math.floor(i / 2) * 12, 6, 6, (t * 2 + i * 0.27) % 1 < 0.5 ? [K.red, K.yellow, K.cyan][i % 3] : K.dgrey);
+    for (let i = 0; i < 5; i++) { bx(VW - 40, 14 + i * 14, 26, 8, K.black); bx(VW - 39, 15 + i * 14, 24 * (0.5 + 0.5 * Math.sin(t * (2 + i) + i)), 6, K.green); }
+    bx(cx - w / 2 - 8, y - 8, w + 16, h + 16, K.steel); bx(cx - w / 2 - 4, y - 4, w + 8, h + 8, K.dgrey);
+    drawBuddyFace(cx - w / 2, y, w, h, t, who === 'buddy' && talk);
+    bx(cx - 20, y + h + 8, 40, VH, K.dgrey);
+    if ((t * 2) % 1 < 0.5) bx(cx + w / 2 - 8, y + h + 2, 4, 3, K.red);
+  },
+  launch(t) {                                      // into the tunnels
+    const cx = VW / 2, cy = VH * 0.46, ph = t * 2.2, base = Math.floor(ph);
+    bx(0, 0, VW, VH, K.night);
+    for (let i = 10; i >= 0; i--) {
+      const f = (i + ph % 1) / 10, s = f * f;
+      bx(cx - (14 + s * 340) / 2, cy - (9 + s * 220) / 2, 14 + s * 340, 9 + s * 220, ((i - base) % 2 + 2) % 2 ? '#1c7f9c' : '#125266');
+    }
+    bx(cx - 7, cy - 4, 14, 9, '#07222c');
+    for (let i = 0; i < 18; i++) { const a = rnd(i) * 6.283, f = (t * 1.7 + rnd(i + 4)) % 1, d = 26 + f * 170; li(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.66, cx + Math.cos(a) * (d + 14), cy + Math.sin(a) * (d + 14) * 0.66, K.white, 1); }
+    const p = Math.min(1, t / 2.8), e = 1 - (1 - p) * (1 - p);
+    drawShip(cx + Math.sin(t * 5) * 4 * (1 - e), VH * 0.86 - e * (VH * 0.86 - cy), 2.6 - e * 2.1, t);
+  },
+  device(t, who, talk, sh) {                       // the Doomsday Device, in all its tasteless glory
+    const cx = VW / 2, by = VH - 6, cut = !!sh.cut, wy = by - 40;
+    bx(0, 0, VW, VH, '#140611');
+    for (let i = 0; i < 8; i++) bx(i * 46 - 8, 0, 6, VH, '#221020');
+    bx(0, VH - 6, VW, 6, '#2a0b1e');
+    for (const s of [-1, 1]) {
+      const tx = cx + s * 118; bx(tx - 3, by - 60, 6, 60, K.dgrey); ov(tx, by - 64, 8, 6, K.steel);
+      if (!cut && (t * 9 + (s > 0 ? 0.5 : 0)) % 1 < 0.5) { const j = by - 76 + rnd(Math.floor(t * 9) + s) * 20; li(tx, by - 64, tx - s * 26, j, K.cyan, 1); li(tx - s * 26, j, tx - s * 52, by - 62, K.cyan, 1); li(tx - s * 52, by - 62, cx + s * 34, by - 56, K.white, 1); }
+    }
+    [[-1, K.red], [1, K.sea]].forEach(([s, c]) => {
+      if (cut) { li(cx + s * 30, wy, cx + s * 52, wy + 14, c, 3); li(cx + s * 72, wy + 18, cx + s * 98, wy + 2, c, 3); if ((t * 12) % 1 < 0.5) star4(cx + s * 54, wy + 15, 4, K.yellow); }
+      else { sg.strokeStyle = c; sg.lineWidth = 3; sg.beginPath(); sg.moveTo(cx + s * 30, wy); sg.quadraticCurveTo(cx + s * 62, wy + 28, cx + s * 98, wy + 2); sg.stroke(); }
+      bx(cx + s * 98 - 3, wy - 5, 6, 13, K.dgrey);
+    });
+    bx(cx - 22, by - 9, 44, 9, K.dgrey);
+    ov(cx, by - 44, 36, 36, K.black); ov(cx - 14, by - 62, 9, 5, K.dgrey);
+    bx(cx - 6, by - 86, 12, 8, K.dgrey);
+    if (!cut) { li(cx, by - 86, cx + 9, by - 95, K.brown, 2); star4(cx + 10, by - 96, 3 + ((t * 14) % 1) * 3, (t * 14) % 1 < 0.5 ? K.yellow : K.orange); }
+    bx(cx - 25, by - 55, 50, 20, '#1a0508');
+    const col = cut ? K.green : (t * 2) % 1 < 0.5 ? K.red : '#7a1020', n = cut ? -1 : Math.max(1, 7 - Math.floor(t * 0.5));
+    digit7(cx - 21, by - 52, cut ? -1 : 0, col); digit7(cx - 12, by - 52, cut ? -1 : 0, col);
+    bx(cx - 1, by - 49, 2, 2, col); bx(cx - 1, by - 43, 2, 2, col);
+    digit7(cx + 5, by - 52, cut ? -1 : 0, col); digit7(cx + 14, by - 52, n, col);
+    if (cut && t < 0.5) { sg.globalAlpha = 1 - t / 0.5; bx(0, 0, VW, VH, K.white); sg.globalAlpha = 1; }
+  },
+  pod(t) {                                         // one escape pod, slightly singed
+    bx(0, 0, VW, VH, K.night);
+    for (let i = 0; i < 60; i++) bx(((rnd(i) * VW - t * (6 + rnd(i + 2) * 30)) % VW + VW) % VW, rnd(i + 20) * VH, 1, 1, i % 5 ? K.white : K.cyan);
+    earthIcon(48, VH * 0.72, VH * 0.3, t, false);
+    const px = VW * 0.6 + Math.sin(t * 1.3) * 10, py = VH * 0.44 + Math.sin(t * 2.1) * 6, f = (t * 20) % 1;
+    pg([px - 30, py - 6, px - 46 - f * 12, py, px - 30, py + 6], K.orange); pg([px - 30, py - 3, px - 38 - f * 5, py, px - 30, py + 3], K.yellow);
+    ov(px, py, 32, 18, K.purple); ov(px, py - 5, 28, 11, '#7b3fe0'); bx(px - 31, py + 4, 62, 3, K.yellow);
+    ov(px + 9, py - 3, 10, 9, K.glass); ov(px - 14, py - 2, 6, 6, K.glass);
+    ov(px + 9, py - 1, 5, 6, K.skin); bx(px + 4, py - 8, 10, 3, K.black); bx(px + 5, py + 1, 8, 2, K.black); bx(px + 10, py - 3, 2, 2, K.yellow);
+    ov(px - 14, py - 1, 4, 3.5, K.cat); pg([px - 18, py - 3, px - 17, py - 7, px - 14, py - 4], K.cat); pg([px - 13, py - 4, px - 11, py - 7, px - 10, py - 3], K.cat);
+    const fy = py - 24 + Math.sin(t * 16) * 3; li(px + 19, fy + 6, px + 15, py - 13, K.navy, 3); bx(px + 16, fy, 6, 6, K.purple);
+  }
+};
+
+/* ---------- cut scenes: script ---------- */
+const WHO = {
+  narrator: { name: 'NARRATOR', col: K.white, pitch: 520 }, baron: { name: 'BARON VON KABOOM', col: K.pink, pitch: 150 },
+  general: { name: 'GENERAL GRANITE', col: K.yellow, pitch: 240 }, ace: { name: 'ACE CHASE', col: K.cyan, pitch: 400 },
+  buddy: { name: 'B.U.D.D.Y.', col: K.green, pitch: 900 }, cat: { name: 'MISTER FLUFFLES', col: K.orange, pitch: 1300 }
+};
+const shot = (bg, lines, opt) => Object.assign({ bg, lines: lines.map(l => ({ who: l[0], text: l[1], fx: l[2] })) }, opt || {});
+const STORY = {
+  intro: () => [
+    shot('card', [['narrator', 'The year is 1999. The future! Hair is enormous. Computers have up to sixteen colours. The world is at peace.', 'sting']], { title: '1999 A.D.' }),
+    shot('lair', [
+      ['baron', 'Peace? PEACE?! I, Baron Von Kaboom, did not spend nine years at Evil Medical School for PEACE!', 'thunder'],
+      ['baron', 'Behold, my DOOMSDAY DEVICE! Buried at the centre of the Earth, where nobody can unplug it!'],
+      ['baron', 'MWAH-HA-HA-HA! Laugh with me, Mister Fluffles!', 'laugh'],
+      ['cat', 'Meow.']], { jingle: 'villain' }),
+    shot('hq', [
+      ['general', "Ace! Thank goodness you picked up. The Baron's device goes off in minutes."],
+      ['general', 'The only way in is his network of colour-coded tunnels. They are full of walls. We do not know why.']], { jingle: 'morse' }),
+    shot('cockpit', [
+      ['ace', 'Walls, General? I eat walls for breakfast.'],
+      ['general', "Please don't. The ship is a rental."],
+      ['buddy', 'GOOD MORNING, ACE. I AM B.U.D.D.Y., YOUR ON-BOARD COMPUTER. I HAVE TAKEN THE LIBERTY OF UPDATING YOUR WILL.']], { jingle: 'hero' }),
+    shot('launch', [['narrator', 'And so, with the fate of the Earth and one security deposit on the line... ACE CHASE flies!', 'fanfare']])
+  ],
+  2: () => [shot('lair', [
+    ['baron', 'WHAT?! He survived the Cyan Sector? Nobody survives the Cyan Sector! Admittedly, nobody had tried.', 'thunder'],
+    ['baron', 'No matter. The VIOLET Sector is twice as deadly. And twice as violet.'],
+    ['cat', 'Meow.'],
+    ['baron', 'Not now, Mister Fluffles. Daddy is monologuing.']], { jingle: 'villain' })],
+  3: () => [
+    shot('hq', [
+      ['general', "Fine flying, Ace. Our eggheads have decoded the Baron's blueprints."],
+      ['general', 'Bad news: the next sector is green. Worse news: he has added more mines.']], { jingle: 'morse' }),
+    shot('cockpit', [
+      ['ace', 'Mines? General, the only thing I mine... is DANGER.'],
+      ['general', 'That does not make any sense, son.'],
+      ['ace', "It didn't have to."]], { jingle: 'hero' })],
+  4: () => [
+    shot('lair', [
+      ['baron', 'They laughed at me at the Academy of Tunnel Science! "Tunnels should GO somewhere, Kaboom," they said!', 'thunder'],
+      ['baron', 'Well, who is laughing now? ME! Observe: MWAH-HA-HA-HA-', 'laugh'],
+      ['baron', '-ha. Ahem. Dry throat. RELEASE THE PINK SECTOR!']], { jingle: 'villain' }),
+    shot('buddy', [
+      ['buddy', 'ACE. I CALCULATE A THREE PERCENT CHANCE OF SURVIVAL.'],
+      ['ace', "Buddy, I didn't ask for math. I asked for THRUST."],
+      ['buddy', 'THRUST IS ALSO MATH, ACE.']])],
+  5: () => [
+    shot('hq', [
+      ['general', 'Ace, you are almost at the core. One sector left: the blue one.'],
+      ['general', "If you don't make it back... I want you to know the rental company WILL be billing your estate."]], { jingle: 'morse' }),
+    shot('lair', [
+      ['baron', "Blue was my mother's favourite colour. She never believed in me either."],
+      ['baron', 'FULL POWER TO THE WALLS!', 'thunder']], { jingle: 'villain' })],
+  6: () => [
+    shot('device', [
+      ['narrator', 'The Doomsday Device! Seven seconds on the clock!', 'sting'],
+      ['buddy', 'ACE. CUT THE RED WIRE. OR POSSIBLY THE BLUE WIRE. I HAVE MISPLACED THE MANUAL.'],
+      ['ace', "No time, Buddy. I'll cut... BOTH."]]),
+    shot('device', [
+      ['narrator', 'It worked. It should not have worked.', 'snip'],
+      ['general', 'Outstanding, Ace! The Earth is saved, and the rental is only mostly on fire!', 'fanfare']], { cut: true }),
+    shot('pod', [
+      ['baron', 'Curse you, Ace Chase! You have not seen the last of Baron Von Kaboom!'],
+      ['baron', 'I HAVE A SPARE!', 'thunder'],
+      ['cat', 'Meow.']], { jingle: 'villain' }),
+    shot('card', [['narrator', 'He did have a spare. In fact, he bought in bulk. Sector 6 awaits.', 'sting']], { title: 'THE END?' })],
+  later: n => [[
+    shot('lair', [['baron', 'Another device, another sector! Did I mention I bought in bulk?', 'thunder'], ['cat', 'Meow.']], { jingle: 'villain' }),
+    shot('hq', [['general', 'Ace, the Baron is on device number ' + (n - 4) + '. Frankly, we are impressed by his budget.']], { jingle: 'morse' }),
+    shot('buddy', [['buddy', 'ACE. SURVIVAL ODDS NOW ROUND DOWN TO ZERO. I BELIEVE IN YOU ANYWAY.'], ['ace', "That's the nicest thing you've ever calculated."]]),
+    shot('lair', [['baron', 'Mister Fluffles thinks you will crash in this one. He is rarely wrong.'], ['cat', 'Meow.']], { jingle: 'villain' }),
+    shot('cockpit', [['ace', 'Sector ' + n + "? I've had hair appointments longer than this."], ['general', 'We know, son. We have seen the invoices.']], { jingle: 'hero' })
+  ][(n - 7) % 5]]
+};
+const sceneFor = n => STORY[n] ? STORY[n]() : n > 6 ? STORY.later(n) : null;
+const QUIPS = {
+  time: ['The Earth has been cancelled. Refunds are unavailable.', 'Baron Von Kaboom wins. Mister Fluffles is being insufferable about it.', 'On the bright side, nobody has to return the rental.'],
+  ship: ['Ace ejected safely. The security deposit did not.', 'The rental company has been notified.', 'General Granite is drafting a very stern memo.']
+};
+const sfxScene = {
+  static: () => noise(0.12, 0.1, 4000),
+  thunder: () => { noise(0.7, 0.5, 260); tone('sawtooth', 70, 40, 0.5, 0.15); },
+  sting: () => { tone('sawtooth', 196, 196, 0.16, 0.1); tone('sawtooth', 185, 185, 0.16, 0.1, 0.2); tone('sawtooth', 147, 140, 0.7, 0.13, 0.4); },
+  fanfare: () => [392, 392, 523, 659, 784, 1047].forEach((f, i) => tone('square', f, f, i === 5 ? 0.5 : 0.11, 0.09, i * 0.12)),
+  villain: () => [147, 139, 131, 98].forEach((f, i) => tone('sawtooth', f, f, i === 3 ? 0.45 : 0.15, 0.09, i * 0.17)),
+  hero: () => [523, 659, 784].forEach((f, i) => tone('square', f, f, 0.1, 0.07, i * 0.1)),
+  morse: () => [0, 0.09, 0.18, 0.33].forEach((d, i) => tone('sine', 880, 880, i === 3 ? 0.16 : 0.05, 0.08, d)),
+  laugh: () => { for (let i = 0; i < 7; i++) tone('square', 250 - i * 9, 205 - i * 9, 0.07, 0.06, i * 0.11); },
+  snip: () => { tone('triangle', 2400, 900, 0.05, 0.2); tone('triangle', 2400, 900, 0.05, 0.2, 0.12); noise(0.4, 0.35, 1200); }
+};
+
+/* ---------- cut scenes: playback ---------- */
+const scene = { shots: null, i: 0, line: 0, t: 0, lt: 0, typed: 0, done: null, wrapKey: '', wrap: [], fs: 16 };
+const CPS = 40;
+let seenIntro = false, deadQuip = '';
+const curLine = () => scene.shots[scene.i].lines[scene.line];
+function lineEnter() { scene.lt = 0; scene.typed = 0; const f = curLine().fx; if (f && sfxScene[f]) sfxScene[f](); }
+function shotEnter() { scene.t = 0; scene.line = 0; sfxScene.static(); const j = scene.shots[scene.i].jingle; if (j) sfxScene[j](); lineEnter(); }
+function playScene(shots, done) {
+  scene.shots = shots; scene.i = 0; scene.done = done; state = 'scene'; stateT = 0; paused = false;
+  stick.id = null; fireId = null; boostId = null; shotEnter();
+}
+function endScene() { const d = scene.done; scene.shots = null; scene.done = null; if (d) d(); }
+function sceneAdvance() {
+  if (!scene.shots) return;
+  const sh = scene.shots[scene.i];
+  if (scene.lt * CPS < curLine().text.length) { scene.lt = 1e4; return; }      // first tap finishes the sentence
+  if (scene.line < sh.lines.length - 1) { scene.line++; lineEnter(); }
+  else if (scene.i < scene.shots.length - 1) { scene.i++; shotEnter(); }
+  else endScene();
+}
+const skipRect = () => ({ x: W - padR - 100 * u, y: 12 * u, w: 86 * u, h: 34 * u });
+function sceneTap(x, y) {
+  const b = skipRect();
+  if (x > b.x - 10 * u && x < b.x + b.w + 10 * u && y < b.y + b.h + 12 * u) endScene(); else sceneAdvance();
+}
+function updateScene(dt) {
+  scene.t += dt; scene.lt += dt;
+  const ln = curLine(), n = Math.min(ln.text.length, Math.floor(scene.lt * CPS));
+  if (n > scene.typed) { if (n % 3 === 0 && ln.text[n - 1] !== ' ' && scene.lt < 1e3) { const p = WHO[ln.who].pitch; tone('square', p, p * 0.96, 0.035, 0.035); } scene.typed = n; }
+}
+function wrapLines(text, maxW, fs) {
+  ctx.font = fs + 'px ' + FONT_M;
+  const out = []; let cur = '';
+  for (const w of text.split(' ')) { const next = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(next).width > maxW) { out.push(cur); cur = w; } else cur = next; }
+  if (cur) out.push(cur);
+  return out;
+}
+function drawScene() {
+  const sh = scene.shots[scene.i], ln = curLine(), who = WHO[ln.who];
+  const dh = Math.round(Math.max(88 * u, H * 0.27)), ph = H - dh, typing = scene.lt * CPS < ln.text.length;
+  VH = clamp(Math.round(VW * ph / W), 96, 180);
+  if (scv.width !== VW || scv.height !== VH) { scv.width = VW; scv.height = VH; }
+  sg.setTransform(1, 0, 0, 1, 0, 0); sg.globalAlpha = 1; sg.globalCompositeOperation = 'source-over';
+  PAINT[sh.bg](scene.t, ln.who, typing, sh, ln);
+  const pw = Math.min(W, ph * VW / VH), pxh = pw * VH / VW, px0 = (W - pw) / 2, py0 = (ph - pxh) / 2;
+  ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(scv, px0, py0, pw, pxh); ctx.imageSmoothingEnabled = true;
+  // worn video tape: scan lines, a drifting tracking band, a burst of static on every cut
+  ctx.fillStyle = C.void; ctx.globalAlpha = 0.14; for (let y = py0; y < py0 + pxh; y += 3) ctx.fillRect(px0, y, pw, 1);
+  if (!reduceMotion) { ctx.globalAlpha = 0.07; ctx.fillStyle = C.ink; ctx.fillRect(px0, py0 + ((scene.t * 0.23) % 1) * (pxh + 40) - 30, pw, 10 * u); }
+  if (scene.t < 0.22 && !reduceMotion) { ctx.globalAlpha = (1 - scene.t / 0.22) * 0.85; ctx.fillStyle = C.ink; ctx.fillRect(px0, py0, pw, pxh); }
+  ctx.globalAlpha = 1; ctx.textBaseline = 'top';
+  const tt = Math.floor(stateT), lx = px0 + padL + 14 * u;
+  txt('PLAY ►', lx, py0 + 12 * u, FONT_M, 14 * u, C.ink);
+  txt('SP  0:' + String(Math.floor(tt / 60)).padStart(2, '0') + ':' + String(tt % 60).padStart(2, '0'), lx, py0 + pxh - 24 * u, FONT_M, 12 * u, C.ink);
+  const b = skipRect();
+  ctx.globalAlpha = 0.5; ctx.fillStyle = C.void; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.globalAlpha = 1;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = u; ctx.strokeRect(b.x, b.y, b.w, b.h);
+  ctx.textBaseline = 'middle'; txt('SKIP ►►', b.x + b.w / 2, b.y + b.h / 2, FONT_M, 12 * u, C.ink, 'center');
+  // dialogue
+  const x0 = padL + 22 * u, x1 = W - padR - 22 * u;
+  ctx.fillStyle = who.col; ctx.fillRect(0, ph, W, 2 * u);
+  ctx.textBaseline = 'top'; txt(who.name, x0, ph + 10 * u, FONT_D, 11 * u, who.col);
+  const key = scene.i + ':' + scene.line + ':' + Math.round(W) + ':' + Math.round(H);
+  if (scene.wrapKey !== key) {
+    let fs = 16 * u, lines;
+    do { lines = wrapLines(ln.text, x1 - x0, fs); if (lines.length * fs * 1.35 <= dh - 36 * u) break; fs *= 0.9; } while (fs > 9);
+    scene.wrapKey = key; scene.wrap = lines; scene.fs = fs;
+  }
+  let left = Math.floor(scene.lt * CPS);
+  scene.wrap.forEach((s, i) => { if (left > 0) txt(s.slice(0, left), x0, ph + 30 * u + i * scene.fs * 1.35, FONT_M, scene.fs, C.ink); left -= s.length + 1; });
+  if (!typing && (tNow * 2) % 1 < 0.6) { ctx.textBaseline = 'bottom'; txt((touchUI ? 'TAP ' : 'SPACE ') + '▼', x1, H - 8 * u, FONT_M, 12 * u, C.dim, 'right'); }
+}
 
 /* ---------- loop and boot ---------- */
 let last = 0;
 function frame(t) {
   const dt = Math.min(0.05, Math.max(0, (t - last) / 1000) || 0); last = t;
   if (!paused) update(dt);
+  if (tuneOpen) refreshCtl();
   if (ac && humG) {
     const live = state === 'play' && !paused;
     humG.gain.setTargetAtTime(live ? 0.07 : 0, ac.currentTime, 0.08);
