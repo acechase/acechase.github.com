@@ -90,8 +90,25 @@ const hit = (b, x, y, k) => Math.hypot(x - b.x, y - b.y) < b.r * (k || 1.2);
 
 /* ---------- audio ---------- */
 let ac = null, master = null, hum = null, humG = null, noiseBuf = null, muted = false;
+let silentEl = null;
+function silentSwitchBypass() {
+  // iPhone mutes web audio when the ring/silent switch is on unless the page asks for playback audio
+  try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; return; } } catch (_) {}
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!ios || silentEl) return;
+  try {
+    const n = 2000, buf = new Uint8Array(44 + n), dv = new DataView(buf.buffer);
+    const put = (o, t) => { for (let i = 0; i < t.length; i++) buf[o + i] = t.charCodeAt(i); };
+    put(0, 'RIFF'); dv.setUint32(4, 36 + n, true); put(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true); dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+    put(36, 'data'); dv.setUint32(40, n, true); buf.fill(128, 44);
+    let bin = ''; for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+    silentEl = new Audio('data:audio/wav;base64,' + btoa(bin)); silentEl.loop = true; silentEl.setAttribute('playsinline', '');
+    const pr = silentEl.play(); if (pr && pr.catch) pr.catch(() => { silentEl = null; });
+  } catch (_) { silentEl = null; }
+}
 function audioInit() {
-  if (ac) { if (ac.state === 'suspended') ac.resume().catch(() => {}); return; }
+  if (ac) { if (ac.state !== 'running') { const pr = ac.resume(); if (pr && pr.catch) pr.catch(() => {}); } return; }
   try {
     const A = window.AudioContext || window.webkitAudioContext; ac = new A();
     master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ac.destination);
@@ -193,7 +210,13 @@ function startLevel(n) {
 }
 function newGame() {
   score = 0; shield = 100; startLevel(1);
-  try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (_) {}
+}
+let wakeLock = null;
+function keepAwake() {
+  try {
+    if (wakeLock || !navigator.wakeLock || state !== 'play') return;
+    navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => { wakeLock = null; }); }).catch(() => {});
+  } catch (_) {}
 }
 function advance() {
   if (stateT < 0.6) return;
@@ -229,7 +252,7 @@ cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch' && !touchUI) { touchUI = true; resize(); }
   const [x, y] = toLogical(e);
   if (hit(muteBtn, x, y)) { toggleMute(); return; }
-  if (state !== 'play') { if (e.pointerType === 'touch' && !document.fullscreenElement) tryFullscreen(); advance(); return; }
+  if (state !== 'play') { if (e.pointerType === 'touch' && !document.fullscreenElement) pendingFS = true; advance(); return; }
   if (hit(pauseBtn, x, y) || paused) { togglePause(); return; }
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (x < W * 0.5) { if (stick.id === null) { stick.id = e.pointerId; stick.ax = x; stick.ay = y; stick.x = stick.y = 0; } }
@@ -249,13 +272,20 @@ function release(e) {
   if (e.pointerId === boostId) boostId = null;
 }
 cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+// Phone browsers only allow sound and full screen to start on touch-up (touchend / pointerup / click), never on touch-down.
+let pendingFS = false;
+function unlock() {
+  silentSwitchBypass(); audioInit(); keepAwake();
+  if (pendingFS) { pendingFS = false; tryFullscreen(); }
+}
+['touchend', 'pointerup', 'click'].forEach(t => window.addEventListener(t, unlock, true));
 cv.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
-  keys[e.code] = true; audioInit();
+  keys[e.code] = true; silentSwitchBypass(); audioInit();
   if (e.code === 'KeyF') { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else tryFullscreen(); }
   else if (e.code === 'KeyM') toggleMute();
   else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
