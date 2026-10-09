@@ -257,7 +257,11 @@ const sfx = {
   pick:  () => { tone('sine', 660, 660, 0.08, 0.2); tone('sine', 990, 990, 0.12, 0.2, 0.08); },
   scrape:() => noise(0.08, 0.2, 2500),
   clear: () => [523, 659, 784, 1047].forEach((f, i) => tone('square', f, f, 0.14, 0.1, i * 0.11)),
-  beep:  () => tone('square', 1200, 1200, 0.06, 0.09)
+  beep:  () => tone('square', 1200, 1200, 0.06, 0.09),
+  boostOn:  () => { noise(0.5, 0.35, 1800); tone('sawtooth', 90, 340, 0.45, 0.16); },
+  boostOff: () => tone('sawtooth', 260, 80, 0.3, 0.09),
+  boostDry: () => { tone('square', 150, 110, 0.07, 0.1); tone('square', 150, 110, 0.07, 0.1, 0.11); },
+  refuel:   () => [440, 660, 880, 1320].forEach((f, i) => tone('triangle', f, f, 0.09, 0.14, i * 0.06))
 };
 function toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.5; }
 
@@ -296,7 +300,8 @@ function makeLevel(n) {
       for (let i = 0; i < m; i++) o.push({ z: z + i * 3, kind: 'mine', x: (R() * 2 - 1) * (HW - 0.45), y: (R() * 2 - 1) * (HH - 0.32),
         alive: true, ph: R() * TAU, mv: n >= 2 ? R() * 0.4 : 0 });
     } else {
-      o.push({ z, kind: R() < 0.6 ? 'time' : 'shield', x: (R() * 2 - 1) * (HW - 0.45), y: (R() * 2 - 1) * (HH - 0.32), taken: false });
+      const q = R();
+      o.push({ z, kind: q < 0.4 ? 'time' : q < 0.67 ? 'shield' : 'boost', x: (R() * 2 - 1) * (HW - 0.45), y: (R() * 2 - 1) * (HH - 0.32), taken: false });
     }
     z += gap * (0.8 + R() * 0.6);
   }
@@ -315,6 +320,8 @@ let level = 1, score = 0, best = 0, time = 0, shield = 100, deadWhy = '', bonus 
 let pz = 0, speed = 0, rx = 0, ry = 0, vx = 0, vy = 0, roll = 0, objs = [];
 let fireCd = 0, gunSide = 1, flash = 0, flashCol = C.warn, shake = 0, scrapeCd = 0, lastBeep = 0;
 const bullets = [], parts = [], popups = [], shocks = [], motes = [];
+const BOOST_SECS = 6;                           // a full reserve lasts this long with the button held
+let boostFuel = 1, boosting = false, boostHeld = false;
 for (let i = 0; i < 34; i++) motes.push({ x: 0, y: 0, z: -1 });
 try { best = parseInt(localStorage.getItem('doomsday-best') || '0', 10) || 0; } catch (_) {}
 function saveBest() { if (score > best) { best = Math.floor(score); try { localStorage.setItem('doomsday-best', String(best)); } catch (_) {} } }
@@ -323,7 +330,7 @@ function attract() { lv = makeLevel(1); lv.L = 1e9; objs = []; pz = 0; rx = ry =
 function startLevel(n) {
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
-  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true;
+  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false;
 }
 function newGame() {
   score = 0; shield = 100;
@@ -452,9 +459,10 @@ function collide(o) {
   } else if (o.kind === 'mine') {
     if (o.alive && Math.hypot(mineX(o) - rx, o.y - ry) < 0.34) { o.alive = false; crash(16); }
   } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < 0.45) {
-    o.taken = true; sfx.pick(); score += 50;
-    if (o.kind === 'time') { time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
-    else { shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
+    o.taken = true; score += 50;
+    if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
+    else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
+    else { sfx.refuel(); boostFuel = 1; popups.push({ s: 'BOOST FULL', t: 0 }); }
   }
 }
 function bulletHit(o, b) {
@@ -484,8 +492,14 @@ function updateFx(dt) {
 function update(dt) {
   tNow += dt; stateT += dt; updateFx(dt);
   if (state === 'scene') { if (scene.shots) updateScene(dt); return; }
-  const boostNow = state === 'play' && (keys.ShiftLeft || keys.ShiftRight || boostId !== null);
-  boostEase += ((boostNow ? 1 : 0) - boostEase) * Math.min(1, dt * 3);       // boosting widens the view a little
+  const held = state === 'play' && !!(keys.ShiftLeft || keys.ShiftRight || boostId !== null), was = boosting;
+  boosting = held && boostFuel > 0;
+  if (boosting) boostFuel = Math.max(0, boostFuel - dt / BOOST_SECS);
+  if (boosting && !was) { sfx.boostOn(); try { navigator.vibrate && navigator.vibrate(25); } catch (_) {} }
+  else if (was && !boosting && state === 'play') { sfx.boostOff(); if (held) popups.push({ s: 'BOOST EMPTY', t: 0 }); }
+  else if (held && !boostHeld && !boosting) sfx.boostDry();                  // pressed with nothing in reserve
+  boostHeld = held;
+  boostEase += ((boosting ? 1 : 0) - boostEase) * Math.min(1, dt * 4);       // boosting widens the view a little
   focal = focal0 * (1 - (reduceMotion ? 0 : 0.1) * boostEase);
   if (state !== 'play') {
     if (state === 'over') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; }
@@ -515,11 +529,10 @@ function update(dt) {
   } else { ix += jx; iy += jy; }
   { const k = Math.min(1, dt * 14); aimSX += (tsx - aimSX) * k; aimSY += (tsy - aimSY) * k; }
   const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
-  const boost = keys.ShiftLeft || keys.ShiftRight || boostId !== null;
   const firing = keys.Space || fireId !== null;
 
-  const target = lv.v0 * TUNE.speed * (boost ? 1.45 : 1);
-  speed += (target - speed) * Math.min(1, dt * (speed < target ? 1.0 : 2.0));
+  const target = lv.v0 * TUNE.speed * (boosting ? 1.5 : 1);
+  speed += (target - speed) * Math.min(1, dt * (speed < target ? (boosting ? 2.4 : 1.0) : 2.0));
   const S = TUNE.steer, kk = Math.min(1, dt * TUNE.snap);
   vx += (ix * S - vx) * kk; vy += (iy * S - vy) * kk;
   const dfx = clamp((cxAt(pz + 0.5) - cxAt(pz - 0.5)) * speed * TUNE.pull, -2, 2);
@@ -664,10 +677,17 @@ function drawObj(o) {
     poly(cx, cy, R * 1.5, 4, tNow * 1.5); ctx.stroke();
     if (o.kind === 'time') {
       ctx.beginPath(); ctx.moveTo(cx - R * 0.7, cy - R); ctx.lineTo(cx + R * 0.7, cy - R); ctx.lineTo(cx - R * 0.7, cy + R); ctx.lineTo(cx + R * 0.7, cy + R); ctx.closePath(); ctx.fill();
+    } else if (o.kind === 'boost') {               // two chevrons pointing ahead
+      ctx.beginPath();
+      for (const yy of [cy - R * 0.95, cy - R * 0.1]) {
+        ctx.moveTo(cx - R * 0.8, yy + R * 0.55); ctx.lineTo(cx, yy); ctx.lineTo(cx + R * 0.8, yy + R * 0.55);
+        ctx.lineTo(cx + R * 0.8, yy + R * 0.92); ctx.lineTo(cx, yy + R * 0.37); ctx.lineTo(cx - R * 0.8, yy + R * 0.92); ctx.closePath();
+      }
+      ctx.fill();
     } else { poly(cx, cy, R * 0.9, 6, 0.524); ctx.fill(); }
     if (dz < 34) {
       ctx.font = Math.max(9, Math.min(22 * u, 0.2 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(o.kind === 'time' ? 'TIME' : 'SHIELD', cx, cy + R * 1.7);
+      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : 'SHIELD', cx, cy + R * 1.7);
     }
     ctx.globalAlpha = 1;
   }
@@ -778,6 +798,11 @@ function drawHUD() {
   ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by, bw, bh);
   ctx.strokeStyle = low ? C.warn : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by, bw, bh);
   ctx.globalAlpha = 1; ctx.fillStyle = low ? C.warn : lv.color; ctx.fillRect(x0, by, bw * clamp(shield / 100, 0, 1), bh);
+  const dry = boostFuel <= 0, by2 = m + 87 * u, pulse = boosting && (tNow * 8) % 1 < 0.5;
+  txt(dry ? 'BOOST EMPTY' : boosting ? 'BOOST ON' : 'BOOST', x0, m + 72 * u, FONT_M, 11 * u, boosting ? C.ink : C.dim);
+  ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by2, bw, bh);
+  ctx.strokeStyle = dry ? C.dim : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by2, bw, bh);
+  ctx.globalAlpha = pulse ? 0.7 : 1; ctx.fillStyle = C.ink; ctx.fillRect(x0, by2, bw * boostFuel, bh); ctx.globalAlpha = 1;
 
   const urgent = time < 10, blink = urgent && (tNow * 4 % 1) < 0.5;
   txt('DETONATION IN', W / 2, m, FONT_M, 11 * u, urgent ? C.warn : C.dim, 'center');
@@ -787,7 +812,7 @@ function drawHUD() {
   ctx.globalAlpha = 1; ctx.fillStyle = lv.color; ctx.fillRect(W / 2 - pw / 2, py - u, pw * prog, 4 * u);
   ctx.fillStyle = C.ink; ctx.fillRect(W / 2 - pw / 2 + pw * prog - u, py - 4 * u, 2 * u, 10 * u);
   ctx.textBaseline = 'bottom';
-  txt('VEL ' + String(Math.round(speed * 12)).padStart(3, '0') + (tiltActive() ? '  /  TILT' : ''), W / 2, H - 10 * u, FONT_M, 12 * u, C.dim, 'center');
+  txt('VEL ' + String(Math.round(speed * 12)).padStart(3, '0') + (boosting ? '  BOOST' : '') + (tiltActive() ? '  /  TILT' : ''), W / 2, H - 10 * u, FONT_M, (boosting ? 14 : 12) * u, boosting ? C.ink : C.dim, 'center');
   ctx.textBaseline = 'middle';
   for (const p of popups) { ctx.globalAlpha = clamp(1 - p.t / 1.2, 0, 1); txt(p.s, W / 2, H * 0.3 - p.t * 34 * u, FONT_M, 18 * u, C.pick, 'center'); }
   ctx.globalAlpha = 1;
@@ -804,7 +829,17 @@ function drawControls() {
   if (!on) { ctx.globalAlpha = 0.7; ctx.textBaseline = 'middle'; txt(tiltActive() ? 'AIM' : 'STEER', ax, ay, FONT_M, 11 * u, C.ink, 'center'); }
   ctx.globalAlpha = 1;
   ringBtn(fireBtn, 'FIRE', fireId !== null, 15);
-  ringBtn(boostBtn, 'BOOST', boostId !== null, 12);
+  const dry = boostFuel <= 0;
+  if (dry) ctx.globalAlpha = 0.55;
+  ringBtn(boostBtn, dry ? 'EMPTY' : 'BOOST', boosting, 12);
+  const rr = boostBtn.r + 6 * u;                   // reserve gauge wrapped around the button
+  ctx.lineWidth = 4 * u; ctx.strokeStyle = C.void; ctx.globalAlpha = 0.5;
+  ctx.beginPath(); ctx.arc(boostBtn.x, boostBtn.y, rr, 0, 6.283); ctx.stroke();
+  if (!dry) {
+    ctx.strokeStyle = C.ink; ctx.globalAlpha = boosting ? 0.7 + 0.3 * Math.sin(tNow * 20) : 0.9;
+    ctx.beginPath(); ctx.arc(boostBtn.x, boostBtn.y, rr, -Math.PI / 2, -Math.PI / 2 + 6.283 * boostFuel); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 function legend(y, size) {
   const items = [['RED WALLS: DODGE', C.warn], ['YELLOW: SHOOT', C.gate], ['WHITE CELLS: COLLECT', C.pick]];
@@ -855,6 +890,22 @@ function render() {
   drawWorld();
   ctx.restore();
   if (flash > 0 && !reduceMotion) { ctx.globalAlpha = flash * 0.35; ctx.fillStyle = flashCol; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  if (boostEase > 0.02 && state === 'play') {      // boost: glowing edges and speed lines
+    const cxs = W / 2, cys = H / 2, rm = Math.hypot(W, H) / 2;
+    ctx.globalCompositeOperation = 'lighter';
+    const eg = ctx.createRadialGradient(cxs, cys, Math.min(W, H) * 0.42, cxs, cys, rm);
+    eg.addColorStop(0, rgba(lv.pal.bright, 0)); eg.addColorStop(1, rgba(lv.pal.bright, 0.32 * boostEase));
+    ctx.fillStyle = eg; ctx.fillRect(0, 0, W, H);
+    if (!reduceMotion) {
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2 * u; ctx.globalAlpha = 0.4 * boostEase; ctx.beginPath();
+      for (let i = 0; i < 26; i++) {
+        const a = Math.random() * 6.283, d0 = (0.5 + Math.random() * 0.4) * rm, d1 = d0 + (0.08 + Math.random() * 0.16) * rm;
+        ctx.moveTo(cxs + Math.cos(a) * d0, cys + Math.sin(a) * d0); ctx.lineTo(cxs + Math.cos(a) * d1, cys + Math.sin(a) * d1);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
   drawOverlay(); drawHUD(); drawControls();
 }
 
@@ -1335,8 +1386,8 @@ function frame(t) {
   if (tuneOpen) refreshCtl();
   if (ac && humG) {
     const live = state === 'play' && !paused;
-    humG.gain.setTargetAtTime(live ? 0.07 : 0, ac.currentTime, 0.08);
-    hum.frequency.setTargetAtTime(50 + speed * 2.2, ac.currentTime, 0.1);
+    humG.gain.setTargetAtTime(live ? 0.07 + 0.09 * boostEase : 0, ac.currentTime, 0.08);
+    hum.frequency.setTargetAtTime(50 + speed * 2.2 + 50 * boostEase, ac.currentTime, 0.1);
   }
   render();
   requestAnimationFrame(frame);
