@@ -560,7 +560,7 @@ function collide(o) {
     for (const b of o.blocks) if (b.hp > 0 && inRect(b.r, rx, ry, 0.04)) { b.hp = 0; crash(18); break; }
   } else if (o.kind === 'mine') {
     if (o.alive && Math.hypot(mineX(o) - rx, o.y - ry) < 0.34) { o.alive = false; crash(16); }
-  } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < 0.45) {
+  } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < (o.kind === 'ship' ? 0.57 : 0.45)) {
     o.taken = true; score += 50;
     if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
     else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
@@ -756,6 +756,34 @@ function halo(cx, cy, r, col, alpha) {
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.fill();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
 }
+// The ship token is built to look nothing like the other pickups: a four-point flare that shows from well down the
+// tunnel, a ringed solid white coin where the others are outlined diamonds, and on the coin a ship in the same
+// shape as the spare-ship icons in the corner of the screen.
+function drawShipToken(cx, cy, oy, s, a, dz) {
+  const R = 0.3 * s, av = Math.pow(a, 0.6);       // av: fades with distance later than the rest
+  const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(tNow * 7);
+  const hl = (1.12 + 0.13 * pulse) * s, vl = (0.74 + 0.08 * pulse) * s, th = R * 0.34;                 // a four-point flare reaching for the walls
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = av * 0.75; ctx.fillStyle = C.pick;
+  ctx.beginPath(); ctx.moveTo(cx - hl, cy); ctx.lineTo(cx, cy - th); ctx.lineTo(cx + hl, cy); ctx.lineTo(cx, cy + th); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx, cy - vl); ctx.lineTo(cx + th, cy); ctx.lineTo(cx, cy + vl); ctx.lineTo(cx - th, cy); ctx.closePath(); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = av * 0.55; ctx.fillStyle = C.void; ctx.beginPath(); ctx.arc(cx, cy, R * 1.9, 0, 6.283); ctx.fill();
+  halo(cx, cy, R * 2.5, C.pick, av * (0.14 + 0.1 * pulse));
+  ctx.strokeStyle = C.pick;
+  if (!reduceMotion) { const t = (tNow * 1.2) % 1; ctx.globalAlpha = av * (1 - t) * 0.8; ctx.lineWidth = u * (1 + 1.5 * a); ctx.beginPath(); ctx.arc(cx, cy, R * (1.9 + 0.8 * t), 0, 6.283); ctx.stroke(); }
+  ctx.globalAlpha = av; ctx.lineWidth = u * (1.4 + 2.6 * a);
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.9, 0, 6.283);
+  for (let i = 0; i < 8; i++) { const t = (reduceMotion ? 0 : tNow * 1.4) + i * 6.283 / 8, c = Math.cos(t), sn = Math.sin(t); ctx.moveTo(cx + c * R * 1.62, cy + sn * R * 1.62); ctx.lineTo(cx + c * R * 1.9, cy + sn * R * 1.9); }
+  ctx.stroke();
+  ctx.fillStyle = C.pick; ctx.beginPath(); ctx.arc(cx, cy, R * 1.4, 0, 6.283); ctx.fill();            // a solid white coin, where the others are outlines
+  ctx.fillStyle = C.void; ctx.beginPath(); ctx.moveTo(cx, cy - R * 1.05); ctx.lineTo(cx + R * 0.88, cy + R * 0.78); ctx.lineTo(cx, cy + R * 0.34); ctx.lineTo(cx - R * 0.88, cy + R * 0.78); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = C.pick; ctx.strokeStyle = C.void; ctx.lineJoin = 'round';
+  if (dz < 50) {
+    ctx.font = Math.max(10, Math.min(24 * u, 0.24 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.lineWidth = 3 * u; ctx.strokeText('SPARE SHIP', cx, cy + R * 2.1); ctx.fillText('SPARE SHIP', cx, cy + R * 2.1);
+  }
+  ctx.globalAlpha = 1;
+}
 function drawObj(o) {
   const dz = o.z - pz; if (dz < NEAR) return;
   const s = focal / dz, ox = (cxAt(o.z, o.br) - camX) * s, oy = -(cyAt(o.z) - camY) * s, a = fog(dz), f = 1 - a;
@@ -795,12 +823,9 @@ function drawObj(o) {
     ctx.fillStyle = fogc(RGB.warn, f); poly(cx, cy, R * 0.34, 4, -t); ctx.fill();
   } else if (!o.taken) {
     const cx = ox + o.x * s, cy = oy - (o.y + Math.sin(tNow * 3 + o.z) * 0.04) * s, R = 0.2 * s;
+    if (o.kind === 'ship') { drawShipToken(cx, cy, oy, s, a, dz); return; }
     ctx.globalAlpha = a * 0.45; ctx.fillStyle = C.void; ctx.beginPath(); ctx.arc(cx, cy, R * 1.8, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;   // dark backing, so white reads on a pale tunnel
     halo(cx, cy, R * 2.3, C.pick, a * (0.16 + 0.06 * Math.sin(tNow * 5 + o.z)));
-    if (o.kind === 'ship') {                       // the ship token: bigger glow and a second ring, so it cannot be mistaken
-      halo(cx, cy, R * 3.4, C.pick, a * (0.14 + 0.1 * Math.sin(tNow * 9)));
-      ctx.globalAlpha = a; ctx.strokeStyle = C.pick; poly(cx, cy, R * 2.1, 4, -tNow * 2.2); ctx.stroke();
-    }
     ctx.globalAlpha = a; ctx.strokeStyle = C.pick; ctx.fillStyle = C.pick;
     poly(cx, cy, R * 1.5, 4, tNow * 1.5); ctx.stroke();
     if (o.kind === 'time') {
@@ -812,12 +837,10 @@ function drawObj(o) {
         ctx.lineTo(cx + R * 0.8, yy + R * 0.92); ctx.lineTo(cx, yy + R * 0.37); ctx.lineTo(cx - R * 0.8, yy + R * 0.92); ctx.closePath();
       }
       ctx.fill();
-    } else if (o.kind === 'ship') {
-      ctx.beginPath(); ctx.moveTo(cx, cy - R * 1.1); ctx.lineTo(cx + R * 0.95, cy + R * 0.9); ctx.lineTo(cx, cy + R * 0.42); ctx.lineTo(cx - R * 0.95, cy + R * 0.9); ctx.closePath(); ctx.fill();
     } else { poly(cx, cy, R * 0.9, 6, 0.524); ctx.fill(); }
     if (dz < 34) {
       ctx.font = Math.max(9, Math.min(22 * u, 0.2 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : o.kind === 'ship' ? 'SHIP' : 'SHIELD', cx, cy + R * 1.7);
+      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : 'SHIELD', cx, cy + R * 1.7);
     }
     ctx.globalAlpha = 1;
   }
