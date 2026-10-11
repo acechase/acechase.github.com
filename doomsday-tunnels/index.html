@@ -128,7 +128,16 @@ function paletteFrom(a, shade) {
     floorA: d(0.24), floorB: d(0.56), ceilA: d(0.4), ceilB: d(0.66), wallA: d(0.34), wallB: d(0.62),
     light: mix(a, RGB.white, 0.4), lightWall: mix(a, RGB.white, 0.22), haze: d(0.66 + (k > 0 ? -0.1 : 0.02)), glow: mix(a, RGB.white, 0.45) };
 }
-const makePalette = n => paletteFrom(RGB.sectors[(n - 1) % 5]);
+// Part Two look: hollow neon. Surfaces stay close to black with a tint of the sector's colour, and the lines carry
+// the colour. shade works as in paletteFrom: below zero for a fork's light branch, above zero for its dark branch.
+function neonFrom(a, shade) {
+  const k = shade || 0, d = v => mix(a, RGB.void, clamp(v + k * 0.6, 0, 0.985));
+  return { neon: true, line: k > 0 ? mix(a, RGB.void, 0.42) : mix(a, RGB.white, k < 0 ? 0.35 : 0.1), bright: k > 0 ? mix(a, RGB.void, 0.12) : mix(a, RGB.white, k < 0 ? 0.75 : 0.5),
+    floorA: d(0.95), floorB: d(0.88), ceilA: d(0.95), ceilB: d(0.89), wallA: d(0.92), wallB: d(0.85), light: d(0.72), lightWall: d(0.78), haze: d(0.9), glow: mix(a, RGB.white, 0.4) };
+}
+const isNeon = n => n > 5;                      // sectors 6 and up: Part Two
+const palFor = n => isNeon(n) ? neonFrom : paletteFrom;
+const makePalette = n => palFor(n)(RGB.sectors[(n - 1) % 5]);
 try { document.fonts.load('700 20px Syncopate').catch(() => {}); document.fonts.load('20px "Share Tech Mono"').catch(() => {}); } catch (_) {}   // if a font cannot load, the fallback faces are used
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -356,7 +365,7 @@ function makeLevel(n) {
   // The dark branch is the harder one and holds the sector's ship token; the light branch is the easy way round.
   const o = [], tone = RGB.sectors[(n - 1) % 5], z0 = Math.round(lv.L * 0.4 / 4) * 4, z1 = z0 + FORK_WIDEN, dark = R() < 0.5 ? 0 : 1;
   lv.fork = { z0, z1, chosen: null, dark, hinted: false,
-    pal: [0, 1].map(b => paletteFrom(tone, b === dark ? 0.3 : -0.22)),
+    pal: [0, 1].map(b => palFor(n)(tone, b === dark ? 0.3 : -0.22)),
     wig: [0, 1].map(() => [0.6 + R() * 0.9, TAU / (70 + R() * 40)]) };
   genObjs(o, R, n, 90, z0 - 14, null, 'trunk');
   for (const b of [0, 1]) genObjs(o, R, n, z1 + 34, lv.L - 50, b, b === dark ? 'hard' : 'easy');
@@ -416,7 +425,12 @@ try { best = parseInt(localStorage.getItem('doomsday-best') || '0', 10) || 0; } 
 function saveBest() { if (score > best) { best = Math.floor(score); try { localStorage.setItem('doomsday-best', String(best)); } catch (_) {} } }
 
 function attract() { lv = makeLevel(1); lv.L = 1e9; lv.fork = null; objs = []; pz = 0; rx = ry = vx = vy = 0; state = 'title'; stateT = 0; }
+// Points for things shot or collected show as a running "+N" beside the score, never in the play area. Awards that
+// land within a moment of each other add up into one number, so a burst of gate blocks reads as a single total.
+const gain = { n: 0, t: -9 };
+function scored(n) { score += n; gain.n = (tNow - gain.t < 1.2 ? gain.n : 0) + n; gain.t = tNow; }
 function startLevel(n) {
+  gain.n = 0;
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
   state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false; shipEarned = false;
@@ -597,10 +611,10 @@ function collide(o) {
   } else if (o.kind === 'mine') {
     if (o.alive && Math.hypot(mineX(o) - rx, o.y - ry) < 0.34) { o.alive = false; crash(16); }
   } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < (o.kind === 'ship' ? 0.57 : 0.45)) {
-    o.taken = true; score += 50;
+    o.taken = true; scored(50);
     if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
     else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
-    else if (o.kind === 'ship') { shipEarned = true; score += 150; sfx.clear(); popups.push({ s: lives < MAX_SPARES ? 'SHIP TOKEN! SPARE SHIP AT SECTOR END' : 'SHIP TOKEN (SHIP BAY FULL)', t: 0 }); }
+    else if (o.kind === 'ship') { shipEarned = true; scored(150); sfx.clear(); popups.push({ s: lives < MAX_SPARES ? 'SHIP TOKEN! SPARE SHIP AT SECTOR END' : 'SHIP TOKEN (SHIP BAY FULL)', t: 0 }); }
     else { sfx.refuel(); boostFuel = 1; popups.push({ s: 'BOOST FULL', t: 0 }); }
   }
 }
@@ -610,14 +624,14 @@ function bulletHit(o, b) {
   } else if (o.kind === 'gate') {
     for (const k of o.blocks) if (k.hp > 0 && inRect(k.r, b.x, b.y, 0)) {
       k.hp--;
-      if (k.hp <= 0) { score += 25; sfx.boom(); burstAt((k.r[0] + k.r[2]) / 2, (k.r[1] + k.r[3]) / 2, o.z, C.gate, 22); }
+      if (k.hp <= 0) { scored(25); sfx.boom(); burstAt((k.r[0] + k.r[2]) / 2, (k.r[1] + k.r[3]) / 2, o.z, C.gate, 22); }
       else { sfx.tink(); burstAt(b.x, b.y, o.z, C.gate, 4); }
       return true;
     }
   } else if (o.kind === 'mine') {
     const mx = mineX(o);
     if (o.alive && Math.hypot(mx - b.x, o.y - b.y) < 0.38) {
-      o.alive = false; score += 100; sfx.boom(); burstAt(mx, o.y, o.z, C.gate, 26); return true;
+      o.alive = false; scored(100); sfx.boom(); burstAt(mx, o.y, o.z, C.gate, 26); return true;
     }
   }
   return false;
@@ -758,7 +772,7 @@ function drawSegment(F, N, k, f, P, leftLast) {
   ctx.fillStyle = fogc(lit ? P.lightWall : band ? P.wallB : P.wallA, f);
   if (leftLast) { ctx.beginPath(); quad(fr, ft, fr, fb, nr, nb, nr, nt); ctx.fill(); ctx.beginPath(); quad(fl, ft, fl, fb, nl, nb, nl, nt); ctx.fill(); }
   else { ctx.beginPath(); quad(fl, ft, fl, fb, nl, nb, nl, nt); ctx.fill(); ctx.beginPath(); quad(fr, ft, fr, fb, nr, nb, nr, nt); ctx.fill(); }
-  ctx.strokeStyle = fogc(P.line, f); ctx.lineWidth = u * (0.7 + 1.1 * a);
+  ctx.strokeStyle = fogc(P.line, f); ctx.lineWidth = P.neon ? u * (1 + 1.5 * a) : u * (0.7 + 1.1 * a);
   ctx.beginPath();
   ctx.rect(fl, ft, fr - fl, fh * 2);
   const n = Math.max(F.w, N.w) > HW * 1.05 ? 12 : 6;                        // the widened stretch carries both branches' floor lines
@@ -773,6 +787,10 @@ function drawSegment(F, N, k, f, P, leftLast) {
     ctx.moveTo(fr, F.oy + y * F.s); ctx.lineTo(nr, N.oy + y * N.s);
   }
   ctx.stroke();
+  if (P.neon && a > 0.2) {                            // neon: the same lines again, wide and faint, as their glow
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.2 * a; ctx.strokeStyle = rgb(P.line); ctx.lineWidth = u * (3 + 6 * a); ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
   if (k % 4 === 0) {                                  // brighter rib, with a soft glow when it is close
     if (a > 0.3) {
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.22 * a;
@@ -1024,7 +1042,13 @@ function drawHUD() {
   ringBtn(pauseBtn, paused ? '>' : 'II', paused, 14);
   ctx.textBaseline = 'top';
   txt('SECTOR ' + String(level).padStart(2, '0'), x0, m, FONT_M, 12 * u, C.dim);
-  txt(String(Math.floor(score)).padStart(6, '0'), x0, m + 15 * u, FONT_M, 21 * u, C.ink);
+  const ga = tNow - gain.t, gaining = gain.n > 0 && ga < 1.7, gx = x0 + ctx.measureText('SECTOR 00').width + 9 * u;    // just past the sector label, whatever the font
+  if (gaining) {                                    // the running "+N": pops in, holds, then fades
+    const big = gain.n >= 100, pop = reduceMotion ? 0 : Math.max(0, 1 - ga * 7);
+    ctx.globalAlpha = ga < 1.2 ? 1 : 1 - (ga - 1.2) / 0.5;
+    txt('+' + gain.n, gx, m - (big ? 2 : 0) * u, FONT_M, (big ? 15 : 12.5) * u * (1 + 0.25 * pop), C.ink); ctx.globalAlpha = 1;
+  }
+  txt(String(Math.floor(score)).padStart(6, '0'), x0, m + 15 * u, FONT_M, 21 * u, gaining && ga < 0.22 && !reduceMotion ? lv.color : C.ink);
   for (let i = 0; i < lives + (shipEarned && lives < MAX_SPARES ? 1 : 0); i++) {      // one small ship per spare; a blinking one for a token in hand
     if (i === lives && (tNow * 3) % 1 < 0.4) continue;
     const sx = x0 + 92 * u + i * 15 * u, sy = m + 19 * u, k = u;
