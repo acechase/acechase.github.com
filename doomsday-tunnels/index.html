@@ -33,10 +33,10 @@ body{margin:0;background:var(--void);color:var(--ink);overflow:hidden;font-famil
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 #probe{position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;
   padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
-#tune{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);box-sizing:border-box;
+#tune,#post{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);box-sizing:border-box;
   padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));
   display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--void) 80%,transparent)}
-#tune.rot{transform:translate(-50%,-50%) rotate(90deg)}
+#tune.rot,#post.rot{transform:translate(-50%,-50%) rotate(90deg)}
 .tcard{container-type:inline-size;width:min(780px,100%);max-height:100%;overflow:auto;box-sizing:border-box;
   border:1px solid var(--dim);background:var(--void);padding:10px 18px 12px;display:flex;flex-direction:column;gap:8px}
 .thead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px}
@@ -55,6 +55,14 @@ body{margin:0;background:var(--void);color:var(--ink);overflow:hidden;font-famil
 @container (max-width:430px){#tune-rows{grid-template-columns:minmax(0,1fr)}}
 .trow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 8px;align-items:baseline;font-size:13px}
 .thint{grid-column:1/-1;color:var(--dim);font-size:11px}
+.tcard.pcard{width:min(460px,100%);gap:12px}
+.prow{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.prow input{font:inherit;font-size:18px;letter-spacing:.06em;color:var(--ink);background:transparent;border:1px solid var(--ink);border-radius:0;
+  padding:9px 12px;min-height:44px;width:100%;box-sizing:border-box;-webkit-user-select:text;user-select:text}
+.prow input:focus-visible{outline:2px solid var(--gate);outline-offset:2px}
+#post-note{margin:0;color:var(--dim);font-size:12px;min-height:2.8em}
+#post-send{background:var(--ink);color:var(--void)}
+#post-send:disabled{opacity:.5}
 .trow input{grid-column:1/-1;width:100%;height:28px;margin:0;accent-color:var(--s1)}
 .tval{font-variant-numeric:tabular-nums;color:var(--s1)}
 .tfoot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
@@ -71,6 +79,15 @@ html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-
 <p class="sr">A wireframe tunnel flying game. Steer through the tunnel, dodge red walls, shoot yellow gates and mines, collect white cells, and reach the end of each sector before the countdown hits zero.</p>
 <canvas id="game" tabindex="0" aria-label="Doomsday Tunnels game screen"></canvas>
 <div id="probe"></div>
+<div id="post" hidden>
+  <form class="tcard pcard" id="post-form" role="dialog" aria-modal="true" aria-labelledby="post-title" autocomplete="off">
+    <div class="thead"><h2 id="post-title">POST YOUR SCORE</h2><output class="tval" id="post-score"></output></div>
+    <label class="prow" for="post-name">Name for the scoreboard
+      <input id="post-name" name="name" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="send" required></label>
+    <p id="post-note" role="status"></p>
+    <div class="tfoot"><button type="button" id="post-cancel">Cancel</button><button type="submit" id="post-send">Post score</button></div>
+  </form>
+</div>
 <div id="tune" hidden>
   <div class="tcard" role="dialog" aria-modal="true" aria-labelledby="tune-title">
     <div class="thead"><h2 id="tune-title">CONTROLS AND FEEL</h2>
@@ -171,7 +188,7 @@ function tiltStatus() {                          // 'on' | 'wait' | 'denied' | '
 const HW = 1.3, HH = 0.85, SEG = 2, NR = 38, NEAR = 0.35, RNEAR = 0.06, DEPTH = NR * SEG;
 let W = 800, H = 400, SW = 800, dpr = 1, rot = false, u = 1, padL = 0, padR = 0, focal = 340, focal0 = 340, boostEase = 0;
 let touchUI = matchMedia('(pointer: coarse)').matches;
-const fireBtn = {x:0,y:0,r:0}, boostBtn = {x:0,y:0,r:0}, pauseBtn = {x:0,y:0,r:0}, muteBtn = {x:0,y:0,r:0}, tuneBtn = {x:0,y:0,r:0};
+const fireBtn = {x:0,y:0,r:0}, boostBtn = {x:0,y:0,r:0}, pauseBtn = {x:0,y:0,r:0}, muteBtn = {x:0,y:0,r:0}, tuneBtn = {x:0,y:0,r:0}, scoresBtn = {x:0,y:0,r:0};
 function resize() {
   const r = cv.getBoundingClientRect();
   const sw = Math.max(1, r.width), sh = Math.max(1, r.height);
@@ -192,6 +209,9 @@ function resize() {
   tuneBtn.x = W - padR - 134 * u; tuneBtn.y = 30 * u; tuneBtn.r = 20 * u;
   const tp = document.getElementById('tune');
   tp.style.width = W + 'px'; tp.style.height = H + 'px'; tp.classList.toggle('rot', rot);
+  const pp = document.getElementById('post');
+  pp.style.width = W + 'px'; pp.style.height = H + 'px'; pp.classList.toggle('rot', rot);
+  scoresBtn.x = W - padR - 184 * u; scoresBtn.y = 30 * u; scoresBtn.r = 20 * u;
 }
 function baseTransform() {
   if (rot) ctx.setTransform(0, dpr, -dpr, 0, SW * dpr, 0);
@@ -335,6 +355,7 @@ function startLevel(n) {
   state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false;
 }
 function newGame() {
+  runStarted();
   score = 0; shield = 100; lives = START_SPARES; invuln = 0;
   if (!seenIntro) { seenIntro = true; playScene(STORY.intro(), () => startLevel(1)); } else startLevel(1);
 }
@@ -373,7 +394,7 @@ function finishRespawn() {
 }
 function gameOver(why) {
   const q = QUIPS[why === 'SHIP LOST' ? 'ship' : 'time']; deadQuip = q[Math.floor(Math.random() * q.length)];
-  deadWhy = why; state = 'over'; stateT = 0; saveBest(); sfx.boom(); flash = 1; flashCol = C.warn; shake = 1;
+  deadWhy = why; state = 'over'; stateT = 0; saveBest(); runEnded(); sfx.boom(); flash = 1; flashCol = C.warn; shake = 1;
   burst(0, 0, C.warn, 40, 420 * u); burst(0, 0, C.ink, 20, 260 * u);
 }
 function sectorClear() {
@@ -401,7 +422,14 @@ cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch' && !touchUI) { touchUI = true; resize(); }
   const [x, y] = toLogical(e);
   if (state === 'scene') { sceneTap(x, y); return; }
+  if (board.open) { board.open = false; return; }
   if (hit(muteBtn, x, y)) { toggleMute(); return; }
+  if (API && (state === 'title' || state === 'over') && hit(scoresBtn, x, y)) { openBoard(); return; }
+  if (API && state === 'over') {
+    const ob = overBtns();
+    if (inBtn(ob.post, x, y)) { if (canPost()) openPost(); return; }
+    if (inBtn(ob.list, x, y)) { openBoard(); return; }
+  }
   if ((state !== 'play' || paused) && state !== 'respawn' && hit(tuneBtn, x, y)) { openTune(); return; }
   if (state !== 'play') { if (e.pointerType === 'touch' && !document.fullscreenElement) pendingFS = true; advance(); return; }
   if (hit(pauseBtn, x, y) || paused) { togglePause(); return; }
@@ -435,6 +463,8 @@ cv.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
+  if (postOpen) { if (e.code === 'Escape') closePost(); return; }      // typing a name: leave the keys alone
+  if (board.open) { board.open = false; e.preventDefault(); return; }
   if (!tuneOpen && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if (tuneOpen) { if (e.code === 'Escape' || e.code === 'KeyT') closeTune(); return; }
   if (e.repeat) return;
@@ -815,6 +845,7 @@ function drawHUD() {
   const m = 14 * u, x0 = padL + m;
   ringBtn(muteBtn, muted ? 'MUTE' : 'SND', !muted, 11);
   if ((state !== 'play' || paused) && state !== 'respawn') ringBtn(tuneBtn, 'TUNE', false, 10);
+  if (API && (state === 'title' || state === 'over')) ringBtn(scoresBtn, 'SCORES', false, 9);
   if (state === 'title' || state === 'clear') return;
   ringBtn(pauseBtn, paused ? '>' : 'II', paused, 14);
   ctx.textBaseline = 'top';
@@ -918,7 +949,8 @@ function drawOverlay() {
     txt(deadQuip, cx, cy - 34 * u, FONT_M, Math.min(13 * u, W * 0.021), C.ink, 'center');
     txt('SECTOR ' + String(level).padStart(2, '0') + '   SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy - 8 * u, FONT_M, 17 * u, C.ink, 'center');
     txt('BEST ' + String(best).padStart(6, '0'), cx, cy + 18 * u, FONT_M, 14 * u, C.dim, 'center');
-    if (blink && stateT > 0.6) txt(go + ' TO RETRY', cx, cy + 74 * u, FONT_D, 15 * u, C.ink, 'center');
+    drawOverBtns();
+    if (blink && stateT > 0.6) txt(go + ' TO RETRY', cx, cy + (API ? 102 : 74) * u, FONT_D, 15 * u, C.ink, 'center');
   }
 }
 function render() {
@@ -952,6 +984,7 @@ function render() {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   }
   drawOverlay(); drawHUD(); drawControls();
+  if (board.open) drawBoard();
 }
 
 /* ---------- tuning panel ---------- */
@@ -979,7 +1012,7 @@ function refreshCtl() {
   const t = ctl.mode === 'tilt';
   ctlStick.setAttribute('aria-pressed', String(!t)); ctlTilt.setAttribute('aria-pressed', String(t));
   ctlInvert.checked = ctl.invertY; ctlInvert.disabled = !t;
-  let note = 'Changes apply right away and are saved on this device.';
+  let note = 'Settings are saved on this device. Play counts are anonymous, and only scores you choose to post are public.';
   if (t) {
     const st = tiltStatus();
     note = st === 'on' ? 'Tilt steers and the thumb stick aims. It re-centres to how you are holding the phone each time you launch or resume.'
@@ -1424,6 +1457,108 @@ function drawScene() {
   scene.wrap.forEach((s, i) => { if (left > 0) txt(s.slice(0, left), x0, ph + 30 * u + i * scene.fs * 1.35, FONT_M, scene.fs, C.ink); left -= s.length + 1; });
   if (!typing && (tNow * 2) % 1 < 0.6) { ctx.textBaseline = 'bottom'; txt((touchUI ? 'TAP ' : 'SPACE ') + '▼', x1, H - 8 * u, FONT_M, 12 * u, C.dim, 'right'); }
 }
+
+/* ---------- online: global scoreboard and anonymous play counts ---------- */
+// The game sends its server two kinds of thing, and nothing else:
+//   - play counts: "a run started" and "a run ended in sector N after S seconds". No identifier of
+//     any kind goes with them. So the server can count players per day, the game remembers, on this
+//     device only, which day it last played, and says just "first play today: yes or no".
+//   - a score with the name typed in, and only when the player chooses to post it.
+// If the browser asks not to be tracked, play counts are not recorded at all.
+const API = 'https://doomsday-tunnels-api.acechase.workers.dev';                                // scoreboard server address; empty switches all of this off
+const optedOut = navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true;
+const online = { token: null, t0: 0, ended: true, posted: false, rank: 0 };
+const board = { open: false, rows: null, failed: false, me: '' };
+let postOpen = false;
+try { board.me = localStorage.getItem('doomsday-name') || ''; } catch (_) {}
+function apiCall(path, body) {
+  const opt = body ? { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body), keepalive: true } : {};
+  return fetch(API + path, opt).then(r => r.json().then(j => ({ ok: r.ok, status: r.status, j }), () => ({ ok: false, status: r.status, j: {} })));
+}
+function runStarted() {
+  if (!API) return;
+  Object.assign(online, { token: null, t0: performance.now(), ended: false, posted: false, rank: 0 });
+  const day = new Date().toISOString().slice(0, 10); let firstToday = false, firstEver = false;
+  try { const last = localStorage.getItem('doomsday-day'); firstToday = last !== day; firstEver = !last; localStorage.setItem('doomsday-day', day); } catch (_) {}
+  apiCall('/event', { t: 'start', count: !optedOut, firstToday, firstEver, touch: touchUI, tilt: ctl.mode === 'tilt' })
+    .then(r => { if (r.ok) online.token = r.j.token; }).catch(() => {});
+}
+function runEnded(leaving) {
+  if (!API || online.ended || !online.token) return;
+  online.ended = true;
+  const body = { t: 'end', count: !optedOut, token: online.token, sector: level, cleared: level - 1, secs: Math.round((performance.now() - online.t0) / 1000) };
+  try { if (leaving && navigator.sendBeacon) navigator.sendBeacon(API + '/event', JSON.stringify(body)); else apiCall('/event', body).catch(() => {}); } catch (_) {}
+}
+window.addEventListener('pagehide', () => runEnded(true));
+
+function openBoard(rows) {
+  if (!API) return;
+  board.open = true; board.failed = false; board.rows = rows || null;
+  if (!rows) apiCall('/scores').then(r => { if (r.ok) board.rows = r.j.top; else board.failed = true; }).catch(() => { board.failed = true; });
+}
+function drawBoard() {
+  const cx = W / 2, n = 10, rowH = 22 * u, top = H / 2 - n * rowH / 2 + 4 * u;
+  ctx.globalAlpha = 0.95; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; ctx.textBaseline = 'middle';
+  txt('HIGH SCORES', cx, top - 32 * u, FONT_D, 20 * u, lv.color, 'center');
+  if (!board.rows) txt(board.failed ? 'THE SCOREBOARD IS NOT ANSWERING. TRY AGAIN LATER.' : 'LOADING...', cx, H / 2, FONT_M, 14 * u, C.dim, 'center');
+  else if (!board.rows.length) txt('NO SCORES YET. BE THE FIRST.', cx, H / 2, FONT_M, 14 * u, C.ink, 'center');
+  else {
+    const colW = Math.min(W - padL - padR - 40 * u, 440 * u), x0 = cx - colW / 2, x1 = cx + colW / 2, me = board.me.toLowerCase();
+    board.rows.slice(0, n).forEach((r, i) => {
+      const y = top + i * rowH + rowH / 2, col = me && r.name.toLowerCase() === me ? C.gate : i < 3 ? C.ink : C.dim;
+      txt(String(i + 1), x0 + 22 * u, y, FONT_M, 15 * u, col, 'right');
+      txt(r.name.toUpperCase(), x0 + 36 * u, y, FONT_M, 15 * u, col);
+      txt('SECTOR ' + r.sector, x1 - 84 * u, y, FONT_M, 11 * u, C.dim, 'right');
+      txt(String(r.score).padStart(6, '0'), x1, y, FONT_M, 15 * u, col, 'right');
+    });
+  }
+  if (online.posted && online.rank > n) txt('YOUR RANK  ' + online.rank, cx, top + n * rowH + 12 * u, FONT_M, 14 * u, C.gate, 'center');
+  txt((touchUI ? 'TAP' : 'PRESS A KEY') + ' TO CLOSE', cx, top + n * rowH + 34 * u, FONT_M, 12 * u, C.dim, 'center');
+}
+
+// Game-over buttons
+const canPost = () => !!API && !!online.token && !online.posted && score >= 1;
+function overBtns() { const w = 156 * u, h = 36 * u, g = 12 * u, y = H / 2 + 36 * u; return { post: { x: W / 2 - w - g / 2, y, w, h }, list: { x: W / 2 + g / 2, y, w, h } }; }
+const inBtn = (b, x, y) => x >= b.x - 6 * u && x <= b.x + b.w + 6 * u && y >= b.y - 6 * u && y <= b.y + b.h + 6 * u;
+function rectBtn(b, label, live) {
+  ctx.globalAlpha = 0.6; ctx.fillStyle = C.void; ctx.fillRect(b.x, b.y, b.w, b.h);
+  ctx.globalAlpha = live ? 1 : 0.55; ctx.strokeStyle = live ? C.ink : C.dim; ctx.lineWidth = 1.5 * u; ctx.strokeRect(b.x, b.y, b.w, b.h);
+  ctx.textBaseline = 'middle'; txt(label, b.x + b.w / 2, b.y + b.h / 2, FONT_M, 13 * u, live ? C.ink : C.dim, 'center'); ctx.globalAlpha = 1;
+}
+function drawOverBtns() {
+  if (!API) return;
+  const b = overBtns();
+  rectBtn(b.post, online.posted ? 'POSTED: RANK ' + online.rank : 'POST SCORE', canPost());
+  rectBtn(b.list, 'HIGH SCORES', true);
+}
+
+// Name entry
+const postPanel = document.getElementById('post'), postName = document.getElementById('post-name'), postNote = document.getElementById('post-note');
+const postSend = document.getElementById('post-send'), POST_NOTE = 'Your name and score will be public. Nothing else is sent with them.';
+function openPost() {
+  postOpen = true; postPanel.hidden = false; postNote.textContent = POST_NOTE; postSend.disabled = false;
+  document.getElementById('post-score').textContent = String(Math.floor(score)).padStart(6, '0');
+  postName.value = board.me; postName.focus();
+}
+function closePost() { postOpen = false; postPanel.hidden = true; postName.blur(); }
+document.getElementById('post-cancel').addEventListener('click', closePost);
+postName.addEventListener('input', () => { if (!postSend.disabled) postNote.textContent = POST_NOTE; });
+document.getElementById('post-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = postName.value.trim();
+  if (!name || postSend.disabled) return;
+  postSend.disabled = true; postNote.textContent = 'Posting...';
+  apiCall('/scores', { name, score: Math.floor(score), sector: level, token: online.token }).then(r => {
+    if (r.ok) {
+      online.posted = true; online.rank = r.j.rank; board.me = r.j.name;
+      try { localStorage.setItem('doomsday-name', r.j.name); } catch (_) {}
+      closePost(); openBoard(r.j.top); sfx.clear();
+    } else {
+      postSend.disabled = false;
+      postNote.textContent = r.status === 422 && r.j.error === 'name' ? r.j.message : r.status === 429 ? 'Too many tries. Wait a minute, then post again.' : 'That score could not be posted.';
+    }
+  }).catch(() => { postSend.disabled = false; postNote.textContent = 'Could not reach the scoreboard. Check your connection, then post again.'; });
+});
 
 /* ---------- loop and boot ---------- */
 let last = 0;
