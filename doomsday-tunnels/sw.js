@@ -21,13 +21,32 @@ self.addEventListener('activate', e => {
 const keep = (req, res) => { if (res && res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); } return res; };
 const saved = req => caches.match(req, { ignoreSearch: true, ignoreVary: true });
 
-// Pages: ask the network first so updates show up straight away, and fall back to the saved copy when there is no
-// connection or the connection stalls (as half-working in-flight wifi does).
-async function page(req) {
-  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 3500);
-  try { return keep(req, await fetch(req.url, { cache: 'no-cache', signal: stop.signal })); }
-  catch (_) { return (await saved(req)) || (await saved(SCOPE)) || Response.error(); }
+// Pages: show the saved copy at once, so the game never sits on a blank screen waiting for a slow connection, and
+// fetch the latest version in the background for next time. If that version is different, tell the open page, which
+// restarts itself if it is still on the title screen. With nothing saved yet, wait for the network.
+const stamp = res => (res && (res.headers.get('etag') || res.headers.get('last-modified'))) || '';
+async function refresh(req, had) {
+  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 10000);
+  try {
+    const res = await fetch(req.url, { cache: 'no-cache', signal: stop.signal });
+    if (!res.ok || res.redirected) return null;
+    await (await caches.open(CACHE)).put(req, res.clone());
+    if (had && stamp(had) && stamp(res) && stamp(had) !== stamp(res)) announce(new URL(req.url).pathname);
+    return res;
+  } catch (_) { return null; }
   finally { clearTimeout(timer); }
+}
+async function announce(path) {
+  for (let i = 0; i < 4; i++) {                      // the page may still be starting up: look for it a few times
+    await new Promise(r => setTimeout(r, 500));
+    const open = (await self.clients.matchAll({ type: 'window' })).filter(c => new URL(c.url).pathname === path);
+    if (open.length) { open.forEach(c => c.postMessage({ type: 'updated' })); return; }
+  }
+}
+async function page(e) {
+  const req = e.request, had = await saved(req), fresh = refresh(req, had);
+  if (had) { e.waitUntil(fresh); return had; }
+  return (await fresh) || (await saved(SCOPE)) || Response.error();
 }
 // Fonts, icons and images never change under the same name: use the saved copy, fetch only if there is none.
 async function asset(req) { return (await saved(req)) || keep(req, await fetch(req)); }
@@ -37,5 +56,5 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE)) return;
   if (url.pathname.endsWith('/sw.js')) return;
   const isPage = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
-  e.respondWith(isPage ? page(req) : asset(req));
+  e.respondWith(isPage ? page(e) : asset(req));
 });

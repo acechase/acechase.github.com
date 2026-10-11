@@ -1860,6 +1860,13 @@ function runEnded(leaving) {
   try { if (leaving && navigator.sendBeacon) navigator.sendBeacon(API + '/event', JSON.stringify(body)); else apiCall('/event', body).catch(() => {}); } catch (_) {}
 }
 window.addEventListener('pagehide', () => runEnded(true));
+// The hosted game is saved on the device and opens from that copy. When a newer version has been fetched in the
+// background, restart to pick it up, but only from the title screen so that a run is never interrupted.
+try {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'updated' && state === 'title' && !tuneOpen && !board.open && !postOpen) location.reload();
+  });
+} catch (_) {}
 
 function openBoard(rows) {
   if (!API) return;
