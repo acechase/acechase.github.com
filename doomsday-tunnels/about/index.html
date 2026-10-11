@@ -8,9 +8,11 @@
 <meta name="theme-color" content="#07060f">
 <link rel="icon" type="image/png" href="../icon-192.png">
 <link rel="apple-touch-icon" href="../icon-180.png">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syncopate:wght@700&display=swap">
+<link rel="preload" href="../fonts/ShareTechMono-Regular.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="../fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
 <style>
+@font-face{font-family:"Share Tech Mono";font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/ShareTechMono-Regular.woff) format("woff")}
+@font-face{font-family:"Syncopate";font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/Syncopate-Bold.woff) format("woff")}
 :root{
   color-scheme:dark;
   --void:#07060f; --panel:#0f0d1e; --line:#2a2745;
@@ -297,12 +299,12 @@ footer p{margin-bottom:.5rem}
   <p>Clearing this site's data in your browser removes all of it.</p>
 
   <h3 id="others">Other companies involved</h3>
-  <p>The game cannot reach you without passing through three services, and each sees your connection in the way any website's host does.</p>
+  <p>The game cannot reach you without passing through two services, and each sees your connection in the way any website's host does.</p>
   <ul>
     <li><strong>GitHub</strong> hosts the game and this page. GitHub <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">logs the IP address of visitors</a> to every site it hosts, for security.</li>
     <li><strong>Cloudflare</strong> runs the scoreboard server. To stop one connection from flooding it, the server uses your IP address as a counter inside Cloudflare that lasts about a minute. It is never written to the game's database.</li>
-    <li><strong>Google Fonts</strong> supplies the two typefaces used by the game and this page, so your browser asks Google's servers for them. Google <a href="https://developers.google.com/fonts/faq/privacy">describes what it records</a>.</li>
   </ul>
+  <p>Nothing else is loaded from other sites. The game's fonts, images and code all come from the same place as the game itself.</p>
   <p>The server's code is public. You can <a href="https://github.com/acechase/acechase.github.com/tree/master/_doomsday-tunnels-api">read exactly what it stores</a>.</p>
 </section>
 
