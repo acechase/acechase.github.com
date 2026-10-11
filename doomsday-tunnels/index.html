@@ -410,7 +410,7 @@ function startLevel(n) {
 }
 function newGame() {
   runStarted();
-  score = 0; shield = 100; lives = START_SPARES; invuln = 0;
+  score = 0; shield = 100; lives = START_SPARES; invuln = 0; barBroken = false;
   if (!seenIntro) { seenIntro = true; playScene(STORY.intro(), () => startLevel(1)); } else startLevel(1);
 }
 let wakeLock = null;
@@ -426,8 +426,24 @@ function advance() {
   else if (state === 'clear') { const n = level, sc = sceneFor(n); if (sc) playScene(sc, () => startLevel(n)); else startLevel(n); }
 }
 function togglePause() { if (state === 'play') { paused = !paused; if (!paused) tilt.needCal = true; } }
+// Shield warning: in the last 15% the shield bar and the edges of the screen pulse red, and when the shield
+// gives out the bar itself blows apart.
+const LOW_SHIELD = 15;
+const shieldLow = () => state === 'play' && shield > 0 && shield <= LOW_SHIELD;
+const dangerBeat = () => reduceMotion ? 0.6 : Math.pow(0.5 + 0.5 * Math.sin(tNow * 9), 1.4);      // about 1.4 beats a second
+const shieldBar = () => ({ x: padL + 14 * u, y: 72 * u, w: 112 * u, h: 7 * u });
+let barBroken = false; const shards = [];
+function breakShieldBar() {
+  barBroken = true; shards.length = 0;
+  if (reduceMotion) return;
+  const b = shieldBar(), n = 9, w = b.w / n;
+  for (let i = 0; i < n; i++) shards.push({ x: b.x + (i + 0.5) * w, y: b.y + b.h / 2, w: w * (0.55 + Math.random() * 0.5), h: b.h,
+    vx: ((Math.random() - 0.5) * 240 + (i - n / 2) * 16) * u, vy: -(80 + Math.random() * 200) * u, vr: (Math.random() - 0.5) * 18, t0: tNow, life: 0.9 + Math.random() * 0.5 });
+  burst(b.x + b.w / 2 - W / 2, b.y - H / 2, C.warn, 18, 240 * u);        // sparks live in the world layer, which is centred
+}
 // Losing a ship: with a spare in hand the run carries on, otherwise it is game over.
 function loseShip(why) {
+  if (why === 'SHIP LOST') breakShieldBar();
   if (lives <= 0) { gameOver(why); return; }
   lives--; respawnWhy = why; state = 'respawn'; stateT = 0; boosting = false;
   const q = QUIPS[why === 'SHIP LOST' ? 'spareShip' : 'spareTime']; deadQuip = q[Math.floor(Math.random() * q.length)];
@@ -435,7 +451,7 @@ function loseShip(why) {
   burst(0, 0, C.warn, 40, 420 * u); burst(0, 0, C.ink, 20, 260 * u);
 }
 function finishRespawn() {
-  shield = 100;
+  shield = 100; barBroken = false;
   if (respawnWhy === 'SHIP LOST') {              // new ship, same spot, briefly untouchable
     rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5; bullets.length = 0; boostFuel = 1; aimSX = aimSY = 0;
     invuln = 3; tilt.needCal = true; state = 'play'; stateT = 0;
@@ -1002,11 +1018,26 @@ function drawHUD() {
     ctx.beginPath(); ctx.moveTo(sx + 5.5 * k, sy); ctx.lineTo(sx + 11 * k, sy + 12 * k); ctx.lineTo(sx + 5.5 * k, sy + 9 * k); ctx.lineTo(sx, sy + 12 * k); ctx.closePath();
     ctx.lineJoin = 'round'; ctx.lineWidth = 2.5 * u; ctx.strokeStyle = C.void; ctx.stroke(); ctx.fillStyle = C.ink; ctx.fill();
   }
-  txt('SHIELD', x0, m + 43 * u, FONT_M, 11 * u, C.dim);
-  const bw = 112 * u, bh = 7 * u, by = m + 58 * u, low = shield < 30;
-  ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by, bw, bh);
-  ctx.strokeStyle = low ? C.warn : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by, bw, bh);
-  ctx.globalAlpha = 1; ctx.fillStyle = low ? C.warn : lv.color; ctx.fillRect(x0, by, bw * clamp(shield / 100, 0, 1), bh);
+  const bw = 112 * u, bh = 7 * u, by = m + 58 * u, low = shield < 30, crit = shieldLow(), beat = dangerBeat();
+  if (barBroken) {                                  // the shield gave out: the bar is in pieces
+    txt('SHIELD LOST', x0, m + 43 * u, FONT_M, 11 * u, C.warn);
+    for (const k of shards) {
+      const t = tNow - k.t0; if (t > k.life) continue;
+      ctx.save(); ctx.translate(k.x + k.vx * t, k.y + k.vy * t + 520 * u * t * t); ctx.rotate(k.vr * t);
+      ctx.globalAlpha = 1 - t / k.life; ctx.fillStyle = C.warn; ctx.fillRect(-k.w / 2, -k.h / 2, k.w, k.h);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = u; ctx.strokeRect(-k.w / 2, -k.h / 2, k.w, k.h); ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  } else {
+    txt(crit ? 'SHIELD LOW' : 'SHIELD', x0, m + 43 * u, FONT_M, 11 * u, crit ? C.warn : C.dim);
+    ctx.globalAlpha = 0.55; ctx.fillStyle = crit ? rgb(mix(RGB.void, RGB.warn, 0.35 * beat)) : C.void; ctx.fillRect(x0, by, bw, bh);
+    if (crit) {                                     // last 15%: the whole bar throbs red
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.2 + 0.5 * beat; ctx.strokeStyle = C.warn; ctx.lineWidth = (3 + 5 * beat) * u;
+      ctx.strokeRect(x0 - u, by - u, bw + 2 * u, bh + 2 * u); ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.strokeStyle = low ? C.warn : C.ink; ctx.lineWidth = crit ? 1.5 * u : u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by, bw, bh);
+    ctx.globalAlpha = crit ? 0.6 + 0.4 * beat : 1; ctx.fillStyle = low ? C.warn : lv.color; ctx.fillRect(x0, by, bw * clamp(shield / 100, 0, 1), bh); ctx.globalAlpha = 1;
+  }
   const dry = boostFuel <= 0, by2 = m + 87 * u, pulse = boosting && (tNow * 8) % 1 < 0.5;
   txt(dry ? 'BOOST EMPTY' : boosting ? 'BOOST ON' : 'BOOST', x0, m + 72 * u, FONT_M, 11 * u, boosting ? C.ink : C.dim);
   ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by2, bw, bh);
@@ -1133,6 +1164,13 @@ function render() {
       ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+  if (shieldLow()) {                               // last 15% of shield: the edges of the screen pulse red, harder as it drains
+    const a = (0.34 + 0.26 * (1 - shield / LOW_SHIELD)) * (0.3 + 0.7 * dangerBeat()), d = Math.min(W, H) * 0.3, c0 = rgba(RGB.warn, a), c1 = rgba(RGB.warn, 0);
+    for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, 0, 0, d, 0, 0, W, d], [0, H, 0, H - d, 0, H - d, W, d], [0, 0, d, 0, 0, 0, d, H], [W, 0, W - d, 0, W - d, 0, d, H]]) {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, c0); g.addColorStop(0.45, rgba(RGB.warn, a * 0.3)); g.addColorStop(1, c1);
+      ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    }
   }
   drawOverlay(); drawHUD(); drawControls();
   if (board.open) drawBoard();
