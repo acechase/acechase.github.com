@@ -2,7 +2,9 @@
 // Keeps a copy of the game, its fonts and icons, the manual and the changelog on the device, so the game
 // opens and plays with no connection. It never touches requests to other sites (the scoreboard server),
 // which simply fail while offline; the game handles that itself.
-const CACHE = 'doomsday-tunnels-v1';
+// Icons, fonts, images and the manifest are served from the saved copy without checking the network, so when one of
+// them changes, raise this number: that makes every device fetch the whole set again.
+const CACHE = 'doomsday-tunnels-v2';
 const FILES = ['./', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'fonts/ShareTechMono-Regular.woff', 'fonts/Syncopate-Bold.woff', 'about/', 'about/fork.webp', 'changelog/'];
 const SCOPE = new URL('./', self.location).pathname;
