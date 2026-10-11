@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doomsday Tunnels: the manual</title>
+<meta name="description" content="How to play Doomsday Tunnels, how to add it to your phone's home screen for full-screen play, what the game counts, and how the high-score board works.">
+<meta name="theme-color" content="#07060f">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syncopate:wght@700&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --void:#07060f; --panel:#0f0d1e; --line:#2a2745;
+  --ink:#e8f1ff; --text:#c7d1e8; --dim:#8a94b3;
+  --cyan:#35d9ff; --violet:#b07cff; --green:#4dffa6; --pink:#ff6ad5;
+  --warn:#ff4a2e; --gate:#ffe14a;
+  --display:"Syncopate","Arial Black",sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --tone:var(--cyan);
+}
+*{box-sizing:border-box}
+html{background:var(--void);scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--void);color:var(--text);font:16px/1.65 var(--mono)}
+.page{max-width:47rem;margin:0 auto;padding:clamp(28px,6vw,64px) 20px 72px}
+a{color:var(--cyan);text-underline-offset:3px}
+a:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--gate);outline-offset:3px}
+p,ul,ol,dl,table,figure{margin:0 0 1.1rem}
+ul,ol{padding-left:1.4rem}
+li{margin-bottom:.4rem}
+li::marker{color:var(--tone)}
+strong{color:var(--ink);font-weight:400}
+
+/* masthead */
+h1{margin:0 0 1.1rem;font:700 clamp(2rem,9.6vw,4.1rem)/1.02 var(--display);letter-spacing:-.01em;color:var(--ink);text-wrap:balance}
+h1 span{display:block;color:var(--cyan)}
+.lede{font-size:1.08rem;color:var(--ink);max-width:36rem}
+.play{display:inline-block;margin:.4rem 0 1.6rem;padding:.8rem 1.4rem;background:var(--ink);color:var(--void);
+  font:700 .84rem/1 var(--display);letter-spacing:.04em;text-decoration:none;border:2px solid var(--ink)}
+.play:hover{background:var(--cyan);border-color:var(--cyan);color:var(--void)}
+nav ul{list-style:none;padding:0;margin:0 0 2.2rem;display:flex;flex-wrap:wrap;gap:.5rem 1.6rem}
+nav li{margin:0}
+
+/* the screenshot sits in a frame drawn like the tunnel's ribs */
+.shot{margin:0 0 3rem}
+.shot img{display:block;width:100%;height:auto;aspect-ratio:1408/650;border:2px solid var(--cyan);outline:1px solid color-mix(in srgb,var(--cyan) 45%,transparent);outline-offset:6px;
+  box-shadow:0 0 34px color-mix(in srgb,var(--cyan) 28%,transparent)}
+figcaption{margin-top:1.1rem;color:var(--dim);font-size:.9rem}
+
+/* each part of the manual takes one sector colour, as the game does */
+section{padding-top:2.4rem;margin-top:2.6rem;border-top:2px solid var(--tone);scroll-margin-top:12px}
+#play{--tone:var(--cyan)} #phone{--tone:var(--violet)} #data{--tone:var(--green)} #scores{--tone:var(--pink)}
+h2{margin:0 0 1.2rem;font:700 clamp(1.15rem,4.6vw,1.6rem)/1.15 var(--display);color:var(--tone);text-wrap:balance}
+h3{margin:2rem 0 .6rem;font:400 1.14rem/1.3 var(--mono);color:var(--ink)}
+h3::before{content:"";display:inline-block;width:.6rem;height:.6rem;margin-right:.6rem;background:var(--tone);transform:rotate(45deg) translateY(-.1rem)}
+
+/* colour code */
+.code{list-style:none;padding:0;margin:0 0 1.1rem;display:grid;gap:.9rem}
+.code li{display:grid;grid-template-columns:52px 1fr;gap:.2rem 1rem;align-items:start;margin:0;padding:.9rem 1rem;background:var(--panel);border-left:3px solid var(--k)}
+.code svg{width:52px;height:52px;grid-row:span 2}
+.code b{font-weight:400;color:var(--k)}
+.code span{grid-column:2}
+.red{--k:var(--warn)} .yel{--k:var(--gate)} .wht{--k:#fff}
+
+/* tables */
+.scroll{overflow-x:auto;margin:0 0 1.1rem}
+table{border-collapse:collapse;width:100%;margin:0;font-size:.94rem}
+th,td{text-align:left;vertical-align:top;padding:.5rem .9rem .5rem 0;border-bottom:1px solid var(--line)}
+thead th{color:var(--dim);font-weight:400}
+tbody th{color:var(--ink);font-weight:400;white-space:nowrap}
+@media (max-width:30rem){table{font-size:.88rem} tbody th{white-space:normal} th,td{padding-right:.7rem}}
+kbd{font:inherit;color:var(--ink);border:1px solid var(--dim);padding:0 .35rem;white-space:nowrap}
+
+/* install steps */
+.two{display:grid;gap:0 2.4rem}
+@media (min-width:44rem){.two{grid-template-columns:1fr 1fr}}
+.two ol{padding-left:1.6rem}
+
+/* what is sent */
+.moment{margin:0 0 1.1rem;padding:1rem 1.1rem;background:var(--panel);border-left:3px solid var(--tone)}
+.moment h3{margin-top:0}
+.moment dl{margin:0;display:grid;gap:.7rem}
+dt{color:var(--dim);font-size:.88rem}
+dd{margin:0}
+.never li::marker{content:"\00d7  ";color:var(--warn)}
+
+/* example scoreboard */
+.board{margin:0 0 1.1rem;padding:1.2rem 1rem 1rem;background:#04040b;border:1px solid var(--line)}
+.board p{margin:0 0 .8rem;text-align:center;font:700 1rem/1 var(--display);color:var(--cyan)}
+.board ol{list-style:none;margin:0 auto;padding:0;max-width:27rem;text-transform:uppercase}
+.board li{display:grid;grid-template-columns:1.6rem 1fr auto auto;gap:.8rem;margin:0;padding:.18rem 0;color:var(--dim)}
+.board li:nth-child(-n+3){color:var(--ink)}
+.board li.me{color:var(--gate)}
+.board i{font-style:normal;text-align:right}
+.board small{font-size:.74rem;color:var(--dim);align-self:center}
+
+footer{margin-top:3.4rem;padding-top:1.4rem;border-top:1px solid var(--line);color:var(--dim);font-size:.9rem}
+footer p{margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Doomsday <span>Tunnels</span></h1>
+  <p class="lede">A tunnel flyer for phones. Steer, shoot and boost through twisting tunnels before the countdown hits zero. This is the manual.</p>
+  <a class="play" href="../">Play the game</a>
+  <nav aria-label="On this page">
+    <ul>
+      <li><a href="#play">How to play</a></li>
+      <li><a href="#phone">Add it to your phone</a></li>
+      <li><a href="#data">What the game counts</a></li>
+      <li><a href="#scores">High scores</a></li>
+    </ul>
+  </nav>
+</header>
+
+<figure class="shot">
+  <img src="fork.webp" width="1408" height="650" alt="The game on a phone held sideways. A cyan wireframe tunnel splits in two: a bright branch on the left and a dark branch on the right with a white coin floating inside it.">
+  <figcaption>A fork in Sector 1. The dark branch on the right is harder and holds the ship token. The light branch on the left is the easy way round.</figcaption>
+</figure>
+
+<main>
+
+<section id="play">
+  <h2>How to play</h2>
+  <p>The year is 1999. Baron Von Kaboom has buried a Doomsday Device at the centre of the Earth, and the only way in is his network of colour-coded tunnels. You are Ace Chase. The ship is a rental.</p>
+  <p>Each tunnel is a sector with its own countdown. Reach the far end before the clock hits zero and you move on to the next sector. Run out of shield or run out of time and you lose the ship.</p>
+
+  <h3>The colour code</h3>
+  <p>Three colours tell you what to do with everything in the tunnel.</p>
+  <ul class="code">
+    <li class="red">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><rect x="5" y="11" width="42" height="30" fill="#7c2417" stroke="#ff4a2e" stroke-width="2"/><path d="M5 11 47 41M47 11 5 41" stroke="#ff4a2e" stroke-width="2"/></svg>
+      <b>Red: dodge</b>
+      <span>Walls. Flying into one costs 20 shield.</span>
+    </li>
+    <li class="yel">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><rect x="5" y="11" width="42" height="30" fill="#6b5d14" stroke="#ffe14a" stroke-width="2"/><path d="M26 19 33 26 26 33 19 26Z" fill="none" stroke="#ffe14a" stroke-width="2"/></svg>
+      <b>Yellow: shoot</b>
+      <span>Gates are walls built from blocks you can shoot out. Each block is worth 25 points, and from Sector 3 the blocks with a double outline take two shots. Flying into a block costs 18 shield.</span>
+    </li>
+    <li class="yel">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><path d="M26 10 37.3 14.7 42 26 37.3 37.3 26 42 14.7 37.3 10 26 14.7 14.7Z" fill="#4a4010"/><path d="M26 10 42 26 26 42 10 26Z M14.7 14.7H37.3V37.3H14.7Z" fill="none" stroke="#ffe14a" stroke-width="2"/><path d="M26 20.5 31.5 26 26 31.5 20.5 26Z" fill="#ff4a2e"/></svg>
+      <b>Yellow: shoot</b>
+      <span>Mines slide from side to side. Shoot one for 100 points. Flying into one costs 16 shield.</span>
+    </li>
+    <li class="wht">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="20" fill="#07060f" opacity=".6"/><path d="M26 8 44 26 26 44 8 26Z" fill="none" stroke="#fff" stroke-width="2"/><path d="M20 18H32L20 34H32Z" fill="#fff"/></svg>
+      <b>White: collect</b>
+      <span>Time, shield and boost cells are small white diamonds. Time adds 4 seconds, shield adds 25, and boost refills your boost. Each is worth 50 points.</span>
+    </li>
+    <li class="wht">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="21" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M26 5v4M26 43v4M5 26h4M43 26h4M11.2 11.2l2.8 2.8M38 38l2.8 2.8M40.8 11.2 38 14M14 38l-2.8 2.8" stroke="#fff" stroke-width="2.4"/><circle cx="26" cy="26" r="15" fill="#fff"/><path d="M26 15 35.5 34.4 26 29.6 16.5 34.4Z" fill="#07060f"/></svg>
+      <b>White: collect</b>
+      <span>The ship token is the large white coin with a ship on it. Collect it, finish the sector, and a spare ship is waiting for you. It is worth 200 points.</span>
+    </li>
+  </ul>
+
+  <h3>Controls</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th scope="col">To</th><th scope="col">On a phone</th><th scope="col">On a keyboard</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Steer</th><td>Left thumb on the stick</td><td>Arrow keys or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td></tr>
+      <tr><th scope="row">Fire</th><td>Hold FIRE</td><td>Hold <kbd>Space</kbd></td></tr>
+      <tr><th scope="row">Boost</th><td>Hold BOOST</td><td>Hold <kbd>Shift</kbd></td></tr>
+      <tr><th scope="row">Pause</th><td>The pause button, top right</td><td><kbd>P</kbd> or <kbd>Esc</kbd></td></tr>
+      <tr><th scope="row">Sound</th><td>The speaker button</td><td><kbd>M</kbd></td></tr>
+      <tr><th scope="row">Settings</th><td>The gear button, shown on the title screen and while paused</td><td><kbd>T</kbd></td></tr>
+      <tr><th scope="row">Full screen</th><td><a href="#phone">Add the game to your home screen</a></td><td><kbd>F</kbd></td></tr>
+      <tr><th scope="row">Skip a cut scene</th><td>SKIP</td><td><kbd>Esc</kbd></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Boost</strong> flies the ship half as fast again. A full reserve lasts six seconds of holding. A boost cell refills it, and so does the start of each sector.</p>
+  <p><strong>Tilt steering</strong> is in the settings. With it on, tilting the phone steers the ship and your left thumb aims the guns. An iPhone asks permission to use its motion sensor first. Tilt takes practice; the thumb stick is the easier way to fly.</p>
+  <p>The settings also have sliders for steering speed, flight speed and how sharply the tunnels bend.</p>
+
+  <h3>Forks</h3>
+  <p>Partway through every sector the tunnel widens and splits in two. Both branches keep the sector's colour, one light and one dark.</p>
+  <ul>
+    <li><strong>The light branch</strong> has fewer obstacles and more pickups, but no ship token.</li>
+    <li><strong>The dark branch</strong> has more obstacles, and the sector's ship token floats just inside it.</li>
+  </ul>
+  <p>Which side is dark changes from sector to sector. Clipping the wall between the branches costs 18 shield.</p>
+
+  <h3>Ships</h3>
+  <p>You start with one ship and no spares. Collect a sector's ship token, finish that sector, and you gain a spare, up to five.</p>
+  <p>If you lose a ship with a spare in hand, you carry on with a full shield. After a crash you continue from the same spot. If the clock ran out, the sector starts again with a fresh countdown. Lose your last ship and the run is over.</p>
+
+  <h3>Scoring</h3>
+  <ul>
+    <li>Points build up with every stretch of tunnel you fly.</li>
+    <li>Time, shield and boost cells: 50 each. Ship token: 200.</li>
+    <li>Gate blocks: 25 each. Mines: 100 each.</li>
+    <li>Finishing a sector: 10 points for every second left on the clock, plus 2 for every point of shield. You also get 20 shield back.</li>
+  </ul>
+  <p>The story runs for ten sectors in two parts. After that the tunnels keep going for as long as you can.</p>
+</section>
+
+<section id="phone">
+  <h2>Add it to your phone</h2>
+  <p>Opened from an icon on your home screen, the game fills the whole screen with no browser bars. On an iPhone this is the only way to play full screen. On Android the game also goes full screen in the browser when you tap to start, but the icon is quicker.</p>
+
+  <div class="two">
+    <div>
+      <h3>iPhone, in Safari</h3>
+      <ol>
+        <li>Open <a href="../">acechase.github.io/doomsday-tunnels</a> in Safari.</li>
+        <li>Tap <strong>Share</strong>. On recent versions of iOS it is under the <strong>•••</strong> button beside the address bar. On older ones it is the square with an arrow in the toolbar.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>If you see an <strong>Open as Web App</strong> switch, leave it on.</li>
+        <li>Tap <strong>Add</strong>, then open the game from its new icon.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Android, in Chrome</h3>
+      <ol>
+        <li>Open <a href="../">acechase.github.io/doomsday-tunnels</a> in Chrome.</li>
+        <li>Tap the <strong>⋮</strong> menu beside the address bar.</li>
+        <li>Tap <strong>Add to Home screen</strong>. Some versions of Chrome call it <strong>Install app</strong>.</li>
+        <li>Tap <strong>Install</strong>, then open the game from its new icon.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>Good to know</h3>
+  <ul>
+    <li>Hold the phone sideways. If your rotation lock is on, the game turns itself to fit.</li>
+    <li>Sound starts with your first tap, and on an iPhone it can play even when the ring switch is set to silent. The speaker button turns it off.</li>
+    <li>On an iPhone the home screen copy keeps its own settings and best score, so they start fresh the first time you open it.</li>
+    <li>On a computer, press <kbd>F</kbd> for full screen.</li>
+  </ul>
+</section>
+
+<section id="data">
+  <h2>What the game counts</h2>
+  <p>The game keeps daily totals so its maker can tell whether anyone is playing. It has no accounts, sets no cookies, shows no ads and uses no analytics service. Nothing it sends says who you are.</p>
+  <p>The one exception is a high score, which is public and carries the name you choose to type. Posting one is always up to you.</p>
+
+  <h3>What is sent, and when</h3>
+
+  <div class="moment">
+    <h3>When you start a run</h3>
+    <dl>
+      <div><dt>Your browser sends</dt><dd>That a run has started. Whether it is the first run on this device today, and the first ever. Whether you are on a touch screen. Whether tilt steering is on.</dd></div>
+      <div><dt>The server keeps</dt><dd>One more on that day's totals: runs, players, new players, touch-screen runs and tilt runs.</dd></div>
+    </dl>
+  </div>
+
+  <div class="moment">
+    <h3>When a run ends</h3>
+    <dl>
+      <div><dt>Your browser sends</dt><dd>The sector you reached and how many seconds the run lasted.</dd></div>
+      <div><dt>The server keeps</dt><dd>That day's totals again: runs finished, seconds played and sectors cleared, plus a count of how many runs ended in each sector.</dd></div>
+    </dl>
+  </div>
+
+  <div class="moment">
+    <h3>When you choose to post a score</h3>
+    <dl>
+      <div><dt>Your browser sends</dt><dd>The name you typed, your score and the sector you reached.</dd></div>
+      <div><dt>The server keeps</dt><dd>That name with its best score, the sector and the date. This is the public scoreboard.</dd></div>
+    </dl>
+  </div>
+
+  <p>Looking at the scoreboard sends nothing about you. Only the game's maker can see the daily totals. Days are counted in UTC.</p>
+
+  <h3>How players are counted without knowing who they are</h3>
+  <p>Your browser remembers the date you last played. When you start a run it answers one question for the server: is this the first run on this device today, yes or no? The server adds up the yeses. It never receives anything that could tell two devices apart.</p>
+
+  <h3>What is never stored</h3>
+  <ul class="never">
+    <li>Your IP address. The server uses it for about a minute to slow down spam, as described under <a href="#others">other companies involved</a>, and never writes it down.</li>
+    <li>Your device, browser, screen size or operating system.</li>
+    <li>Your location.</li>
+    <li>Any ID for you or your device.</li>
+    <li>A record of individual runs. Only the daily totals above are kept.</li>
+  </ul>
+
+  <h3>Opting out</h3>
+  <p>If your browser has <strong>Do Not Track</strong> or <strong>Global Privacy Control</strong> switched on, your runs are not counted at all. The game still asks the server for a start time, which it needs if you later post a score, but nothing is added to the totals.</p>
+
+  <h3>What stays on your device</h3>
+  <p>The game saves a few things in your browser's storage for this site. They are never sent anywhere, apart from the name when you post a score.</p>
+  <ul>
+    <li>Your settings and your choice of thumb stick or tilt.</li>
+    <li>Your best score.</li>
+    <li>The name you last posted, so it is filled in next time.</li>
+    <li>The date you last played.</li>
+  </ul>
+  <p>Clearing this site's data in your browser removes all of it.</p>
+
+  <h3 id="others">Other companies involved</h3>
+  <p>The game cannot reach you without passing through three services, and each sees your connection in the way any website's host does.</p>
+  <ul>
+    <li><strong>GitHub</strong> hosts the game and this page. GitHub <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">logs the IP address of visitors</a> to every site it hosts, for security.</li>
+    <li><strong>Cloudflare</strong> runs the scoreboard server. To stop one connection from flooding it, the server uses your IP address as a counter inside Cloudflare that lasts about a minute. It is never written to the game's database.</li>
+    <li><strong>Google Fonts</strong> supplies the two typefaces used by the game and this page, so your browser asks Google's servers for them. Google <a href="https://developers.google.com/fonts/faq/privacy">describes what it records</a>.</li>
+  </ul>
+  <p>The server's code is public. You can <a href="https://github.com/acechase/acechase.github.com/tree/master/_doomsday-tunnels-api">read exactly what it stores</a>.</p>
+</section>
+
+<section id="scores">
+  <h2>High scores</h2>
+  <p>When a run ends, tap <strong>POST SCORE</strong>, type a name and send it. Your name, your score and the sector you reached then appear on a board that anyone playing the game can see. You can post once per run, and you never have to.</p>
+
+  <h3>Names</h3>
+  <ul>
+    <li>Up to 12 characters: letters, numbers, spaces and <kbd>.</kbd> <kbd>_</kbd> <kbd>-</kbd> <kbd>!</kbd> <kbd>?</kbd> <kbd>'</kbd></li>
+    <li>Rude words are turned away, including the creative spellings.</li>
+    <li>A name is not an account. There is no password, so anyone can type any name.</li>
+  </ul>
+
+  <h3>One entry per name</h3>
+  <p>Each name has a single line on the board, holding the best score posted under it. Post a lower score under the same name and the entry stays as it was. Capital letters make no difference: ACE and Ace are the same entry.</p>
+
+  <h3>Reading the board</h3>
+  <p>The <strong>SCORES</strong> button on the title screen opens the board, and so does <strong>HIGH SCORES</strong> after a run. It lists the top ten by score, with the sector each run reached. When two scores are equal, the older one ranks higher.</p>
+  <p>The name you last posted shows in yellow. If your score lands outside the top ten, the board tells you your rank underneath.</p>
+
+  <div class="board" role="img" aria-label="Example scoreboard. 1: Baron, sector 6, 18,250. 2: Fluffles, sector 5, 14,900. 3: Ace, sector 3, 6,480, highlighted in yellow. 4: Buddy, sector 3, 5,210.">
+    <p aria-hidden="true">High scores</p>
+    <ol aria-hidden="true">
+      <li><i>1</i><span>Baron</span><small>Sector 6</small><span>018250</span></li>
+      <li><i>2</i><span>Fluffles</span><small>Sector 5</small><span>014900</span></li>
+      <li class="me"><i>3</i><span>Ace</span><small>Sector 3</small><span>006480</span></li>
+      <li><i>4</i><span>Buddy</span><small>Sector 3</small><span>005210</span></li>
+    </ol>
+  </div>
+  <p>This is an example, not the live board. The names are characters from the game's story, and the yellow line is how your own entry looks.</p>
+
+  <h3>How scores are checked</h3>
+  <p>Scores come from your browser, so the server cannot be sure every one is real. It turns away the ones that could not have happened:</p>
+  <ul>
+    <li>a score with no run behind it, or from a run that started more than 12 hours ago;</li>
+    <li>a sector reached faster than 20 seconds per sector;</li>
+    <li>a score higher than a run can earn by that sector;</li>
+    <li>more than six posts a minute from one connection.</li>
+  </ul>
+  <p>A determined cheat can still get a score through. The game's maker can remove any entry. To ask for a name to be taken down, <a href="https://github.com/acechase/acechase.github.com/issues">open an issue on GitHub</a>.</p>
+</section>
+
+</main>
+
+<footer>
+  <p>Doomsday Tunnels is a hobby project by Andrew Chase. <a href="../">Play the game</a>.</p>
+  <p>Last updated October 2026.</p>
+</footer>
+
+</div>
+</body>
+</html>
