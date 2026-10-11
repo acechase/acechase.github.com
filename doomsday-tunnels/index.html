@@ -947,10 +947,42 @@ function ringBtn(b, label, on, size) {
   ctx.textBaseline = 'middle'; txt(label, b.x, b.y, FONT_M, size * u, C.ink, 'center');
   ctx.globalAlpha = 1;
 }
+// Sound: a speaker with sound waves on a lit button, or with a line through it on a dark one when muted.
+function speakerIcon(b, off) {
+  const k = b.r / 20, x = b.x - (off ? 0 : 2.5 * k), y = b.y;
+  const col = off ? C.ink : C.void;               // dark on the lit button, light on the dark one
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.fillStyle = col; ctx.strokeStyle = col;
+  ctx.beginPath(); ctx.moveTo(x - 7 * k, y - 3.2 * k); ctx.lineTo(x - 3 * k, y - 3.2 * k); ctx.lineTo(x + 2 * k, y - 7.5 * k);
+  ctx.lineTo(x + 2 * k, y + 7.5 * k); ctx.lineTo(x - 3 * k, y + 3.2 * k); ctx.lineTo(x - 7 * k, y + 3.2 * k); ctx.closePath(); ctx.fill();
+  if (!off) {
+    ctx.lineWidth = 1.8 * k;
+    ctx.beginPath(); ctx.arc(x + 2 * k, y, 4.2 * k, -0.9, 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 2 * k, y, 8 * k, -0.85, 0.85); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(b.x - 9 * k, b.y - 9 * k); ctx.lineTo(b.x + 9 * k, b.y + 9 * k);
+    ctx.strokeStyle = C.void; ctx.lineWidth = 5.5 * k; ctx.stroke(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.2 * k; ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+}
+// Settings: a gear.
+function gearIcon(b) {
+  const k = b.r / 20, n = 8, w = 6.283 / n, ro = 10 * k, ri = 7.2 * k;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const a = i * w;
+    for (const [r, t] of [[ri, a - 0.3 * w], [ro, a - 0.19 * w], [ro, a + 0.19 * w], [ri, a + 0.3 * w]]) {
+      const X = b.x + Math.cos(t) * r, Y = b.y + Math.sin(t) * r;
+      if (i === 0 && t < a && r === ri) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+  }
+  ctx.closePath(); ctx.moveTo(b.x + 3.6 * k, b.y); ctx.arc(b.x, b.y, 3.6 * k, 0, 6.283);
+  ctx.fillStyle = C.ink; ctx.lineJoin = 'round'; ctx.fill('evenodd');
+}
 function drawHUD() {
   const m = 14 * u, x0 = padL + m;
-  ringBtn(muteBtn, muted ? 'MUTE' : 'SND', !muted, 11);
-  if ((state !== 'play' || paused) && state !== 'respawn') ringBtn(tuneBtn, 'TUNE', false, 10);
+  ringBtn(muteBtn, '', !muted, 11); if (!muted) { ctx.globalAlpha = 0.5; ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(muteBtn.x, muteBtn.y, muteBtn.r, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
+  speakerIcon(muteBtn, muted);
+  if ((state !== 'play' || paused) && state !== 'respawn') { ringBtn(tuneBtn, '', false, 10); gearIcon(tuneBtn); }
   if (API && (state === 'title' || state === 'over')) ringBtn(scoresBtn, 'SCORES', false, 9);
   if (state === 'title' || state === 'clear') return;
   ringBtn(pauseBtn, paused ? '>' : 'II', paused, 14);
