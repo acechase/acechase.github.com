@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syncopate:wght@700&display=swap">
+<link rel="preload" href="fonts/ShareTechMono-Regular.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
 <style>
 /* Layout: one full-bleed canvas. The game always plays landscape and draws its own HUD and thumb controls. */
 :root{
@@ -71,6 +71,8 @@ body{margin:0;background:var(--void);color:var(--ink);overflow:hidden;font-famil
 #tune-done{background:var(--ink);color:var(--void)}
 .tfoot button:focus-visible,.trow input:focus-visible,.tctl button:focus-visible,.tchk input:focus-visible{outline:2px solid var(--gate);outline-offset:2px}
 
+@font-face{font-family:"Share Tech Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ShareTechMono-Regular.woff) format("woff")}
+@font-face{font-family:"Syncopate";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/Syncopate-Bold.woff) format("woff")}
 html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);background:var(--void)}
 </style>
 </head>
