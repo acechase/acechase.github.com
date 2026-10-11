@@ -326,6 +326,11 @@ function makeLevel(n) {
     z += gap * (0.8 + R() * 0.6);
   }
   o.sort((a, b) => a.z - b.z);
+  // one ship token per sector, in the widest gap of the back half so it is always reachable
+  let gi = -1, gw = 0;
+  for (let i = 0; i < o.length - 1; i++) { const w = o[i + 1].z - o[i].z; if (o[i].z > lv.L * 0.5 && w > gw) { gw = w; gi = i; } }
+  lv.ship = { z: gi >= 0 ? (o[gi].z + o[gi + 1].z) / 2 : lv.L * 0.75, kind: 'ship', x: (R() * 2 - 1) * (HW - 0.5), y: (R() * 2 - 1) * (HH - 0.36), taken: false, hinted: false, gone: false };
+  o.push(lv.ship); o.sort((a, b) => a.z - b.z);
   lv.objs = o;
   return lv;
 }
@@ -337,7 +342,8 @@ function cyAt(z) { const p = lv.py; return TUNE.twist * env(z) * (p[0] * Math.si
 /* ---------- state ---------- */
 let state = 'title', paused = false, stateT = 0, tNow = 0;
 let level = 1, score = 0, best = 0, time = 0, shield = 100, deadWhy = '', bonus = null;
-const START_SPARES = 1, MAX_SPARES = 5;        // spare ships: one to begin with, one more for every sector cleared
+const START_SPARES = 0, MAX_SPARES = 5;        // spare ships: none to begin with; each sector hides one token worth a ship
+let shipEarned = false;                        // this sector's token is in hand; it becomes a ship when the sector is cleared
 let lives = START_SPARES, invuln = 0, respawnWhy = '';
 let pz = 0, speed = 0, rx = 0, ry = 0, vx = 0, vy = 0, roll = 0, objs = [];
 let fireCd = 0, gunSide = 1, flash = 0, flashCol = C.warn, shake = 0, scrapeCd = 0, lastBeep = 0;
@@ -352,7 +358,7 @@ function attract() { lv = makeLevel(1); lv.L = 1e9; objs = []; pz = 0; rx = ry =
 function startLevel(n) {
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
-  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false;
+  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false; shipEarned = false;
 }
 function newGame() {
   runStarted();
@@ -399,8 +405,8 @@ function gameOver(why) {
 }
 function sectorClear() {
   const tb = Math.ceil(time) * 10, sb = Math.round(shield) * 2;
-  const gotShip = lives < MAX_SPARES; if (gotShip) lives++;
-  score += tb + sb; bonus = { n: level, tb, sb, ship: gotShip }; shield = Math.min(100, shield + 20);
+  const token = shipEarned, gotShip = token && lives < MAX_SPARES; if (gotShip) lives++;
+  score += tb + sb; bonus = { n: level, tb, sb, ship: gotShip, token }; shield = Math.min(100, shield + 20);
   saveBest(); sfx.clear(); flash = 1; flashCol = C.ink;
   level++; lv = makeLevel(level); objs = []; pz = 0; rx = ry = vx = vy = 0; bullets.length = 0;
   state = 'clear'; stateT = 0;
@@ -516,6 +522,7 @@ function collide(o) {
     o.taken = true; score += 50;
     if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
     else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
+    else if (o.kind === 'ship') { shipEarned = true; score += 150; sfx.clear(); popups.push({ s: lives < MAX_SPARES ? 'SHIP TOKEN! SPARE SHIP AT SECTOR END' : 'SHIP TOKEN (SHIP BAY FULL)', t: 0 }); }
     else { sfx.refuel(); boostFuel = 1; popups.push({ s: 'BOOST FULL', t: 0 }); }
   }
 }
@@ -628,6 +635,11 @@ function update(dt) {
     if (b.dead || b.z - pz > 75 || b.z > lv.L) bullets.splice(i, 1);
   }
 
+  const tk = lv.ship;
+  if (tk && !tk.taken) {
+    if (!tk.hinted && tk.z - pz < 62) { tk.hinted = true; sfx.beep(); popups.push({ s: 'SHIP TOKEN AHEAD', t: 0 }); }
+    else if (!tk.gone && pz > tk.z + 1) { tk.gone = true; popups.push({ s: 'SHIP TOKEN MISSED', t: 0 }); }
+  }
   if (time < 10 && time > 0) { const c = Math.ceil(time); if (c !== lastBeep) { lastBeep = c; sfx.beep(); } }
   if (pz >= lv.L) sectorClear();
   else if (shield <= 0) { shield = 0; loseShip('SHIP LOST'); }
@@ -730,6 +742,10 @@ function drawObj(o) {
   } else if (!o.taken) {
     const cx = ox + o.x * s, cy = oy - (o.y + Math.sin(tNow * 3 + o.z) * 0.04) * s, R = 0.2 * s;
     halo(cx, cy, R * 2.3, C.pick, a * (0.16 + 0.06 * Math.sin(tNow * 5 + o.z)));
+    if (o.kind === 'ship') {                       // the ship token: bigger glow and a second ring, so it cannot be mistaken
+      halo(cx, cy, R * 3.4, C.pick, a * (0.14 + 0.1 * Math.sin(tNow * 9)));
+      ctx.globalAlpha = a; ctx.strokeStyle = C.pick; poly(cx, cy, R * 2.1, 4, -tNow * 2.2); ctx.stroke();
+    }
     ctx.globalAlpha = a; ctx.strokeStyle = C.pick; ctx.fillStyle = C.pick;
     poly(cx, cy, R * 1.5, 4, tNow * 1.5); ctx.stroke();
     if (o.kind === 'time') {
@@ -741,10 +757,12 @@ function drawObj(o) {
         ctx.lineTo(cx + R * 0.8, yy + R * 0.92); ctx.lineTo(cx, yy + R * 0.37); ctx.lineTo(cx - R * 0.8, yy + R * 0.92); ctx.closePath();
       }
       ctx.fill();
+    } else if (o.kind === 'ship') {
+      ctx.beginPath(); ctx.moveTo(cx, cy - R * 1.1); ctx.lineTo(cx + R * 0.95, cy + R * 0.9); ctx.lineTo(cx, cy + R * 0.42); ctx.lineTo(cx - R * 0.95, cy + R * 0.9); ctx.closePath(); ctx.fill();
     } else { poly(cx, cy, R * 0.9, 6, 0.524); ctx.fill(); }
     if (dz < 34) {
       ctx.font = Math.max(9, Math.min(22 * u, 0.2 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : 'SHIELD', cx, cy + R * 1.7);
+      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : o.kind === 'ship' ? 'SHIP' : 'SHIELD', cx, cy + R * 1.7);
     }
     ctx.globalAlpha = 1;
   }
@@ -851,7 +869,8 @@ function drawHUD() {
   ctx.textBaseline = 'top';
   txt('SECTOR ' + String(level).padStart(2, '0'), x0, m, FONT_M, 12 * u, C.dim);
   txt(String(Math.floor(score)).padStart(6, '0'), x0, m + 15 * u, FONT_M, 21 * u, C.ink);
-  for (let i = 0; i < lives; i++) {                // one small ship per spare
+  for (let i = 0; i < lives + (shipEarned && lives < MAX_SPARES ? 1 : 0); i++) {      // one small ship per spare; a blinking one for a token in hand
+    if (i === lives && (tNow * 3) % 1 < 0.4) continue;
     const sx = x0 + 92 * u + i * 15 * u, sy = m + 19 * u, k = u;
     ctx.beginPath(); ctx.moveTo(sx + 5.5 * k, sy); ctx.lineTo(sx + 11 * k, sy + 12 * k); ctx.lineTo(sx + 5.5 * k, sy + 9 * k); ctx.lineTo(sx, sy + 12 * k); ctx.closePath();
     ctx.lineJoin = 'round'; ctx.lineWidth = 2.5 * u; ctx.strokeStyle = C.void; ctx.stroke(); ctx.fillStyle = C.ink; ctx.fill();
@@ -941,7 +960,7 @@ function drawOverlay() {
     txt('SECTOR ' + String(bonus.n).padStart(2, '0') + ' CLEAR', cx, cy - 70 * u, FONT_D, big * 0.75, C.ink, 'center');
     txt('TIME BONUS    +' + bonus.tb, cx, cy - 18 * u, FONT_M, 16 * u, C.ink, 'center');
     txt('SHIELD BONUS  +' + bonus.sb, cx, cy + 6 * u, FONT_M, 16 * u, C.ink, 'center');
-    txt(bonus.ship ? 'EXTRA SHIP  +1' : 'SHIP BAY FULL', cx, cy + 30 * u, FONT_M, 16 * u, bonus.ship ? C.gate : C.dim, 'center');
+    txt(bonus.ship ? 'SHIP TOKEN: EXTRA SHIP  +1' : bonus.token ? 'SHIP TOKEN: SHIP BAY FULL' : 'NO SHIP TOKEN, NO EXTRA SHIP', cx, cy + 30 * u, FONT_M, 16 * u, bonus.ship ? C.gate : C.dim, 'center');
     txt('SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy + 58 * u, FONT_M, 16 * u, lv.color, 'center');
     if (blink) txt(go + ' FOR SECTOR ' + String(level).padStart(2, '0'), cx, cy + 100 * u, FONT_D, 14 * u, C.ink, 'center');
   } else {
@@ -1159,13 +1178,14 @@ function drawShip(x, y, s, t) {                    // the rental, seen from behi
 // Each painter gets (time in shot, who is speaking, whether they are mid-sentence, the shot, the line).
 const PAINT = {
   card(t, who, talk, sh) {                         // neon sunset over an endless grid
-    const hz = Math.round(VH * 0.62), cx = VW / 2, bands = [K.night, K.navy, K.indigo, K.purple, K.magenta, K.pink, K.orange];
+    const hz = Math.round(VH * 0.62), cx = VW / 2, bands = sh.moon ? [K.black, K.black, K.night, K.night, K.navy, K.indigo, K.purple] : [K.night, K.navy, K.indigo, K.purple, K.magenta, K.pink, K.orange];
     bands.forEach((c, i) => bx(0, i * hz / bands.length, VW, hz / bands.length + 1, c));
     for (let i = 0; i < 44; i++) if ((t * 1.7 + i * 0.61) % 3 > 0.5) bx(rnd(i) * VW, rnd(i + 50) * hz * 0.55, 1, 1, K.white);
     const sr = hz * 0.6;
     sg.save(); sg.beginPath(); sg.arc(cx, hz, sr, Math.PI, 0); sg.clip();
-    [K.yellow, '#ffb347', K.orange, K.pink, K.magenta].forEach((c, i) => bx(cx - sr, hz - sr + i * sr / 5, sr * 2, sr / 5 + 1, c));
-    for (let k = 0; k < 6; k++) { const yy = hz - ((k + (t * 0.35) % 1) / 6) * sr * 0.8; bx(cx - sr, yy, sr * 2, 1 + (5 - k) * 0.5, K.indigo); }
+    (sh.moon ? ['#ffe98a', K.yellow, K.yellow, '#f0c93a', '#e0b52e'] : [K.yellow, '#ffb347', K.orange, K.pink, K.magenta]).forEach((c, i) => bx(cx - sr, hz - sr + i * sr / 5, sr * 2, sr / 5 + 1, c));
+    if (sh.moon) for (let i = 0; i < 9; i++) ov(cx - sr * 0.8 + rnd(i + 3) * sr * 1.6, hz - rnd(i + 12) * sr * 0.85, 2 + rnd(i + 21) * 6, 1.5 + rnd(i + 30) * 4, '#c9981c');   // a cheese Moon rising
+    else for (let k = 0; k < 6; k++) { const yy = hz - ((k + (t * 0.35) % 1) / 6) * sr * 0.8; bx(cx - sr, yy, sr * 2, 1 + (5 - k) * 0.5, K.indigo); }
     sg.restore();
     pg([0, hz, 0, hz - 10, 22, hz - 24, 40, hz - 9, 58, hz - 19, 86, hz], K.night); pg([VW, hz, VW, hz - 14, VW - 26, hz - 27, VW - 48, hz - 8, VW - 66, hz - 17, VW - 92, hz], K.night);
     bx(0, hz, VW, VH - hz, K.night);
@@ -1179,20 +1199,25 @@ const PAINT = {
     }
   },
   lair(t, who, talk, sh, ln) {                     // Baron Von Kaboom's regrettably damp headquarters
-    const ft = t % 3.7, fl = ft < 0.1 || (ft > 0.18 && ft < 0.25), cx = VW / 2;
-    bx(0, 0, VW, VH, '#1c0714');
-    for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) if (rnd(r * 9 + c) > 0.45) bx(c * 40 - (r % 2) * 20, r * 18, 38, 16, '#260a1c');
-    const wx = 30, wy = VH * 0.2, ww = 42, wh = VH * 0.46, sky = fl ? K.white : K.indigo;       // window, with weather
+    const moon = !!sh.moon, ft = t % 3.7, fl = !moon && (ft < 0.1 || (ft > 0.18 && ft < 0.25)), cx = VW / 2;
+    bx(0, 0, VW, VH, moon ? '#c9a227' : '#1c0714');           // the Moon base is carved out of cheese
+    if (moon) for (let i = 0; i < 28; i++) ov(rnd(i) * VW, rnd(i + 40) * VH, 3 + rnd(i + 80) * 8, 2 + rnd(i + 90) * 5, '#a67c14');
+    else for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) if (rnd(r * 9 + c) > 0.45) bx(c * 40 - (r % 2) * 20, r * 18, 38, 16, '#260a1c');
+    const wx = 30, wy = VH * 0.2, ww = 42, wh = VH * 0.46, sky = fl ? K.white : moon ? K.black : K.indigo;       // window, with weather
     ov(wx + ww / 2, wy, ww / 2 + 3, 13, '#0d0309'); bx(wx - 3, wy, ww + 6, wh + 3, '#0d0309');
     ov(wx + ww / 2, wy, ww / 2, 10, sky); bx(wx, wy, ww, wh, sky);
     if (fl) pg([wx + 27, wy - 6, wx + 14, wy + wh * 0.45, wx + 22, wy + wh * 0.45, wx + 10, wy + wh, wx + 31, wy + wh * 0.38, wx + 23, wy + wh * 0.38, wx + 33, wy - 6], K.yellow);
+    else if (moon) earthIcon(wx + 27, wy + 17, 9, t, false);
     else ov(wx + 30, wy + 8, 6, 6, '#e9e2ff');
     bx(wx + ww / 2 - 1, wy - 10, 2, wh + 10, '#0d0309'); bx(wx, wy + wh * 0.45, ww, 2, '#0d0309');
     const mx = VW - 90, my = VH * 0.14, mw = 62, mh = VH * 0.42;                                  // scheming monitor
-    bx(mx - 3, my - 3, mw + 6, mh + 6, K.dgrey); bx(mx, my, mw, mh, '#06121f'); earthIcon(mx + mw / 2, my + mh / 2, mh * 0.34, t);
-    for (let i = 0; i < 6; i++) bx(mx + 2 + i * 7, my + mh + 6, 4, 2, (t * 3 + i * 0.4) % 1 < 0.5 ? [K.red, K.yellow, K.green][i % 3] : '#3a0d1e');
+    if (!sh.mother) {
+      bx(mx - 3, my - 3, mw + 6, mh + 6, K.dgrey); bx(mx, my, mw, mh, '#06121f'); earthIcon(mx + mw / 2, my + mh / 2, mh * 0.34, t);
+      for (let i = 0; i < 6; i++) bx(mx + 2 + i * 7, my + mh + 6, 4, 2, (t * 3 + i * 0.4) % 1 < 0.5 ? [K.red, K.yellow, K.green][i % 3] : '#3a0d1e');
+    }
     pg([cx - 30, VH, cx - 26, VH - 92, cx - 18, VH - 100, cx - 10, VH - 92, cx, VH - 104, cx + 10, VH - 92, cx + 18, VH - 100, cx + 26, VH - 92, cx + 30, VH], '#3a0d4d');  // throne
-    drawBaron(cx, VH, t, who === 'baron' && talk, who === 'baron' && ln.fx === 'laugh');
+    if (!sh.noBaron) drawBaron(cx, VH, t, who === 'baron' && talk, who === 'baron' && ln.fx === 'laugh');
+    if (sh.mother) drawMother(cx + 90, VH, t, who === 'mother' && talk);
     bx(cx - 90, VH - 15, 46, 15, '#2a0b1e'); ov(cx - 67, VH - 16, 21, 4, K.pink);
     drawCat(cx - 65, VH - 18, t, who === 'cat' && talk);
     if (fl) { sg.globalAlpha = 0.22; bx(0, 0, VW, VH, K.white); sg.globalAlpha = 1; }
@@ -1291,11 +1316,115 @@ const PAINT = {
   }
 };
 
+/* ---------- cut scenes: part two cast and sets ---------- */
+function drawMother(x, by, t, talk) {              // Mother Von Kaboom: the hair alone has its own gravity
+  const y = by - 78;
+  pg([x - 40, by, x - 43, y + 37, x - 14, y + 30, x + 14, y + 30, x + 43, y + 37, x + 40, by], K.magenta);
+  pg([x - 43, y + 37, x - 30, y + 28, x - 14, y + 30, x - 22, y + 42], K.purple); pg([x + 43, y + 37, x + 30, y + 28, x + 14, y + 30, x + 22, y + 42], K.purple);   // shoulder pads
+  for (let i = -3; i <= 3; i++) bx(x + i * 3 - 1, y + 35 - Math.abs(i), 2, 2, K.white);                         // pearls
+  bx(x - 5, y + 25, 10, 7, K.skinS);
+  ov(x, y - 8, 15, 16, K.steel); ov(x, y - 21, 11, 10, K.steel); ov(x - 12, y + 7, 5, 10, K.steel); ov(x + 12, y + 7, 5, 10, K.steel);   // beehive
+  ov(x, y + 13, 12, 14, K.skin);
+  pg([x - 3, y - 29, x + 2, y - 31, x + 7, y - 3, x + 2, y - 1], K.white);                                      // the streak
+  li(x - 10, y + 6, x - 3, y + 6, K.dgrey, 1); li(x + 3, y + 5, x + 10, y + 2, K.dgrey, 1);                     // one eyebrow permanently raised
+  pg([x - 13, y + 7, x - 2, y + 9, x - 3, y + 15, x - 10, y + 15], K.red); pg([x + 13, y + 7, x + 2, y + 9, x + 3, y + 15, x + 10, y + 15], K.red);   // cat-eye glasses
+  bx(x - 9, y + 10, 6, 4, K.glass); bx(x + 3, y + 10, 6, 4, K.glass); bx(x - 2, y + 10, 4, 1, K.red);
+  if (t % 3.6 < 0.12) { bx(x - 8, y + 12, 4, 1, K.black); bx(x + 4, y + 12, 4, 1, K.black); } else { bx(x - 7, y + 11, 2, 2, K.black); bx(x + 5, y + 11, 2, 2, K.black); }
+  bx(x - 1, y + 15, 2, 4, K.skinS);
+  bx(x - 3, y + 22, 6, talk ? 1 + flap(t, 3) : 2, K.red);
+  bx(x - 13, y + 17, 2, 5, K.yellow); bx(x + 11, y + 17, 2, 5, K.yellow);
+  sg.strokeStyle = K.brown; sg.lineWidth = 2; sg.beginPath(); sg.arc(x + 33, y + 47, 5, Math.PI, 0); sg.stroke();   // handbag, held like a weapon
+  bx(x + 26, y + 47, 14, 11, K.brown); bx(x + 31, y + 51, 4, 2, K.yellow);
+}
+function drawDebbie(x, by, t, talk) {              // Debbie, Prestige Rocket Rental: relentlessly helpful
+  const y = by - 76;
+  pg([x - 40, by, x - 41, y + 36, x - 12, y + 30, x + 12, y + 30, x + 41, y + 36, x + 40, by], K.pink);
+  pg([x - 9, y + 30, x, y + 45, x + 9, y + 30], K.white);
+  bx(x + 15, y + 45, 13, 8, K.white); bx(x + 17, y + 47, 9, 1, K.navy); bx(x + 17, y + 50, 6, 1, K.navy);        // name badge
+  bx(x - 5, y + 25, 10, 7, K.skinS);
+  for (const [dx, dy, r] of [[-14, 2, 9], [14, 2, 9], [-10, -8, 10], [10, -8, 10], [0, -13, 11], [-17, 12, 7], [17, 12, 7], [-15, 22, 6], [15, 22, 6]]) ov(x + dx, y + dy, r, r, K.yellow);   // the perm
+  ov(x, y + 13, 11, 13, K.skin);
+  ov(x - 4, y + 1, 7, 4, K.yellow); ov(x + 5, y + 2, 6, 4, K.yellow);
+  bx(x - 8, y + 9, 5, 2, K.cyan); bx(x + 3, y + 9, 5, 2, K.cyan);                                               // eyeshadow
+  if (t % 2.7 < 0.12) { bx(x - 8, y + 12, 5, 1, K.brown); bx(x + 3, y + 12, 5, 1, K.brown); } else { bx(x - 7, y + 11, 3, 3, K.white); bx(x + 4, y + 11, 3, 3, K.white); bx(x - 6, y + 12, 2, 2, K.black); bx(x + 5, y + 12, 2, 2, K.black); }
+  bx(x - 1, y + 15, 2, 3, K.skinS); bx(x - 10, y + 17, 3, 2, K.pink); bx(x + 7, y + 17, 3, 2, K.pink);
+  if (talk) { bx(x - 5, y + 20, 10, 2 + flap(t, 3), K.dkred); bx(x - 5, y + 20, 10, 1, K.white); } else { bx(x - 6, y + 20, 12, 3, K.white); bx(x - 6, y + 23, 12, 1, K.red); }
+  sg.strokeStyle = K.black; sg.lineWidth = 2; sg.beginPath(); sg.arc(x, y + 4, 20, Math.PI * 1.08, Math.PI * 1.92); sg.stroke();   // headset
+  bx(x - 22, y + 7, 5, 9, K.black); li(x - 19, y + 15, x - 8, y + 23, K.black, 1); bx(x - 9, y + 22, 3, 3, K.black);
+}
+PAINT.rental = (t, who, talk) => {                 // Prestige Rocket Rental, customer care
+  const cx = VW / 2;
+  bx(0, 0, VW, VH, '#16525c');
+  for (let i = 0; i < 30; i++) {                   // tasteful wall confetti
+    const x = rnd(i) * VW, y = rnd(i + 30) * VH * 0.85, k = i % 4;
+    if (k === 0) pg([x, y, x + 6, y + 3, x, y + 6], K.pink); else if (k === 1) bx(x, y, 5, 2, K.yellow); else if (k === 2) ov(x, y, 2, 2, K.cyan); else li(x, y, x + 5, y + 4, K.white, 1);
+  }
+  const px = 30, py = VH * 0.12, ph = VH * 0.52;   // poster of the fleet
+  bx(px - 2, py - 2, 48, ph + 4, K.white); bx(px, py, 44, ph, K.navy); drawShip(px + 22, py + ph * 0.5, 0.9, t);
+  for (let i = 0; i < 5; i++) if ((t + i * 0.4) % 2 > 0.3) bx(px + 4 + rnd(i + 60) * 36, py + 3 + rnd(i + 70) * (ph - 8), 1, 1, K.white);
+  const sx = VW - 54, sy = VH * 0.32, pts = [];    // today's offer
+  for (let i = 0; i < 20; i++) { const a = i * Math.PI / 10 + t * 0.4, r = i % 2 ? 15 : 23; pts.push(sx + Math.cos(a) * r, sy + Math.sin(a) * r); }
+  pg(pts, K.yellow); digit7(sx - 4, sy - 7, 9, K.red); bx(sx - 10, sy - 5, 4, 1, K.red); bx(sx - 9, sy - 7, 2, 12, K.red); bx(sx - 11, sy - 2, 5, 1, K.red); bx(sx - 10, sy + 2, 4, 1, K.red);
+  drawDebbie(cx, VH, t, who === 'debbie' && talk);
+  bx(0, VH - 9, VW, 9, '#5a3d2b');
+  const kx = cx + 54;                              // terminal
+  bx(kx, VH - 36, 36, 28, K.grey); bx(kx + 3, VH - 33, 30, 19, '#052b16');
+  for (let i = 0; i < 4; i++) bx(kx + 5, VH - 31 + i * 4, 8 + ((i * 7 + Math.floor(t * 3)) % 16), 1, K.green);
+  bx(cx - 82, VH - 21, 12, 12, K.orange);          // office fern
+  for (let i = 0; i < 6; i++) li(cx - 76, VH - 21, cx - 76 + (i - 2.5) * 6, VH - 36 - (i % 2) * 6 + Math.sin(t + i) * 1, K.land, 2);
+  if ((t * 2) % 1 < 0.5) bx(cx - 50, VH - 13, 3, 2, K.red);
+};
+PAINT.fondue = (t, who, talk, sh) => {             // the spare Doomsday Device: regrettably, a fondue set
+  const cx = VW / 2, by = VH - 6, calm = !!sh.dot;
+  bx(0, 0, VW, VH, '#3a2c08');
+  for (let i = 0; i < 30; i++) ov(rnd(i) * VW, rnd(i + 40) * VH, 3 + rnd(i + 80) * 9, 2 + rnd(i + 90) * 6, '#2a1f05');
+  bx(0, VH - 6, VW, 6, '#241a04');
+  for (const s of [-1, 1]) {
+    const tx = cx + s * 126; bx(tx - 3, by - 60, 6, 60, K.dgrey); ov(tx, by - 64, 8, 6, K.steel);
+    if (!calm && (t * 9 + (s > 0 ? 0.5 : 0)) % 1 < 0.5) { const j = by - 78 + rnd(Math.floor(t * 9) + s) * 22; li(tx, by - 64, tx - s * 32, j, K.cyan, 1); li(tx - s * 32, j, cx + s * 46, by - 52, K.white, 1); }
+  }
+  for (let i = -2; i <= 2; i++) { const f = (t * 9 + i * 0.37 + 9) % 1; pg([cx + i * 11 - 4, by - 8, cx + i * 11 + 4, by - 8, cx + i * 11, by - 14 - f * 7], i % 2 ? K.orange : K.yellow); }
+  bx(cx - 34, by - 8, 68, 8, K.dgrey);
+  pg([cx - 44, by - 54, cx + 44, by - 54, cx + 36, by - 14, cx - 36, by - 14], K.black);                        // the pot
+  bx(cx - 56, by - 50, 12, 4, K.dgrey); bx(cx + 44, by - 50, 12, 4, K.dgrey);
+  ov(cx, by - 56, 46, 7, K.dgrey); ov(cx, by - 57, 43, 6, K.yellow);
+  for (let i = 0; i < 6; i++) { const f = (t * (0.7 + rnd(i) * 0.6) + rnd(i + 5)) % 1; ov(cx - 34 + rnd(i + 9) * 68, by - 57 - f * 3, 1 + f * 4, 1 + f * 2.5, f > 0.8 ? '#fff3b0' : '#f0c93a'); }
+  li(cx + 22, by - 60, cx + 48, by - 99, K.steel, 2); bx(cx + 17, by - 64, 8, 7, '#e8c07a');                    // one optimistic cube of bread
+  bx(cx - 25, by - 44, 50, 20, '#1a0508');
+  const col = calm ? K.green : (t * 2) % 1 < 0.5 ? K.red : '#7a1020', n = calm ? -1 : Math.max(1, 7 - Math.floor(t * 0.5)), z = calm ? -1 : 0;
+  digit7(cx - 21, by - 41, z, col); digit7(cx - 12, by - 41, z, col); bx(cx - 1, by - 38, 2, 2, col); bx(cx - 1, by - 32, 2, 2, col); digit7(cx + 5, by - 41, z, col); digit7(cx + 14, by - 41, n, col);
+  const px = cx - 94;                              // The Button, and what is left of its label
+  bx(px - 9, by - 30, 18, 30, K.dgrey); bx(px - 12, by - 34, 24, 5, K.steel); ov(px, by - 37, 8, 5, !calm && (t * 3) % 1 < 0.5 ? '#ff7a7a' : K.red);
+  pg([px - 15, by - 64, px + 10, by - 64, px + 15, by - 57, px + 5, by - 52, px - 15, by - 50], K.white); bx(px - 12, by - 61, 15, 2, K.black); bx(px - 12, by - 56, 10, 2, K.black);
+  if (calm) {                                      // one small red dot, one large distraction
+    const dx = cx + Math.sin(t * 2.3) * 120, dy = by - 4 - Math.abs(Math.sin(t * 3.1)) * 26, kx = cx + Math.sin(t * 2.3 - 0.45) * 120;
+    sg.globalAlpha = 0.4; ov(dx, dy, 4, 4, K.red); sg.globalAlpha = 1; ov(dx, dy, 2, 2, K.red);
+    sg.save(); sg.translate(kx, by + 4 - Math.abs(Math.sin(t * 9)) * 3); if (dx > kx) sg.scale(-1, 1); drawCat(0, 0, t * 2, false); sg.restore();
+  }
+};
+PAINT.catboss = (t, who, talk) => {                // the real brains of the operation
+  const cx = VW / 2;
+  bx(0, 0, VW, VH, '#1a0b2e');
+  for (let i = 0; i < 4; i++) {                    // every screen is showing fish
+    const mx = 14 + i * 76 + (i > 1 ? 18 : 0), my = VH * 0.1 + (i % 2) * 7; bx(mx - 2, my - 2, 50, 31, K.dgrey); bx(mx, my, 46, 27, '#06121f');
+    const fx = mx + 12 + ((t * 14 + i * 13) % 26), fy = my + 13 + Math.sin(t * 3 + i) * 3;
+    ov(fx, fy, 6, 3, K.cyan); pg([fx - 5, fy, fx - 11, fy - 4, fx - 11, fy + 4], K.cyan); bx(fx + 3, fy - 1, 1, 1, K.black);
+  }
+  pg([cx - 46, VH, cx - 42, VH - 96, cx - 30, VH - 104, cx - 16, VH - 96, cx, VH - 106, cx + 16, VH - 96, cx + 30, VH - 104, cx + 42, VH - 96, cx + 46, VH], '#3a0d4d');
+  pg([cx - 34, VH - 12, cx - 46, VH - 72, cx - 6, VH - 40], K.dkred); pg([cx + 38, VH - 12, cx + 52, VH - 68, cx + 16, VH - 40], K.dkred);   // small cape, large collar
+  bx(cx - 62, VH - 12, 124, 12, '#2a0b1e'); ov(cx + 4, VH - 13, 48, 6, K.pink);
+  sg.save(); sg.translate(cx + 16, VH - 14); sg.scale(3, 3); drawCat(0, 0, t, who === 'cat' && talk);
+  sg.strokeStyle = K.yellow; sg.lineWidth = 0.6; sg.beginPath(); sg.arc(-5.5, -13.5, 2.7, 0, 6.283); sg.stroke(); li(-3.4, -11.6, -1, -5, K.yellow, 0.5);   // monocle, naturally
+  sg.restore();
+  bx(cx - 92, VH - 14, 22, 5, K.steel); ov(cx - 81, VH - 17, 9, 5, (t * 3) % 1 < 0.5 ? '#ff7a7a' : K.red);    // a paw-sized button
+};
+
 /* ---------- cut scenes: script ---------- */
 const WHO = {
   narrator: { name: 'NARRATOR', col: K.white, pitch: 520 }, baron: { name: 'BARON VON KABOOM', col: K.pink, pitch: 150 },
   general: { name: 'GENERAL GRANITE', col: K.yellow, pitch: 240 }, ace: { name: 'ACE CHASE', col: K.cyan, pitch: 400 },
-  buddy: { name: 'B.U.D.D.Y.', col: K.green, pitch: 900 }, cat: { name: 'MISTER FLUFFLES', col: K.orange, pitch: 1300 }
+  buddy: { name: 'B.U.D.D.Y.', col: K.green, pitch: 900 }, cat: { name: 'MISTER FLUFFLES', col: K.orange, pitch: 1300 },
+  mother: { name: 'MOTHER VON KABOOM', col: '#e58bff', pitch: 310 }, debbie: { name: 'DEBBIE, PRESTIGE ROCKET RENTAL', col: '#9fd0ff', pitch: 700 }
 };
 const shot = (bg, lines, opt) => Object.assign({ bg, lines: lines.map(l => ({ who: l[0], text: l[1], fx: l[2] })) }, opt || {});
 const STORY = {
@@ -1308,7 +1437,8 @@ const STORY = {
       ['cat', 'Meow.']], { jingle: 'villain' }),
     shot('hq', [
       ['general', "Ace! Thank goodness you picked up. The Baron's device goes off in minutes."],
-      ['general', 'The only way in is his network of colour-coded tunnels. They are full of walls. We do not know why.']], { jingle: 'morse' }),
+      ['general', 'The only way in is his network of colour-coded tunnels. They are full of walls. We do not know why.'],
+      ['general', 'One more thing. The rental company has hidden a SHIP TOKEN in every sector. Grab it, and a spare ship will be waiting at the end.']], { jingle: 'morse' }),
     shot('cockpit', [
       ['ace', 'Walls, General? I eat walls for breakfast.'],
       ['general', "Please don't. The ship is a rental."],
@@ -1356,16 +1486,71 @@ const STORY = {
       ['baron', 'Curse you, Ace Chase! You have not seen the last of Baron Von Kaboom!'],
       ['baron', 'I HAVE A SPARE!', 'thunder'],
       ['cat', 'Meow.']], { jingle: 'villain' }),
-    shot('card', [['narrator', 'He did have a spare. In fact, he bought in bulk. Sector 6 awaits.', 'sting']], { title: 'THE END?' })],
+    shot('card', [['narrator', 'He did have a spare. He kept it somewhere safe. He kept it... on the Moon.', 'sting']], { title: 'THE END?' }),
+    shot('card', [['narrator', 'DOOMSDAY TUNNELS, PART TWO: ELECTRIC KABOOM-ALOO. This time it is personal. It is also on the Moon.', 'fanfare']], { title: 'PART II', moon: true }),
+    shot('lair', [
+      ['baron', 'Welcome to my MOON BASE, Mister Fluffles! The spare Doomsday Device is buried deep inside the Moon. Which, it turns out, is cheese.'],
+      ['mother', 'Wolfgang! Are you monologuing to the cat again?'],
+      ['baron', 'MOTHER! Not in front of my nemesis!'],
+      ['cat', 'Meow.']], { jingle: 'villain', moon: true, mother: true }),
+    shot('hq', [
+      ['general', 'Ace, bad news. The Baron has tunnelled into the Moon. Worse news: the Moon is made of cheese. Science is very upset.'],
+      ['general', 'Budget cuts mean you are flying the same rental. Try not to scratch the Moon.']], { jingle: 'morse' }),
+    shot('cockpit', [
+      ['ace', 'General, I was BORN to fly through cheese.'],
+      ['general', 'Nobody is born for that, son.'],
+      ['buddy', 'ACE. I HAVE INSTALLED A FEELINGS MODULE. I FEEL... CONCERNED.']], { jingle: 'hero' })],
+  7: () => [shot('lair', [
+    ['mother', 'Wolfgang, these tunnels are the same colours as last time.'],
+    ['baron', 'It is called a BRAND, Mother!'],
+    ['mother', 'It is called lazy. Your cousin Gunther has a volcano.'],
+    ['cat', 'Meow.']], { jingle: 'mother', moon: true, mother: true })],
+  8: () => [shot('rental', [
+    ['debbie', 'Hi! This is Debbie from Prestige Rocket Rental. Our records show the vehicle has left the planet. That is a different mileage plan.'],
+    ['ace', "Debbie, I'm a little busy saving the world."],
+    ['debbie', 'I can see that, and I would LOVE to help you with it! There is a nine dollar fee.']], { jingle: 'phone' })],
+  9: () => [shot('lair', [
+    ['baron', 'Behold the true power of the spare! It will melt the Moon into the largest FONDUE in history and drop it on the Earth!', 'thunder'],
+    ['mother', 'With what bread, Wolfgang? Did you think about the bread?'],
+    ['baron', '...I did not think about the bread.'],
+    ['mother', 'Nine years of Evil Medical School, and not one thought about bread.']], { jingle: 'villain', moon: true, mother: true })],
+  10: () => [
+    shot('hq', [
+      ['general', "Ace, intel says the Baron's mother is up there with him. Stay sharp. I served with that woman."],
+      ['general', 'She once grounded an entire air force. Then she grounded them again, for sulking.']], { jingle: 'morse' }),
+    shot('buddy', [
+      ['buddy', 'ACE. MY FEELINGS MODULE REPORTS A NEW FEELING. I BELIEVE IT IS CALLED "MONDAY".'],
+      ['ace', "That's just dread, Buddy. You get used to it."],
+      ['buddy', 'I WOULD PREFER NOT TO. PLEASE FLY FASTER.']])],
+  11: () => [
+    shot('fondue', [
+      ['narrator', 'The core of the Moon! The spare Doomsday Device! And this time there are no wires at all!', 'sting'],
+      ['buddy', 'ACE. THERE IS ONLY A BUTTON. THE LABEL SAYS "DO NOT".'],
+      ['ace', 'Do not WHAT, Buddy?'],
+      ['buddy', 'THE REST OF THE LABEL HAS BEEN CHEWED OFF.']]),
+    shot('catboss', [
+      ['cat', 'Meow.', 'thunder'],
+      ['buddy', 'TRANSLATING. HE SAYS HE HAS RUN THIS ENTIRE OPERATION SINCE 1987. THE BARON WAS, QUOTE, "THE FACE".'],
+      ['baron', 'Fluffles?! After everything Mother and I did for you?'],
+      ['mother', 'I always said that cat had ambition, Wolfgang. Unlike some people.']], { jingle: 'villain' }),
+    shot('cockpit', [
+      ['ace', "There's one thing no cat in the galaxy can resist, Buddy. Fire the laser. At the wall."],
+      ['buddy', 'ACE. THAT IS THE SMARTEST THING YOU HAVE EVER SAID. I FEEL... PROUD. IT IS ALSO UNPLEASANT.']], { jingle: 'hero' }),
+    shot('fondue', [
+      ['narrator', 'And so the Moon was saved by one small red dot. Mister Fluffles chased it for eleven hours.', 'fanfare'],
+      ['general', 'Outstanding, Ace! The Moon is saved, the cheese is contained, and Debbie says your deposit is "under review".']], { dot: true }),
+    shot('card', [['narrator', 'But far away, cousin Gunther looked up from his volcano, and smiled. Sector 11 awaits.', 'sting']], { title: 'THE END??', moon: true })],
   later: n => [[
     shot('lair', [['baron', 'Another device, another sector! Did I mention I bought in bulk?', 'thunder'], ['cat', 'Meow.']], { jingle: 'villain' }),
     shot('hq', [['general', 'Ace, the Baron is on device number ' + (n - 4) + '. Frankly, we are impressed by his budget.']], { jingle: 'morse' }),
     shot('buddy', [['buddy', 'ACE. SURVIVAL ODDS NOW ROUND DOWN TO ZERO. I BELIEVE IN YOU ANYWAY.'], ['ace', "That's the nicest thing you've ever calculated."]]),
     shot('lair', [['baron', 'Mister Fluffles thinks you will crash in this one. He is rarely wrong.'], ['cat', 'Meow.']], { jingle: 'villain' }),
-    shot('cockpit', [['ace', 'Sector ' + n + "? I've had hair appointments longer than this."], ['general', 'We know, son. We have seen the invoices.']], { jingle: 'hero' })
-  ][(n - 7) % 5]]
+    shot('cockpit', [['ace', 'Sector ' + n + "? I've had hair appointments longer than this."], ['general', 'We know, son. We have seen the invoices.']], { jingle: 'hero' }),
+    shot('lair', [['mother', 'Wolfgang has gone to his room. I am running the tunnels now. Sit up straight, pilot.'], ['cat', 'Meow.']], { jingle: 'mother', moon: true, mother: true, noBaron: true }),
+    shot('rental', [['debbie', 'Hi, Debbie again! Courtesy call: the vehicle is now ' + n * 1000 + ' sectors over its mileage plan. Have a great day!']], { jingle: 'phone' })
+  ][(n - 12) % 7]]
 };
-const sceneFor = n => STORY[n] ? STORY[n]() : n > 6 ? STORY.later(n) : null;
+const sceneFor = n => STORY[n] ? STORY[n]() : n > 11 ? STORY.later(n) : null;
 const QUIPS = {
   time: ['The Earth has been cancelled. Refunds are unavailable.', 'Baron Von Kaboom wins. Mister Fluffles is being insufferable about it.', 'On the bright side, nobody has to return the rental.'],
   ship: ['Ace ejected safely. The security deposit did not.', 'The rental company has been notified.', 'General Granite is drafting a very stern memo.'],
@@ -1380,6 +1565,8 @@ const sfxScene = {
   villain: () => [147, 139, 131, 98].forEach((f, i) => tone('sawtooth', f, f, i === 3 ? 0.45 : 0.15, 0.09, i * 0.17)),
   hero: () => [523, 659, 784].forEach((f, i) => tone('square', f, f, 0.1, 0.07, i * 0.1)),
   morse: () => [0, 0.09, 0.18, 0.33].forEach((d, i) => tone('sine', 880, 880, i === 3 ? 0.16 : 0.05, 0.08, d)),
+  phone: () => [0, 0.13, 0.5, 0.63].forEach((d, i) => tone('sine', i % 2 ? 1700 : 1400, i % 2 ? 1700 : 1400, 0.11, 0.07, d)),
+  mother: () => { tone('triangle', 392, 392, 0.2, 0.12); tone('triangle', 311, 300, 0.45, 0.13, 0.22); },
   laugh: () => { for (let i = 0; i < 7; i++) tone('square', 250 - i * 9, 205 - i * 9, 0.07, 0.06, i * 0.11); },
   snip: () => { tone('triangle', 2400, 900, 0.05, 0.2); tone('triangle', 2400, 900, 0.05, 0.2, 0.12); noise(0.4, 0.35, 1200); }
 };
