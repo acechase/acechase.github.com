@@ -1857,7 +1857,7 @@ function drawBoard() {
   const cx = W / 2, n = 10, rowH = 22 * u, top = H / 2 - n * rowH / 2 + 4 * u;
   ctx.globalAlpha = 0.95; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; ctx.textBaseline = 'middle';
   txt('HIGH SCORES', cx, top - 32 * u, FONT_D, 20 * u, lv.color, 'center');
-  if (!board.rows) txt(board.failed ? 'THE SCOREBOARD IS NOT ANSWERING. TRY AGAIN LATER.' : 'LOADING...', cx, H / 2, FONT_M, 14 * u, C.dim, 'center');
+  if (!board.rows) txt(board.failed ? (navigator.onLine === false ? 'YOU ARE OFFLINE. THE SCOREBOARD NEEDS A CONNECTION.' : 'THE SCOREBOARD IS NOT ANSWERING. TRY AGAIN LATER.') : 'LOADING...', cx, H / 2, FONT_M, 14 * u, C.dim, 'center');
   else if (!board.rows.length) txt('NO SCORES YET. BE THE FIRST.', cx, H / 2, FONT_M, 14 * u, C.ink, 'center');
   else {
     const colW = Math.min(W - padL - padR - 40 * u, 440 * u), x0 = cx - colW / 2, x1 = cx + colW / 2, me = board.me.toLowerCase();
@@ -1885,7 +1885,7 @@ function rectBtn(b, label, live) {
 function drawOverBtns() {
   if (!API) return;
   const b = overBtns();
-  rectBtn(b.post, online.posted ? 'POSTED: RANK ' + online.rank : 'POST SCORE', canPost());
+  rectBtn(b.post, online.posted ? 'POSTED: RANK ' + online.rank : online.token ? 'POST SCORE' : 'NOT CONNECTED', canPost());    // a run that began with no connection cannot be posted
   rectBtn(b.list, 'HIGH SCORES', true);
 }
 
@@ -1945,5 +1945,6 @@ try { hot && hot.snapshot && hot.snapshot(() => ({ best, playing: state === 'pla
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 })();
 </script>
+<script>if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });</script>
 </body>
 </html>

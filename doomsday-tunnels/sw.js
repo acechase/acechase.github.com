@@ -1,0 +1,41 @@
+// Doomsday Tunnels: offline support.
+// Keeps a copy of the game, its fonts and icons, the manual and the changelog on the device, so the game
+// opens and plays with no connection. It never touches requests to other sites (the scoreboard server),
+// which simply fail while offline; the game handles that itself.
+const CACHE = 'doomsday-tunnels-v1';
+const FILES = ['./', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png',
+  'fonts/ShareTechMono-Regular.woff', 'fonts/Syncopate-Bold.woff', 'about/', 'about/fork.webp', 'changelog/'];
+const SCOPE = new URL('./', self.location).pathname;
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE)
+    .then(c => Promise.all(FILES.map(f => c.add(new Request(f, { cache: 'no-cache' })).catch(() => {}))))   // one missing file must not block the rest
+    .then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('doomsday-tunnels-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+
+const keep = (req, res) => { if (res && res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); } return res; };
+const saved = req => caches.match(req, { ignoreSearch: true, ignoreVary: true });
+
+// Pages: ask the network first so updates show up straight away, and fall back to the saved copy when there is no
+// connection or the connection stalls (as half-working in-flight wifi does).
+async function page(req) {
+  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 3500);
+  try { return keep(req, await fetch(req.url, { cache: 'no-cache', signal: stop.signal })); }
+  catch (_) { return (await saved(req)) || (await saved(SCOPE)) || Response.error(); }
+  finally { clearTimeout(timer); }
+}
+// Fonts, icons and images never change under the same name: use the saved copy, fetch only if there is none.
+async function asset(req) { return (await saved(req)) || keep(req, await fetch(req)); }
+
+self.addEventListener('fetch', e => {
+  const req = e.request, url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE)) return;
+  if (url.pathname.endsWith('/sw.js')) return;
+  const isPage = req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
+  e.respondWith(isPage ? page(req) : asset(req));
+});
