@@ -1,0 +1,14 @@
+{
+  "name": "doomsday-tunnels-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scoreboard and anonymous play counts for Doomsday Tunnels, as a Cloudflare Worker.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}
