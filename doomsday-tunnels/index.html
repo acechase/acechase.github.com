@@ -118,13 +118,15 @@ const rgba = (c, a) => 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0
 const RGB = { void: hex(C.void), white: [255, 255, 255], warn: hex(C.warn), gate: hex(C.gate), sectors: C.sectors.map(hex) };
 RGB.gateFill = mix(RGB.gate, RGB.void, 0.58); RGB.gateFill2 = mix(RGB.gate, RGB.void, 0.36); RGB.mineFill = mix(RGB.gate, RGB.void, 0.82);
 // One hue per sector: floor, ceiling, walls and haze are all shades of the sector colour.
-function makePalette(n) {
-  const a = RGB.sectors[(n - 1) % 5];
-  return { line: mix(a, RGB.white, 0.45), bright: mix(a, RGB.white, 0.8),
-    floorA: mix(a, RGB.void, 0.24), floorB: mix(a, RGB.void, 0.56), ceilA: mix(a, RGB.void, 0.4), ceilB: mix(a, RGB.void, 0.66),
-    wallA: mix(a, RGB.void, 0.34), wallB: mix(a, RGB.void, 0.62), light: mix(a, RGB.white, 0.4), lightWall: mix(a, RGB.white, 0.22),
-    haze: mix(a, RGB.void, 0.66), glow: mix(a, RGB.white, 0.45) };
+// `shade` slides every surface lighter (negative) or darker (positive) without leaving the colour, which is how the
+// two branches of a fork differ.
+function paletteFrom(a, shade) {
+  const k = shade || 0, d = v => mix(a, RGB.void, clamp(v + k, 0, 0.96));
+  return { line: mix(a, RGB.white, k > 0 ? 0.25 : 0.45), bright: mix(a, RGB.white, 0.8),
+    floorA: d(0.24), floorB: d(0.56), ceilA: d(0.4), ceilB: d(0.66), wallA: d(0.34), wallB: d(0.62),
+    light: mix(a, RGB.white, 0.4), lightWall: mix(a, RGB.white, 0.22), haze: d(0.66 + (k > 0 ? -0.1 : 0.02)), glow: mix(a, RGB.white, 0.45) };
 }
+const makePalette = n => paletteFrom(RGB.sectors[(n - 1) % 5]);
 try { document.fonts.load('700 20px Syncopate'); document.fonts.load('20px "Share Tech Mono"'); } catch (_) {}
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -288,18 +290,15 @@ function toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 
 /* ---------- levels ---------- */
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function makeLevel(n) {
-  const R = mulberry(n * 7919 + 13), TAU = Math.PI * 2;
-  const lv = { n, color: C.sectors[(n - 1) % 5], v0: Math.min(20 + 2 * n, 38), L: 900 + 150 * Math.min(n, 8),
-    px: [Math.min(1.2 + 0.35 * n, 3), TAU / (135 + R() * 35), R() * TAU, Math.min(0.4 + 0.1 * n, 0.9), TAU / (64 + R() * 18), R() * TAU],
-    py: [Math.min(0.6 + 0.25 * n, 2), TAU / (150 + R() * 40), R() * TAU, Math.min(0.25 + 0.08 * n, 0.7), TAU / (72 + R() * 16), R() * TAU] };
-  lv.pal = makePalette(n);
-  lv.limit = Math.ceil(lv.L / (lv.v0 * TUNE.speed) * 1.2 + 5);
-  const o = [], gap = Math.max(18, 33 - 1.5 * n);
-  let z = 90;
-  while (z < lv.L - 50) {
-    const k = R();
-    if (k < 0.38) {
+const FORK_WIDEN = 24, FORK_SEP = 5, FORK_SPREAD = 70;   // length of the widening, and how far and how fast the branches part
+// Fill a stretch of tunnel with obstacles and pickups. `br` says which branch they belong to (null before the fork).
+function genObjs(o, R, n, zA, zB, br, mode) {
+  const TAU = Math.PI * 2, gap = Math.max(18, 33 - 1.5 * n) * (mode === 'hard' ? 0.8 : mode === 'easy' ? 1.25 : 1);
+  const odds = mode === 'hard' ? [0.36, 0.58, 0.88] : mode === 'easy' ? [0.4, 0.52, 0.64] : [0.38, 0.56, 0.8];
+  let z = zA;
+  while (z < zB) {
+    const k = R(), first = o.length;
+    if (k < odds[0]) {
       const t = Math.floor(R() * (n >= 2 ? 7 : 5)); let rects;
       if (t === 0) rects = [[-HW, -HH, 0.15, HH]];
       else if (t === 1) rects = [[-0.15, -HH, HW, HH]];
@@ -310,12 +309,12 @@ function makeLevel(n) {
       else { const hx = (R() * 2 - 1) * (HW - 0.6), hy = (R() * 2 - 1) * (HH - 0.42);
         rects = [[-HW, -HH, hx - 0.5, HH], [hx + 0.5, -HH, HW, HH], [hx - 0.5, -HH, hx + 0.5, hy - 0.36], [hx - 0.5, hy + 0.36, hx + 0.5, HH]]; }
       o.push({ z, kind: 'wall', rects, hit: false });
-    } else if (k < 0.56) {
+    } else if (k < odds[1]) {
       const blocks = [];
       for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++)
         blocks.push({ r: [-HW + i * HW * 2 / 3, -HH + j * HH, -HW + (i + 1) * HW * 2 / 3, -HH + (j + 1) * HH], hp: (n >= 3 && R() < 0.3) ? 2 : 1 });
       o.push({ z, kind: 'gate', blocks });
-    } else if (k < 0.80) {
+    } else if (k < odds[2]) {
       const m = 1 + Math.floor(R() * Math.min(3, 1 + n * 0.5));
       for (let i = 0; i < m; i++) o.push({ z: z + i * 3, kind: 'mine', x: (R() * 2 - 1) * (HW - 0.45), y: (R() * 2 - 1) * (HH - 0.32),
         alive: true, ph: R() * TAU, mv: n >= 2 ? R() * 0.4 : 0 });
@@ -323,20 +322,63 @@ function makeLevel(n) {
       const q = R();
       o.push({ z, kind: q < 0.4 ? 'time' : q < 0.67 ? 'shield' : 'boost', x: (R() * 2 - 1) * (HW - 0.45), y: (R() * 2 - 1) * (HH - 0.32), taken: false });
     }
+    for (let i = first; i < o.length; i++) o[i].br = br;
     z += gap * (0.8 + R() * 0.6);
   }
-  o.sort((a, b) => a.z - b.z);
-  // one ship token per sector, in the widest gap of the back half so it is always reachable
-  let gi = -1, gw = 0;
-  for (let i = 0; i < o.length - 1; i++) { const w = o[i + 1].z - o[i].z; if (o[i].z > lv.L * 0.5 && w > gw) { gw = w; gi = i; } }
-  lv.ship = { z: gi >= 0 ? (o[gi].z + o[gi + 1].z) / 2 : lv.L * 0.75, kind: 'ship', x: (R() * 2 - 1) * (HW - 0.5), y: (R() * 2 - 1) * (HH - 0.36), taken: false, hinted: false, gone: false };
+}
+function makeLevel(n) {
+  const R = mulberry(n * 7919 + 13), TAU = Math.PI * 2;
+  const lv = { n, color: C.sectors[(n - 1) % 5], v0: Math.min(20 + 2 * n, 38), L: 900 + 150 * Math.min(n, 8),
+    px: [Math.min(1.2 + 0.35 * n, 3), TAU / (135 + R() * 35), R() * TAU, Math.min(0.4 + 0.1 * n, 0.9), TAU / (64 + R() * 18), R() * TAU],
+    py: [Math.min(0.6 + 0.25 * n, 2), TAU / (150 + R() * 40), R() * TAU, Math.min(0.25 + 0.08 * n, 0.7), TAU / (72 + R() * 16), R() * TAU] };
+  lv.pal = makePalette(n);
+  lv.limit = Math.ceil(lv.L / (lv.v0 * TUNE.speed) * 1.2 + 5);
+  // The fork: the tunnel widens, then splits into a light branch and a dark branch of the sector's colour.
+  // The dark branch is the harder one and holds the sector's ship token; the light branch is the easy way round.
+  const o = [], tone = RGB.sectors[(n - 1) % 5], z0 = Math.round(lv.L * 0.4 / 4) * 4, z1 = z0 + FORK_WIDEN, dark = R() < 0.5 ? 0 : 1;
+  lv.fork = { z0, z1, chosen: null, dark, hinted: false,
+    pal: [0, 1].map(b => paletteFrom(tone, b === dark ? 0.3 : -0.22)),
+    wig: [0, 1].map(() => [0.6 + R() * 0.9, TAU / (70 + R() * 40)]) };
+  genObjs(o, R, n, 90, z0 - 14, null, 'trunk');
+  for (const b of [0, 1]) genObjs(o, R, n, z1 + 34, lv.L - 50, b, b === dark ? 'hard' : 'easy');
+  lv.ship = { z: z1 + 22, kind: 'ship', x: 0, y: 0, br: dark, taken: false, hinted: false, gone: false };   // in sight from the fork
   o.push(lv.ship); o.sort((a, b) => a.z - b.z);
   lv.objs = o;
   return lv;
 }
 let lv = null;
 function env(z) { if (z <= 0) return 0; if (z >= 80) return 1; const t = z / 80; return t * t * (3 - 2 * t); }
-function cxAt(z) { const p = lv.px; return TUNE.twist * env(z) * (p[0] * Math.sin(z * p[1] + p[2]) + p[3] * Math.sin(z * p[4] + p[5])); }
+function baseX(z) { const p = lv.px; return TUNE.twist * env(z) * (p[0] * Math.sin(z * p[1] + p[2]) + p[3] * Math.sin(z * p[4] + p[5])); }
+// How far a branch's centre sits from the trunk's line: one tunnel-width at the split, easing further apart, with a wander of its own.
+function branchDX(br, z) {
+  const f = lv.fork, sgn = br ? 1 : -1, t = clamp((z - f.z1) / FORK_SPREAD, 0, 1), sm = t * t * (3 - 2 * t), w = f.wig[br];
+  return sgn * (HW + FORK_SEP * sm) + sm * w[0] * Math.sin((z - f.z1) * w[1]);
+}
+// Centre of the tunnel at depth z. With no branch named it follows the one the ship has taken (the trunk until then).
+function cxAt(z, br) {
+  const f = lv.fork; let x = baseX(z);
+  if (f) { const b = br != null ? br : f.chosen; if (b != null) x += branchDX(b, Math.max(z, f.z1)); }
+  return x;
+}
+// Half the tunnel's width: it doubles across the widening just before an untaken fork.
+function halfW(z) {
+  const f = lv.fork;
+  if (!f || f.chosen != null || z <= f.z0) return HW;
+  return z >= f.z1 ? HW * 2 : HW * (1 + (z - f.z0) / (f.z1 - f.z0));
+}
+// The ship has reached the split: whichever side of the dividing wall it is on becomes the tunnel.
+function forkCheck() {
+  const f = lv.fork;
+  if (!f || f.chosen != null || pz < f.z1) return;
+  const side = rx < 0 ? 0 : 1, sgn = side ? 1 : -1;
+  if (Math.abs(rx) < 0.22) { crash(18); rx = sgn * 0.22; }                 // clipped the dividing wall
+  f.chosen = side; rx -= sgn * HW; lv.pal = f.pal[side];                    // same spot, now measured from the branch's centre
+  for (const b of bullets) if (b.br == null) { b.br = b.x < 0 ? 0 : 1; b.x -= (b.br ? 1 : -1) * HW; }
+  for (let i = bullets.length - 1; i >= 0; i--) if (bullets[i].br !== side) bullets.splice(i, 1);
+  objs = objs.filter(o => o.br == null || o.br === side);
+  if (lv.ship && lv.ship.br !== side) lv.ship = null;
+  popups.push({ s: side === f.dark ? 'DARK TUNNEL' : 'LIGHT TUNNEL: NO SHIP TOKEN THIS WAY', t: 0 }); sfx.tink();
+}
 function cyAt(z) { const p = lv.py; return TUNE.twist * env(z) * (p[0] * Math.sin(z * p[1] + p[2]) + p[3] * Math.sin(z * p[4] + p[5])); }
 
 /* ---------- state ---------- */
@@ -354,7 +396,7 @@ for (let i = 0; i < 34; i++) motes.push({ x: 0, y: 0, z: -1 });
 try { best = parseInt(localStorage.getItem('doomsday-best') || '0', 10) || 0; } catch (_) {}
 function saveBest() { if (score > best) { best = Math.floor(score); try { localStorage.setItem('doomsday-best', String(best)); } catch (_) {} } }
 
-function attract() { lv = makeLevel(1); lv.L = 1e9; objs = []; pz = 0; rx = ry = vx = vy = 0; state = 'title'; stateT = 0; }
+function attract() { lv = makeLevel(1); lv.L = 1e9; lv.fork = null; objs = []; pz = 0; rx = ry = vx = vy = 0; state = 'title'; stateT = 0; }
 function startLevel(n) {
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
@@ -488,9 +530,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 
 /* ---------- simulation ---------- */
 const tmp = { x: 0, y: 0, s: 1 };
-function projTo(out, x, y, z) {
+function projTo(out, x, y, z, br) {
   const dz = Math.max(NEAR, z - pz), s = focal / dz;
-  out.x = (cxAt(z) + x - cxAt(pz) - rx) * s; out.y = -(cyAt(z) + y - cyAt(pz) - ry) * s; out.s = s; return out;
+  out.x = (cxAt(z, br) + x - cxAt(pz) - rx) * s; out.y = -(cyAt(z) + y - cyAt(pz) - ry) * s; out.s = s; return out;
 }
 const inRect = (r, x, y, m) => x > r[0] - m && x < r[2] + m && y > r[1] - m && y < r[3] + m;
 const mineX = o => o.x + Math.sin(tNow * 1.6 + o.ph) * o.mv;
@@ -518,7 +560,7 @@ function collide(o) {
     for (const b of o.blocks) if (b.hp > 0 && inRect(b.r, rx, ry, 0.04)) { b.hp = 0; crash(18); break; }
   } else if (o.kind === 'mine') {
     if (o.alive && Math.hypot(mineX(o) - rx, o.y - ry) < 0.34) { o.alive = false; crash(16); }
-  } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < 0.45) {
+  } else if (!o.taken && Math.hypot(o.x - rx, o.y - ry) < (o.kind === 'ship' ? 0.57 : 0.45)) {
     o.taken = true; score += 50;
     if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
     else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
@@ -563,9 +605,9 @@ function update(dt) {
   boostEase += ((boosting ? 1 : 0) - boostEase) * Math.min(1, dt * 4);       // boosting widens the view a little
   focal = focal0 * (1 - (reduceMotion ? 0 : 0.1) * boostEase);
   if (state !== 'play') {
-    if (state === 'respawn') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; if (stateT > 2) finishRespawn(); return; }
+    if (state === 'respawn') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; forkCheck(); if (stateT > 2) finishRespawn(); return; }
     if (state === 'over') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; }
-    else pz += 14 * dt;
+    else pz = Math.min(pz + 14 * dt, lv.fork ? lv.fork.z0 - 90 : Infinity);     // the idle cruise stops short of the fork
     roll += (0 - roll) * Math.min(1, dt * 4);
     return;
   }
@@ -600,7 +642,7 @@ function update(dt) {
   vx += (ix * S - vx) * kk; vy += (iy * S - vy) * kk;
   const dfx = clamp((cxAt(pz + 0.5) - cxAt(pz - 0.5)) * speed * TUNE.pull, -2, 2);
   const dfy = clamp((cyAt(pz + 0.5) - cyAt(pz - 0.5)) * speed * TUNE.pull, -2, 2);
-  const mx = HW - 0.16, my = HH - 0.14, cush = 0.32;
+  const mx = halfW(pz) - 0.16, my = HH - 0.14, cush = 0.32;
   let mvx = vx - dfx, mvy = vy - dfy;             // ease off as the ship nears a wall instead of slamming into it
   if (mvx > 0 && rx > mx - cush) mvx *= 0.3 + 0.7 * Math.max(0, mx - rx) / cush;
   else if (mvx < 0 && rx < -mx + cush) mvx *= 0.3 + 0.7 * Math.max(0, rx + mx) / cush;
@@ -622,6 +664,7 @@ function update(dt) {
 
   const pz0 = pz; pz += speed * dt; time -= dt; score += speed * dt * 0.5;
   for (const o of objs) { if (o.z <= pz0) continue; if (o.z > pz) break; collide(o); }
+  forkCheck();
 
   fireCd -= dt;
   if (firing && fireCd <= 0) {
@@ -629,16 +672,19 @@ function update(dt) {
     bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, sx: aimSX, sy: aimSY, dead: false });
   }
   for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i], z0 = b.z, step = (speed + 95) * dt; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
-    for (const o of objs) { if (o.z <= z0) continue; if (o.z > b.z) break; if (bulletHit(o, b)) { b.dead = true; break; } }
-    if (!b.dead && (Math.abs(b.x) > HW || Math.abs(b.y) > HH)) { burstAt(clamp(b.x, -HW, HW), clamp(b.y, -HH, HH), b.z, C.ink, 3); b.dead = true; }
+    const b = bullets[i], z0 = b.z, step = (speed + 95) * dt, fk = lv.fork, open = fk && fk.chosen == null; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
+    if (open && b.br == null && b.z > fk.z1) { b.br = b.x < 0 ? 0 : 1; b.x -= (b.br ? 1 : -1) * HW; }      // a shot flying on past the split picks a branch too
+    for (const o of objs) { if (o.z <= z0) continue; if (o.z > b.z) break; if (open && o.br != null && o.br !== b.br) continue; if (bulletHit(o, b)) { b.dead = true; break; } }
+    const bw = b.br != null ? HW : halfW(b.z);
+    if (!b.dead && (Math.abs(b.x) > bw || Math.abs(b.y) > HH)) { burstAt(clamp(b.x, -bw, bw), clamp(b.y, -HH, HH), b.z, C.ink, 3); b.dead = true; }
     if (b.dead || b.z - pz > 75 || b.z > lv.L) bullets.splice(i, 1);
   }
 
+  const fkh = lv.fork;
+  if (fkh && !fkh.hinted && fkh.chosen == null && fkh.z0 - pz < 70) { fkh.hinted = true; sfx.beep(); popups.push({ s: 'FORK AHEAD: DARK SIDE HAS THE SHIP TOKEN', t: 0 }); }
   const tk = lv.ship;
   if (tk && !tk.taken) {
-    if (!tk.hinted && tk.z - pz < 62) { tk.hinted = true; sfx.beep(); popups.push({ s: 'SHIP TOKEN AHEAD', t: 0 }); }
-    else if (!tk.gone && pz > tk.z + 1) { tk.gone = true; popups.push({ s: 'SHIP TOKEN MISSED', t: 0 }); }
+    if (!tk.gone && pz > tk.z + 1) { tk.gone = true; popups.push({ s: 'SHIP TOKEN MISSED', t: 0 }); }
   }
   if (time < 10 && time > 0) { const c = Math.ceil(time); if (c !== lastBeep) { lastBeep = c; sfx.beep(); } }
   if (pz >= lv.L) sectorClear();
@@ -649,34 +695,41 @@ function update(dt) {
 /* ---------- world rendering ---------- */
 const fog = dz => { const a = 1 - dz / DEPTH; return a <= 0 ? 0 : Math.pow(a, 1.3); };
 let camX = 0, camY = 0;
-const ringA = { ox: 0, oy: 0, s: 1 }, ringB = { ox: 0, oy: 0, s: 1 }, ringC = { ox: 0, oy: 0, s: 1 };
-function ringAt(out, z) {
-  const s = focal / (z - pz); out.s = s; out.ox = (cxAt(z) - camX) * s; out.oy = -(cyAt(z) - camY) * s; return out;
+const rings = [0, 1, 2, 3].map(() => ({ l: 0, r: 0, oy: 0, s: 1, w: HW }));
+let hazeNow = null;                               // haze colour of whichever tunnel is being painted
+// One cross-section of a tunnel at depth z, in screen terms: left and right edges, vertical centre and scale.
+function ringOf(out, z, br) {
+  const s = focal / (z - pz), c = cxAt(z, br), w = br != null ? HW : halfW(z);
+  out.s = s; out.oy = -(cyAt(z) - camY) * s; out.l = (c - w - camX) * s; out.r = (c + w - camX) * s; out.w = w; return out;
 }
-// colour c faded toward the sector's haze colour; f = 0 right in front of the ship, 1 at the far end
+// colour c faded toward the tunnel's haze colour; f = 0 right in front of the ship, 1 at the far end
 function fogc(c, f) {
-  const h = lv.pal.haze;
+  const h = hazeNow;
   return 'rgb(' + ((c[0] + (h[0] - c[0]) * f) | 0) + ',' + ((c[1] + (h[1] - c[1]) * f) | 0) + ',' + ((c[2] + (h[2] - c[2]) * f) | 0) + ')';
 }
 function quad(x1, y1, x2, y2, x3, y3, x4, y4) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4); ctx.closePath(); }
-function drawSegment(F, N, k, f) {
-  const P = lv.pal, a = 1 - f;
-  const fw = HW * F.s, fh = HH * F.s, nw = HW * N.s, nh = HH * N.s;
-  const fl = F.ox - fw, fr = F.ox + fw, ft = F.oy - fh, fb = F.oy + fh, nl = N.ox - nw, nr = N.ox + nw, nt = N.oy - nh, nb = N.oy + nh;
+// One slice of tunnel between a far ring F and a near ring N. `leftLast` paints the left wall over the right one,
+// which is what the right-hand branch of a fork needs when seen from the left.
+function drawSegment(F, N, k, f, P, leftLast) {
+  hazeNow = P.haze;
+  const a = 1 - f, fh = HH * F.s, nh = HH * N.s;
+  const fl = F.l, fr = F.r, ft = F.oy - fh, fb = F.oy + fh, nl = N.l, nr = N.r, nt = N.oy - nh, nb = N.oy + nh;
   const band = reduceMotion ? 1 : (k >> 1) & 1, lit = !reduceMotion && k % 8 === 0;
   ctx.fillStyle = fogc(lit ? P.light : band ? P.floorA : P.floorB, f);
   ctx.beginPath(); quad(fl, fb, fr, fb, nr, nb, nl, nb); ctx.fill();
   ctx.fillStyle = fogc(lit ? P.light : band ? P.ceilA : P.ceilB, f);
   ctx.beginPath(); quad(fl, ft, fr, ft, nr, nt, nl, nt); ctx.fill();
   ctx.fillStyle = fogc(lit ? P.lightWall : band ? P.wallB : P.wallA, f);
-  ctx.beginPath(); quad(fl, ft, fl, fb, nl, nb, nl, nt); quad(fr, ft, fr, fb, nr, nb, nr, nt); ctx.fill();
+  if (leftLast) { ctx.beginPath(); quad(fr, ft, fr, fb, nr, nb, nr, nt); ctx.fill(); ctx.beginPath(); quad(fl, ft, fl, fb, nl, nb, nl, nt); ctx.fill(); }
+  else { ctx.beginPath(); quad(fl, ft, fl, fb, nl, nb, nl, nt); ctx.fill(); ctx.beginPath(); quad(fr, ft, fr, fb, nr, nb, nr, nt); ctx.fill(); }
   ctx.strokeStyle = fogc(P.line, f); ctx.lineWidth = u * (0.7 + 1.1 * a);
   ctx.beginPath();
-  ctx.rect(fl, ft, fw * 2, fh * 2);
-  for (let i = 0; i <= 6; i++) {
-    const x = -HW + i * HW / 3;
-    ctx.moveTo(F.ox + x * F.s, fb); ctx.lineTo(N.ox + x * N.s, nb);
-    ctx.moveTo(F.ox + x * F.s, ft); ctx.lineTo(N.ox + x * N.s, nt);
+  ctx.rect(fl, ft, fr - fl, fh * 2);
+  const n = Math.max(F.w, N.w) > HW * 1.05 ? 12 : 6;                        // the widened stretch carries both branches' floor lines
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, xf = fl + (fr - fl) * t, xn = nl + (nr - nl) * t;
+    ctx.moveTo(xf, fb); ctx.lineTo(xn, nb);
+    ctx.moveTo(xf, ft); ctx.lineTo(xn, nt);
   }
   for (let j = 1; j <= 3; j++) {
     const y = -HH + j * HH / 2;
@@ -687,10 +740,10 @@ function drawSegment(F, N, k, f) {
   if (k % 4 === 0) {                                  // brighter rib, with a soft glow when it is close
     if (a > 0.3) {
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.22 * a;
-      ctx.strokeStyle = rgb(P.line); ctx.lineWidth = u * (3 + 7 * a); ctx.strokeRect(fl, ft, fw * 2, fh * 2);
+      ctx.strokeStyle = rgb(P.line); ctx.lineWidth = u * (3 + 7 * a); ctx.strokeRect(fl, ft, fr - fl, fh * 2);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     }
-    ctx.strokeStyle = fogc(P.bright, f); ctx.lineWidth = u * (1 + 1.8 * a); ctx.strokeRect(fl, ft, fw * 2, fh * 2);
+    ctx.strokeStyle = fogc(P.bright, f); ctx.lineWidth = u * (1 + 1.8 * a); ctx.strokeRect(fl, ft, fr - fl, fh * 2);
   }
 }
 function poly(cx, cy, r, n, rotA) {
@@ -703,10 +756,39 @@ function halo(cx, cy, r, col, alpha) {
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.fill();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
 }
+// The ship token is built to look nothing like the other pickups: a four-point flare that shows from well down the
+// tunnel, a ringed solid white coin where the others are outlined diamonds, and on the coin a ship in the same
+// shape as the spare-ship icons in the corner of the screen.
+function drawShipToken(cx, cy, oy, s, a, dz) {
+  const R = 0.3 * s, av = Math.pow(a, 0.6);       // av: fades with distance later than the rest
+  const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(tNow * 7);
+  const hl = (1.12 + 0.13 * pulse) * s, vl = (0.74 + 0.08 * pulse) * s, th = R * 0.34;                 // a four-point flare reaching for the walls
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = av * 0.75; ctx.fillStyle = C.pick;
+  ctx.beginPath(); ctx.moveTo(cx - hl, cy); ctx.lineTo(cx, cy - th); ctx.lineTo(cx + hl, cy); ctx.lineTo(cx, cy + th); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx, cy - vl); ctx.lineTo(cx + th, cy); ctx.lineTo(cx, cy + vl); ctx.lineTo(cx - th, cy); ctx.closePath(); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = av * 0.55; ctx.fillStyle = C.void; ctx.beginPath(); ctx.arc(cx, cy, R * 1.9, 0, 6.283); ctx.fill();
+  halo(cx, cy, R * 2.5, C.pick, av * (0.14 + 0.1 * pulse));
+  ctx.strokeStyle = C.pick;
+  if (!reduceMotion) { const t = (tNow * 1.2) % 1; ctx.globalAlpha = av * (1 - t) * 0.8; ctx.lineWidth = u * (1 + 1.5 * a); ctx.beginPath(); ctx.arc(cx, cy, R * (1.9 + 0.8 * t), 0, 6.283); ctx.stroke(); }
+  ctx.globalAlpha = av; ctx.lineWidth = u * (1.4 + 2.6 * a);
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.9, 0, 6.283);
+  for (let i = 0; i < 8; i++) { const t = (reduceMotion ? 0 : tNow * 1.4) + i * 6.283 / 8, c = Math.cos(t), sn = Math.sin(t); ctx.moveTo(cx + c * R * 1.62, cy + sn * R * 1.62); ctx.lineTo(cx + c * R * 1.9, cy + sn * R * 1.9); }
+  ctx.stroke();
+  ctx.fillStyle = C.pick; ctx.beginPath(); ctx.arc(cx, cy, R * 1.4, 0, 6.283); ctx.fill();            // a solid white coin, where the others are outlines
+  ctx.fillStyle = C.void; ctx.beginPath(); ctx.moveTo(cx, cy - R * 1.05); ctx.lineTo(cx + R * 0.88, cy + R * 0.78); ctx.lineTo(cx, cy + R * 0.34); ctx.lineTo(cx - R * 0.88, cy + R * 0.78); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = C.pick; ctx.strokeStyle = C.void; ctx.lineJoin = 'round';
+  if (dz < 50) {
+    ctx.font = Math.max(10, Math.min(24 * u, 0.24 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.lineWidth = 3 * u; ctx.strokeText('SPARE SHIP', cx, cy + R * 2.1); ctx.fillText('SPARE SHIP', cx, cy + R * 2.1);
+  }
+  ctx.globalAlpha = 1;
+}
 function drawObj(o) {
   const dz = o.z - pz; if (dz < NEAR) return;
-  const s = focal / dz, ox = (cxAt(o.z) - camX) * s, oy = -(cyAt(o.z) - camY) * s, a = fog(dz), f = 1 - a;
+  const s = focal / dz, ox = (cxAt(o.z, o.br) - camX) * s, oy = -(cyAt(o.z) - camY) * s, a = fog(dz), f = 1 - a;
   if (a <= 0) return;
+  hazeNow = (o.br != null && lv.fork && lv.fork.chosen == null ? lv.fork.pal[o.br] : lv.pal).haze;
   ctx.lineWidth = u * (1 + 1.5 * a); ctx.globalAlpha = 1;
   if (o.kind === 'wall') {
     const dark = o.hit ? 0.82 : 0.48 + 0.1 * Math.sin(tNow * 6 + o.z);
@@ -741,11 +823,9 @@ function drawObj(o) {
     ctx.fillStyle = fogc(RGB.warn, f); poly(cx, cy, R * 0.34, 4, -t); ctx.fill();
   } else if (!o.taken) {
     const cx = ox + o.x * s, cy = oy - (o.y + Math.sin(tNow * 3 + o.z) * 0.04) * s, R = 0.2 * s;
+    if (o.kind === 'ship') { drawShipToken(cx, cy, oy, s, a, dz); return; }
+    ctx.globalAlpha = a * 0.45; ctx.fillStyle = C.void; ctx.beginPath(); ctx.arc(cx, cy, R * 1.8, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;   // dark backing, so white reads on a pale tunnel
     halo(cx, cy, R * 2.3, C.pick, a * (0.16 + 0.06 * Math.sin(tNow * 5 + o.z)));
-    if (o.kind === 'ship') {                       // the ship token: bigger glow and a second ring, so it cannot be mistaken
-      halo(cx, cy, R * 3.4, C.pick, a * (0.14 + 0.1 * Math.sin(tNow * 9)));
-      ctx.globalAlpha = a; ctx.strokeStyle = C.pick; poly(cx, cy, R * 2.1, 4, -tNow * 2.2); ctx.stroke();
-    }
     ctx.globalAlpha = a; ctx.strokeStyle = C.pick; ctx.fillStyle = C.pick;
     poly(cx, cy, R * 1.5, 4, tNow * 1.5); ctx.stroke();
     if (o.kind === 'time') {
@@ -757,43 +837,51 @@ function drawObj(o) {
         ctx.lineTo(cx + R * 0.8, yy + R * 0.92); ctx.lineTo(cx, yy + R * 0.37); ctx.lineTo(cx - R * 0.8, yy + R * 0.92); ctx.closePath();
       }
       ctx.fill();
-    } else if (o.kind === 'ship') {
-      ctx.beginPath(); ctx.moveTo(cx, cy - R * 1.1); ctx.lineTo(cx + R * 0.95, cy + R * 0.9); ctx.lineTo(cx, cy + R * 0.42); ctx.lineTo(cx - R * 0.95, cy + R * 0.9); ctx.closePath(); ctx.fill();
     } else { poly(cx, cy, R * 0.9, 6, 0.524); ctx.fill(); }
     if (dz < 34) {
       ctx.font = Math.max(9, Math.min(22 * u, 0.2 * s)) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : o.kind === 'ship' ? 'SHIP' : 'SHIELD', cx, cy + R * 1.7);
+      ctx.fillText(o.kind === 'time' ? 'TIME' : o.kind === 'boost' ? 'BOOST' : 'SHIELD', cx, cy + R * 1.7);
     }
     ctx.globalAlpha = 1;
   }
 }
 function farGlow(z, atExit) {
-  const G = ringAt(ringC, z), r = atExit ? Math.max(focal * 0.3, HW * G.s * 1.7) : focal * 0.24;
-  const g = ctx.createRadialGradient(G.ox, G.oy, 0, G.ox, G.oy, r), c = atExit ? RGB.white : lv.pal.glow;
+  const G = ringOf(rings[3], z, null), gx = (G.l + G.r) / 2, r = atExit ? Math.max(focal * 0.3, HW * G.s * 1.7) : focal * 0.24;
+  const g = ctx.createRadialGradient(gx, G.oy, 0, gx, G.oy, r), c = atExit ? RGB.white : lv.pal.glow;
   g.addColorStop(0, rgba(c, atExit ? 0.85 : 0.6)); g.addColorStop(1, rgba(c, 0));
-  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(G.ox - r, G.oy - r, r * 2, r * 2);
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(gx - r, G.oy - r, r * 2, r * 2);
   ctx.globalCompositeOperation = 'source-over';
 }
 function drawWorld() {
   camX = cxAt(pz) + rx; camY = cyAt(pz) + ry;
-  const P = lv.pal, zNear = pz + RNEAR, zEnd = Math.min(pz + DEPTH, lv.L), atExit = lv.L - pz <= DEPTH;
+  const fk = lv.fork, split = fk && fk.chosen == null ? fk.z1 : Infinity;       // beyond this depth there are two tunnels to draw
+  const zNear = pz + RNEAR, zEnd = Math.min(pz + DEPTH, lv.L), atExit = lv.L - pz <= DEPTH;
   const k0 = Math.floor(zNear / SEG) + 1, kMax = Math.floor(zEnd / SEG);
   ctx.lineJoin = 'round'; ctx.globalAlpha = 1;
   let oi = objs.length - 1;
   while (oi >= 0 && objs[oi].z > zEnd) oi--;
   if (kMax >= k0) {
-    let F = ringAt(ringA, kMax * SEG), N = ringB;
-    const cw = HW * F.s, ch = HH * F.s;                 // far end: haze, or the exit portal
-    ctx.fillStyle = atExit ? rgb(mix(P.bright, RGB.white, 0.5 + 0.5 * Math.sin(tNow * 9))) : rgb(P.haze);
-    ctx.fillRect(F.ox - cw, F.oy - ch, cw * 2, ch * 2);
-    const glowK = Math.max(k0, kMax - 12);
+    const zFar = kMax * SEG, two = zFar > split, mine = rx < 0 ? 0 : 1, order = [1 - mine, mine];   // the branch on the ship's side is painted last, over the other
+    for (const b of two ? order : [null]) {                                     // far ends: haze, or the exit portal
+      const P = b == null ? lv.pal : fk.pal[b], E = ringOf(rings[0], zFar, b), ch = HH * E.s;
+      ctx.fillStyle = atExit ? rgb(mix(P.bright, RGB.white, 0.5 + 0.5 * Math.sin(tNow * 9))) : rgb(P.haze);
+      ctx.fillRect(E.l, E.oy - ch, E.r - E.l, ch * 2);
+    }
+    const glowK = two ? -1 : Math.max(k0, kMax - 12);
     for (let k = kMax; k >= k0; k--) {
-      const zn = k > k0 ? (k - 1) * SEG : zNear;
-      ringAt(N, zn);
-      drawSegment(F, N, k, 1 - fog(k * SEG - pz));
-      if (k === glowK) farGlow(kMax * SEG, atExit);
-      while (oi >= 0 && objs[oi].z > zn) { drawObj(objs[oi]); oi--; }
-      const sw = F; F = N; N = sw;
+      const zf = k * SEG, zn = k > k0 ? (k - 1) * SEG : zNear, f = 1 - fog(zf - pz);
+      let lo = oi; while (lo >= 0 && objs[lo].z > zn) lo--;                      // objects in this slice sit at indices lo+1 .. oi
+      if (zf > split) {
+        for (const b of order) {
+          drawSegment(ringOf(rings[1], zf, b), ringOf(rings[2], zn, b), k, f, fk.pal[b], b === 1);
+          for (let i = oi; i > lo; i--) if (objs[i].br === b) drawObj(objs[i]);
+        }
+      } else {
+        drawSegment(ringOf(rings[1], zf, null), ringOf(rings[2], zn, null), k, f, lv.pal, false);
+        if (k === glowK) farGlow(zFar, atExit);
+        for (let i = oi; i > lo; i--) drawObj(objs[i]);
+      }
+      oi = lo;
     }
   }
   ctx.globalCompositeOperation = 'lighter';
@@ -807,7 +895,7 @@ function drawWorld() {
       do { m.x = (Math.random() * 2 - 1) * HW * 0.94; m.y = (Math.random() * 2 - 1) * HH * 0.94; } while (Math.abs(m.x) < HW * 0.45 && Math.abs(m.y) < HH * 0.45);
       m.z = pz + DEPTH * (first ? Math.random() : 0.55 + 0.45 * Math.random());
     }
-    if (m.z > lv.L || m.z - pz < 1) continue;
+    if (m.z > lv.L || m.z - pz < 1 || m.z > split) continue;
     const p = projTo(tmp, m.x, m.y, m.z), x1 = p.x, y1 = p.y; projTo(tmp, m.x, m.y, m.z + len);
     ctx.moveTo(x1, y1); ctx.lineTo(tmp.x, tmp.y);
   }
@@ -815,7 +903,7 @@ function drawWorld() {
   // lasers: coloured glow with a white core
   for (const b of bullets) {
     const d1 = b.z - pz; if (d1 < NEAR) continue;
-    const p = projTo(tmp, b.x, b.y, b.z), x1 = p.x, y1 = p.y, w = clamp(0.045 * p.s, 1.6 * u, 6 * u); projTo(tmp, b.x + b.sx * 2.6, b.y + b.sy * 2.6, b.z + 2.6);
+    const p = projTo(tmp, b.x, b.y, b.z, b.br), x1 = p.x, y1 = p.y, w = clamp(0.045 * p.s, 1.6 * u, 6 * u); projTo(tmp, b.x + b.sx * 2.6, b.y + b.sy * 2.6, b.z + 2.6, b.br);
     const al = Math.max(0.3, fog(d1));
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(tmp.x, tmp.y);
     ctx.globalAlpha = al * 0.5; ctx.strokeStyle = rgb(lv.pal.line); ctx.lineWidth = w * 2.6; ctx.stroke();
