@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doomsday Tunnels: changelog</title>
+<meta name="description" content="How Doomsday Tunnels has changed since its first version, and why each change was made.">
+<meta name="theme-color" content="#07060f">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="preload" href="../fonts/ShareTechMono-Regular.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="../fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Share Tech Mono";font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/ShareTechMono-Regular.woff) format("woff")}
+@font-face{font-family:"Syncopate";font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/Syncopate-Bold.woff) format("woff")}
+:root{
+  color-scheme:dark;
+  --void:#07060f; --panel:#0f0d1e; --line:#2a2745;
+  --ink:#e8f1ff; --text:#c7d1e8; --dim:#8a94b3;
+  --cyan:#35d9ff; --violet:#b07cff; --green:#4dffa6; --pink:#ff6ad5; --blue:#5b8cff;
+  --gate:#ffe14a;
+  --display:"Syncopate","Arial Black",sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --tone:var(--cyan);
+}
+*{box-sizing:border-box}
+html{background:var(--void);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--void);color:var(--text);font:16px/1.65 var(--mono)}
+.page{max-width:47rem;margin:0 auto;padding:clamp(28px,6vw,64px) 20px 72px}
+a{color:var(--cyan);text-underline-offset:3px}
+a:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--gate);outline-offset:3px}
+p,ul{margin:0 0 1.1rem}
+strong{color:var(--ink);font-weight:400}
+
+/* masthead */
+.home{display:inline-block;margin-bottom:1.4rem;font:700 .8rem/1 var(--display);letter-spacing:.04em;text-decoration:none;color:var(--dim)}
+.home:hover{color:var(--ink)}
+h1{margin:0 0 1.1rem;font:700 clamp(1.9rem,9vw,3.6rem)/1.02 var(--display);letter-spacing:-.01em;color:var(--ink)}
+.lede{font-size:1.08rem;color:var(--ink);max-width:38rem}
+nav ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;gap:.5rem 1.6rem}
+
+/* Each day of work takes the next sector colour, in the game's own order. */
+.day{--tone:var(--cyan);margin-top:2.8rem;padding-top:2rem;border-top:2px solid var(--tone)}
+.day.s2{--tone:var(--violet)} .day.s3{--tone:var(--green)} .day.s4{--tone:var(--pink)} .day.s5{--tone:var(--blue)}
+h2{margin:0 0 1.6rem;font:700 clamp(1.05rem,4.4vw,1.4rem)/1.15 var(--display);color:var(--tone)}
+
+/* entries hang off a rail, newest at the top */
+.log{list-style:none;margin:0;padding:0 0 0 1.5rem;border-left:1px solid var(--line)}
+.log > li{position:relative;margin:0 0 2rem}
+.log > li:last-child{margin-bottom:0}
+.log > li::before{content:"";position:absolute;left:calc(-1.5rem - .32rem);top:.42rem;width:.62rem;height:.62rem;background:var(--tone);transform:rotate(45deg)}
+h3{margin:0 0 .5rem;font:400 1.16rem/1.3 var(--mono);color:var(--ink)}
+.log p{margin-bottom:.6rem}
+.log p:last-child{margin-bottom:0}
+.why{padding:.6rem .9rem;background:var(--panel);border-left:3px solid var(--tone)}
+.why b{font-weight:400;color:var(--tone)}
+.also{color:var(--dim)}
+.also b{font-weight:400;color:var(--text)}
+
+footer{margin-top:3.4rem;padding-top:1.4rem;border-top:1px solid var(--line);color:var(--dim);font-size:.9rem}
+footer p{margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <a class="home" href="../">Doomsday Tunnels</a>
+  <h1>Changelog</h1>
+  <p class="lede">Doomsday Tunnels is a hobby project. It answers to nobody, so it changes whenever a new idea sounds like fun. This page keeps track of the bigger changes and, where there was one, the reason.</p>
+  <nav aria-label="Other pages">
+    <ul>
+      <li><a href="../">Play the game</a></li>
+      <li><a href="../about/">Read the manual</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main>
+
+<section class="day s4">
+  <h2><time datetime="2026-10-11">October 11, 2026</time></h2>
+  <ul class="log">
+    <li>
+      <h3>This changelog</h3>
+      <p>A record of how the game got to where it is, linked from the manual.</p>
+      <p class="why"><b>Why:</b> the game keeps evolving, and it seemed worth writing down what changed and what prompted it.</p>
+    </li>
+    <li>
+      <h3>A warning when the shield is nearly gone</h3>
+      <p>In the last 15% of shield, the shield bar throbs red and the edges of the screen pulse red with it, harder as the shield drains. When the shield gives out, the bar breaks into pieces.</p>
+      <p class="why"><b>Why:</b> your eyes are on the tunnel, not on a small bar in the corner. The warning had to reach the whole screen.</p>
+    </li>
+    <li>
+      <h3>Fonts served from the game's own site</h3>
+      <p>The game's two typefaces used to load from Google Fonts. They now sit alongside the game.</p>
+      <p class="why"><b>Why:</b> writing the manual's privacy section showed that this was the one avoidable request to another company. Now the game loads nothing from other sites.</p>
+    </li>
+    <li>
+      <h3>A manual</h3>
+      <p>A <a href="../about/">page that explains the game</a>: how to play, how to add it to a phone's home screen, exactly what the game counts, and how the high-score board works. A small link on the title screen leads to it.</p>
+      <p class="why"><b>Why:</b> full-screen play on a phone depends on a home-screen step most people don't know about, and anyone playing deserves a plain account of what is and isn't tracked.</p>
+    </li>
+    <li>
+      <h3>Forking tunnels</h3>
+      <p>Partway through every sector the tunnel now splits in two. The light branch is the easy way round. The dark branch is harder, and it holds the sector's ship token.</p>
+      <p class="why"><b>Why:</b> a choice in mid-flight sounded like fun. Forks into differently coloured tunnels would have broken the story, which gives every sector one colour, so the two branches share the colour and differ sharply in shade. Putting the ship token in the dark branch turned the fork into a bet: safety, or a spare ship.</p>
+      <p>The forks spent a morning on a separate test page before going into the main game.</p>
+    </li>
+    <li>
+      <h3>A ship token you can't mistake</h3>
+      <p>The ship token became a large ringed white coin with a ship on it. Before, it was a small white diamond like the time, shield and boost cells.</p>
+      <p class="why"><b>Why:</b> at speed it was too hard to tell the one pickup that matters most from the rest.</p>
+    </li>
+    <li class="also">
+      <p><b>Also:</b> the sound and settings buttons swapped the words SND and TUNE for a speaker and a gear, which read faster.</p>
+    </li>
+  </ul>
+</section>
+
+<section class="day s3">
+  <h2><time datetime="2026-10-10">October 10, 2026</time></h2>
+  <ul class="log">
+    <li>
+      <h3>Part Two of the story</h3>
+      <p>Five more sectors and a second run of cut scenes, in which Baron Von Kaboom turns out to have kept a spare Doomsday Device on the Moon.</p>
+      <p class="why"><b>Why:</b> the first story was fun enough to deserve a sequel, on the condition that it be even more ridiculous.</p>
+    </li>
+    <li>
+      <h3>Spare ships have to be earned</h3>
+      <p>You now start with no spares. Each sector hides one ship token, and collecting it earns a spare ship when you finish the sector. Miss the token and there is no ship.</p>
+      <p class="why"><b>Why:</b> a free ship for every sector cleared, the rule from the day before, made spares too easy to come by.</p>
+    </li>
+    <li>
+      <h3>High scores and play counts</h3>
+      <p>A shared scoreboard that anyone can post to under a name of their choosing, and a private tally of how many runs are played each day.</p>
+      <p class="why"><b>Why:</b> a friend mentioned he had spent several hours playing, and there had been no way to know that anyone was playing at all, let alone compare scores. One rule was set at the same moment: apart from the name on a posted score, everything counted stays anonymous. The <a href="../about/#data">manual</a> has the details.</p>
+    </li>
+  </ul>
+</section>
+
+<section class="day s2">
+  <h2><time datetime="2026-10-09">October 9, 2026</time></h2>
+  <ul class="log">
+    <li>
+      <h3>Spare ships</h3>
+      <p>Losing a ship no longer has to end the run. A spare lets you carry on with a full shield.</p>
+      <p class="why"><b>Why:</b> one ship per run was too few. A single mistake late in a good run sent you back to the start.</p>
+    </li>
+  </ul>
+</section>
+
+<section class="day">
+  <h2><time datetime="2026-10-08">October 8, 2026</time></h2>
+  <ul class="log">
+    <li>
+      <h3>Boost with a reserve</h3>
+      <p>Boost became something you hold. It drains a reserve that lasts six seconds, a white boost cell refills it, and the whole screen shows when it is on.</p>
+      <p class="why"><b>Why:</b> the first boost built up so gently that it seemed never to switch on.</p>
+    </li>
+    <li>
+      <h3>A story, with cut scenes</h3>
+      <p>Baron Von Kaboom, Mister Fluffles, the General, a talking ship's computer and Ace Chase arrived, in chunky cut scenes between sectors.</p>
+      <p class="why"><b>Why:</b> the sectors needed a reason to follow one another, and a cheesy 1980s cartoon plot was the most fun reason available.</p>
+    </li>
+    <li>
+      <h3>Tilt steering</h3>
+      <p>An optional way to fly: tilt the phone to steer, and use the thumb stick to aim the guns.</p>
+      <p class="why"><b>Why:</b> an experiment in whether steering and aiming could be separated. The verdict was that it is harder than the thumb stick, so it stays as an option for anyone who wants the challenge.</p>
+    </li>
+    <li>
+      <h3>One vivid colour per sector</h3>
+      <p>The bare wireframe tunnels were filled in, each sector in a single strong colour.</p>
+      <p class="why"><b>Why:</b> the first version looked duller than the game it was modelled on. A first attempt at brightening it used many colours at once, which was too much. The problem turned out to be the number of colours, not how bright they were.</p>
+    </li>
+    <li>
+      <h3>Smoother steering</h3>
+      <p>The ship now eases into its turns, and a settings panel lets you adjust how it handles.</p>
+      <p class="why"><b>Why:</b> the first version was too twitchy to enjoy.</p>
+    </li>
+    <li>
+      <h3>The first version</h3>
+      <p>A wireframe tunnel, a countdown, walls to dodge and gates to shoot, playable in a phone's browser held sideways.</p>
+      <p class="why"><b>Why:</b> a memory of Tunnels of Armageddon, a 1989 tunnel flyer for the Apple IIGS, and a wish to play something like it on a phone.</p>
+    </li>
+    <li class="also">
+      <p><b>Also:</b> sound was silent on phones at first, because phones only let a page start sound as a finger lifts, not as it lands.</p>
+    </li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <p>Doomsday Tunnels is a hobby project by Andrew Chase. <a href="../">Play the game</a> or <a href="../about/">read the manual</a>.</p>
+</footer>
+
+</div>
+</body>
+</html>
