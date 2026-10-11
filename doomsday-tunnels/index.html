@@ -214,6 +214,7 @@ function resize() {
   const pp = document.getElementById('post');
   pp.style.width = W + 'px'; pp.style.height = H + 'px'; pp.classList.toggle('rot', rot);
   scoresBtn.x = W - padR - 184 * u; scoresBtn.y = 30 * u; scoresBtn.r = 20 * u;
+  aboutLink.x = padL + 16 * u; aboutLink.y = H - 20 * u;
 }
 function baseTransform() {
   if (rot) ctx.setTransform(0, dpr, -dpr, 0, SW * dpr, 0);
@@ -224,6 +225,9 @@ function toLogical(e) {
   return rot ? [y, r.width - x] : [x, y];
 }
 const hit = (b, x, y, k) => Math.hypot(x - b.x, y - b.y) < b.r * (k || 1.2);
+const ABOUT = 'about/';                               // address of the manual page; empty hides the title-screen link (the hosted game sets it)
+const aboutLink = { x: 0, y: 0, w: 0 };        // bottom-left of the title screen; width is measured when it is drawn
+const inAbout = (x, y) => x < aboutLink.x + aboutLink.w + 16 * u && y > aboutLink.y - 24 * u;
 
 /* ---------- audio ---------- */
 let ac = null, master = null, hum = null, humG = null, noiseBuf = null, muted = false;
@@ -473,6 +477,7 @@ cv.addEventListener('pointerdown', e => {
   if (board.open) { board.open = false; return; }
   if (hit(muteBtn, x, y)) { toggleMute(); return; }
   if (API && (state === 'title' || state === 'over') && hit(scoresBtn, x, y)) { openBoard(); return; }
+  if (ABOUT && state === 'title' && inAbout(x, y)) { location.href = ABOUT; return; }
   if (API && state === 'over') {
     const ob = overBtns();
     if (inBtn(ob.post, x, y)) { if (canPost()) openPost(); return; }
@@ -1076,6 +1081,11 @@ function drawOverlay() {
     if (blink) txt(go + ' TO LAUNCH', cx, cy + 104 * u, FONT_D, 15 * u, C.ink, 'center');
     if (best > 0) txt('BEST ' + String(best).padStart(6, '0'), cx, cy + 136 * u, FONT_M, 13 * u, C.dim, 'center');
     if (rot) txt('TURN YOUR PHONE SIDEWAYS', cx, cy - 150 * u, FONT_M, 12 * u, C.gate, 'center');
+    if (ABOUT) {                                    // a small underlined link to the manual page
+      const s = 12 * u; txt('MANUAL AND PRIVACY', aboutLink.x, aboutLink.y, FONT_M, s, C.ink);
+      aboutLink.w = ctx.measureText('MANUAL AND PRIVACY').width;
+      ctx.fillStyle = C.ink; ctx.fillRect(aboutLink.x, aboutLink.y + s * 0.62, aboutLink.w, Math.max(1, u));
+    }
   } else if (state === 'clear') {
     txt('SECTOR ' + String(bonus.n).padStart(2, '0') + ' CLEAR', cx, cy - 70 * u, FONT_D, big * 0.75, C.ink, 'center');
     txt('TIME BONUS    +' + bonus.tb, cx, cy - 18 * u, FONT_M, 16 * u, C.ink, 'center');
