@@ -129,7 +129,7 @@ function paletteFrom(a, shade) {
     light: mix(a, RGB.white, 0.4), lightWall: mix(a, RGB.white, 0.22), haze: d(0.66 + (k > 0 ? -0.1 : 0.02)), glow: mix(a, RGB.white, 0.45) };
 }
 const makePalette = n => paletteFrom(RGB.sectors[(n - 1) % 5]);
-try { document.fonts.load('700 20px Syncopate'); document.fonts.load('20px "Share Tech Mono"'); } catch (_) {}
+try { document.fonts.load('700 20px Syncopate').catch(() => {}); document.fonts.load('20px "Share Tech Mono"').catch(() => {}); } catch (_) {}   // if a font cannot load, the fallback faces are used
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
