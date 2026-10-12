@@ -416,6 +416,12 @@ const START_SPARES = 0, MAX_SPARES = 5;        // spare ships: none to begin wit
 let shipEarned = false;                        // this sector's token is in hand; it becomes a ship when the sector is cleared
 let lives = START_SPARES, invuln = 0, respawnWhy = '';
 let pz = 0, speed = 0, rx = 0, ry = 0, vx = 0, vy = 0, roll = 0, objs = [];
+const GUN_RANGE = 30;                           // how far ahead of the ship a shot travels; 75 would be as far as you can see
+// Gun heat: every shot warms the guns and they cool whenever the trigger is released. Fire for too long without a
+// break and they overheat, locking until they have cooled most of the way down.
+const HEAT_SHOTS = 18;                          // shots of unbroken fire before the guns overheat; 0 turns overheating off
+const HEAT_COOL = 0.45, HEAT_READY = 0.3;       // heat shed per second; overheated guns come back once below HEAT_READY
+let gunHeat = 0, gunHot = false;
 let fireCd = 0, gunSide = 1, flash = 0, flashCol = C.warn, shake = 0, scrapeCd = 0, lastBeep = 0;
 const bullets = [], parts = [], popups = [], shocks = [], motes = [];
 const BOOST_SECS = 6;                           // a full reserve lasts this long with the button held
@@ -433,7 +439,7 @@ function startLevel(n) {
   gain.n = 0;
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
-  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false; shipEarned = false;
+  state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false; shipEarned = false; gunHeat = 0; gunHot = false;
 }
 function newGame() {
   runStarted();
@@ -481,7 +487,7 @@ function finishRespawn() {
   shield = 100; barBroken = false;
   if (respawnWhy === 'SHIP LOST') {              // new ship, same spot, briefly untouchable
     rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5; bullets.length = 0; boostFuel = 1; aimSX = aimSY = 0;
-    invuln = 3; tilt.needCal = true; state = 'play'; stateT = 0;
+    invuln = 3; tilt.needCal = true; state = 'play'; stateT = 0; gunHeat = 0; gunHot = false;
     popups.push({ s: 'NEW SHIP', t: 0 });
   } else {                                       // out of time: the sector starts over with a fresh clock
     startLevel(level); invuln = 1.5;
@@ -717,9 +723,14 @@ function update(dt) {
   forkCheck();
 
   fireCd -= dt;
-  if (firing && fireCd <= 0) {
+  if (HEAT_SHOTS) {
+    if (!firing || gunHot) gunHeat = Math.max(0, gunHeat - HEAT_COOL * dt);
+    if (gunHot && gunHeat <= HEAT_READY) { gunHot = false; sfx.beep(); }
+  }
+  if (firing && fireCd <= 0 && !gunHot) {
     fireCd = 0.14; gunSide = -gunSide; sfx.laser();
     bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, sx: aimSX, sy: aimSY, dead: false });
+    if (HEAT_SHOTS) { gunHeat += 1 / HEAT_SHOTS; if (gunHeat >= 1) { gunHeat = 1; gunHot = true; sfx.tink(); } }
   }
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i], z0 = b.z, step = (speed + 95) * dt, fk = lv.fork, open = fk && fk.chosen == null; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
@@ -727,7 +738,8 @@ function update(dt) {
     for (const o of objs) { if (o.z <= z0) continue; if (o.z > b.z) break; if (open && o.br != null && o.br !== b.br) continue; if (bulletHit(o, b)) { b.dead = true; break; } }
     const bw = b.br != null ? HW : halfW(b.z);
     if (!b.dead && (Math.abs(b.x) > bw || Math.abs(b.y) > HH)) { burstAt(clamp(b.x, -bw, bw), clamp(b.y, -HH, HH), b.z, C.ink, 3); b.dead = true; }
-    if (b.dead || b.z - pz > 75 || b.z > lv.L) bullets.splice(i, 1);
+    if (!b.dead && b.z - pz > GUN_RANGE) { if (GUN_RANGE < 70) burstAt(b.x, b.y, b.z, C.ink, 2); b.dead = true; }      // out of range: a short-range shot fizzles where you can see it
+    if (b.dead || b.z > lv.L) bullets.splice(i, 1);
   }
 
   const fkh = lv.fork;
@@ -958,7 +970,7 @@ function drawWorld() {
   for (const b of bullets) {
     const d1 = b.z - pz; if (d1 < NEAR) continue;
     const p = projTo(tmp, b.x, b.y, b.z, b.br), x1 = p.x, y1 = p.y, w = clamp(0.045 * p.s, 1.6 * u, 6 * u); projTo(tmp, b.x + b.sx * 2.6, b.y + b.sy * 2.6, b.z + 2.6, b.br);
-    const al = Math.max(0.3, fog(d1));
+    const al = Math.max(0.3, fog(d1)) * (GUN_RANGE < 70 ? clamp((GUN_RANGE - d1) / (GUN_RANGE * 0.3), 0.15, 1) : 1);     // short-range shots fade as they run out
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(tmp.x, tmp.y);
     ctx.globalAlpha = al * 0.5; ctx.strokeStyle = rgb(lv.pal.line); ctx.lineWidth = w * 2.6; ctx.stroke();
     ctx.globalAlpha = al; ctx.strokeStyle = C.ink; ctx.lineWidth = w * 0.8; ctx.stroke();
@@ -1080,6 +1092,13 @@ function drawHUD() {
   ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by2, bw, bh);
   ctx.strokeStyle = dry ? C.dim : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by2, bw, bh);
   ctx.globalAlpha = pulse ? 0.7 : 1; ctx.fillStyle = C.ink; ctx.fillRect(x0, by2, bw * boostFuel, bh); ctx.globalAlpha = 1;
+  if (HEAT_SHOTS) {                                 // gun heat: fills as the guns warm, red when close to or past the limit
+    const by3 = m + 116 * u, warm = gunHeat > 0.7, flashOn = gunHot && !reduceMotion && (tNow * 6) % 1 < 0.5;
+    txt(gunHot ? 'GUNS OVERHEATED' : 'GUNS', x0, m + 101 * u, FONT_M, 11 * u, gunHot ? C.warn : C.dim);
+    ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by3, bw, bh);
+    ctx.strokeStyle = gunHot || warm ? C.warn : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by3, bw, bh);
+    ctx.globalAlpha = flashOn ? 0.55 : 1; ctx.fillStyle = gunHot || warm ? C.warn : C.ink; ctx.fillRect(x0, by3, bw * gunHeat, bh); ctx.globalAlpha = 1;
+  }
 
   const urgent = time < 10, blink = urgent && (tNow * 4 % 1) < 0.5;
   txt('DETONATION IN', W / 2, m, FONT_M, 11 * u, urgent ? C.warn : C.dim, 'center');
@@ -1105,7 +1124,12 @@ function drawControls() {
   ctx.beginPath(); ctx.arc(ax + stick.x * R, ay + stick.y * R, 22 * u, 0, 6.283); ctx.fill();
   if (!on) { ctx.globalAlpha = 0.7; ctx.textBaseline = 'middle'; txt(tiltActive() ? 'AIM' : 'STEER', ax, ay, FONT_M, 11 * u, C.ink, 'center'); }
   ctx.globalAlpha = 1;
-  ringBtn(fireBtn, 'FIRE', fireId !== null, 15);
+  if (gunHot) ctx.globalAlpha = 0.55;
+  ringBtn(fireBtn, gunHot ? 'HOT' : 'FIRE', fireId !== null && !gunHot, 15); ctx.globalAlpha = 1;
+  if (HEAT_SHOTS && gunHeat > 0.01) {               // heat gauge wrapped round the button, as the boost button carries its reserve
+    ctx.lineWidth = 4 * u; ctx.strokeStyle = gunHot || gunHeat > 0.7 ? C.warn : C.ink; ctx.globalAlpha = gunHot && !reduceMotion ? 0.6 + 0.4 * Math.sin(tNow * 14) : 0.9;
+    ctx.beginPath(); ctx.arc(fireBtn.x, fireBtn.y, fireBtn.r + 6 * u, -Math.PI / 2, -Math.PI / 2 + 6.283 * gunHeat); ctx.stroke(); ctx.globalAlpha = 1;
+  }
   const dry = boostFuel <= 0;
   if (dry) ctx.globalAlpha = 0.55;
   ringBtn(boostBtn, dry ? 'EMPTY' : 'BOOST', boosting, 12);
