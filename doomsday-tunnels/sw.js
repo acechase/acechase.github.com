@@ -23,9 +23,13 @@ self.addEventListener('activate', e => {
 const keep = (req, res) => { if (res && res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); } return res; };
 const saved = req => caches.match(req, { ignoreSearch: true, ignoreVary: true });
 
-// Pages: show the saved copy at once, so the game never sits on a blank screen waiting for a slow connection, and
+// The game: show the saved copy at once, so it never sits on a blank screen waiting for a slow connection, and
 // fetch the latest version in the background for next time. If that version is different, tell the open page, which
 // restarts itself if it is still on the title screen. With nothing saved yet, wait for the network.
+// The manual and the changelog are for reading, and a saved copy of those is always one visit out of date. So they
+// ask the network first and fall back to the saved copy only with no connection, or when the answer takes too long.
+const READ_WAIT = 2500;                              // how long a reading page waits for the network before using its saved copy
+const isGame = path => path === SCOPE || path === SCOPE + 'index.html';
 const stamp = res => (res && (res.headers.get('etag') || res.headers.get('last-modified'))) || '';
 async function refresh(req, had) {
   const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 10000);
@@ -47,7 +51,8 @@ async function announce(path) {
 }
 async function page(e) {
   const req = e.request, had = await saved(req), fresh = refresh(req, had);
-  if (had) { e.waitUntil(fresh); return had; }
+  if (had && isGame(new URL(req.url).pathname)) { e.waitUntil(fresh); return had; }
+  if (had) { e.waitUntil(fresh); return (await Promise.race([fresh, new Promise(r => setTimeout(r, READ_WAIT, null))])) || had; }
   return (await fresh) || (await saved(SCOPE)) || Response.error();
 }
 // Fonts, icons and images never change under the same name: use the saved copy, fetch only if there is none.
