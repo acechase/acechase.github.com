@@ -412,6 +412,12 @@ function cyAt(z) { const p = lv.py; return TUNE.twist * env(z) * (p[0] * Math.si
 /* ---------- state ---------- */
 let state = 'title', paused = false, stateT = 0, tNow = 0;
 let level = 1, score = 0, best = 0, time = 0, shield = 100, deadWhy = '', bonus = null;
+// Sector times. sectorT counts the seconds flown in the current sector; runTimes holds this run's time for each sector
+// cleared, in tenths of a second (0 where it does not count); pbTimes is the player's best per sector, kept on the device.
+let sectorT = 0, runTimes = [];
+const pbTimes = {}; try { Object.assign(pbTimes, JSON.parse(localStorage.getItem('doomsday-times') || '{}')); } catch (_) {}
+const fairSpeed = () => Math.abs(TUNE.speed - 1) < 0.001;      // times are only comparable at the standard flight speed
+const fmtT = t => (t / 10).toFixed(1);
 const START_SPARES = 0, MAX_SPARES = 5;        // spare ships: none to begin with; each sector hides one token worth a ship
 let shipEarned = false;                        // this sector's token is in hand; it becomes a ship when the sector is cleared
 let lives = START_SPARES, invuln = 0, respawnWhy = '';
@@ -436,13 +442,13 @@ function attract() { lv = makeLevel(1); lv.L = 1e9; lv.fork = null; objs = []; p
 const gain = { n: 0, t: -9 };
 function scored(n) { score += n; gain.n = (tNow - gain.t < 1.2 ? gain.n : 0) + n; gain.t = tNow; }
 function startLevel(n) {
-  gain.n = 0;
+  gain.n = 0; sectorT = 0;
   level = n; lv = makeLevel(n); objs = lv.objs; pz = 0; rx = ry = vx = vy = 0; speed = lv.v0 * TUNE.speed * 0.5;
   time = lv.limit; bullets.length = 0; parts.length = 0; popups.length = 0; lastBeep = 0;
   state = 'play'; stateT = 0; paused = false; aimSX = aimSY = 0; tilt.needCal = true; boostFuel = 1; boosting = false; shipEarned = false; gunHeat = 0; gunHot = false;
 }
 function newGame() {
-  runStarted();
+  runStarted(); runTimes = [];
   score = 0; shield = 100; lives = START_SPARES; invuln = 0; barBroken = false;
   if (!seenIntro) { seenIntro = true; playScene(STORY.intro(), () => startLevel(1)); } else startLevel(1);
 }
@@ -503,7 +509,12 @@ function gameOver(why) {
 function sectorClear() {
   const tb = Math.ceil(time) * 10, sb = Math.round(shield) * 2;
   const token = shipEarned, gotShip = token && lives < MAX_SPARES; if (gotShip) lives++;
-  score += tb + sb; bonus = { n: level, tb, sb, ship: gotShip, token }; shield = Math.min(100, shield + 20);
+  const t = Math.max(1, Math.round(sectorT * 10)), ranked = fairSpeed(), old = pbTimes[level] || 0, pb = ranked && (!old || t < old);
+  if (pb) { pbTimes[level] = t; try { localStorage.setItem('doomsday-times', JSON.stringify(pbTimes)); } catch (_) {} }
+  runTimes[level - 1] = ranked ? t : 0;
+  const rec = recState === 'ok' ? records[level] || [] : null;                 // the shared top three for this sector, when known
+  const place = ranked && rec && online.token ? rec.filter(x => x.t <= t).length + 1 : 0;      // where this time would sit among them, if it can be posted
+  score += tb + sb; bonus = { n: level, tb, sb, ship: gotShip, token, t, ranked, pb, old, rec: rec && rec[0], place: place <= 3 ? place : 0 }; shield = Math.min(100, shield + 20);
   saveBest(); sfx.clear(); flash = 1; flashCol = C.ink;
   level++; lv = makeLevel(level); objs = []; pz = 0; rx = ry = vx = vy = 0; bullets.length = 0;
   state = 'clear'; stateT = 0;
@@ -525,7 +536,7 @@ cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch' && !touchUI) { touchUI = true; resize(); }
   const [x, y] = toLogical(e);
   if (state === 'scene') { sceneTap(x, y); return; }
-  if (board.open) { board.open = false; return; }
+  if (board.open) { boardTap(x, y); return; }
   if (hit(muteBtn, x, y)) { toggleMute(); return; }
   if (API && (state === 'title' || state === 'over') && hit(scoresBtn, x, y)) { openBoard(); return; }
   if (ABOUT && state === 'title' && inAbout(x, y)) { location.href = ABOUT; return; }
@@ -568,7 +579,7 @@ cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   if (postOpen) { if (e.code === 'Escape') closePost(); return; }      // typing a name: leave the keys alone
-  if (board.open) { board.open = false; e.preventDefault(); return; }
+  if (board.open) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Tab') switchBoard(); else board.open = false; e.preventDefault(); return; }
   if (!tuneOpen && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if (tuneOpen) { if (e.code === 'Escape' || e.code === 'KeyT') closeTune(); return; }
   if (e.repeat) return;
@@ -718,7 +729,7 @@ function update(dt) {
   }
   if (!reduceMotion) roll += (-vx * 0.045 * TUNE.sway - roll) * Math.min(1, dt * 4);
 
-  const pz0 = pz; pz += speed * dt; time -= dt; score += speed * dt * 0.5;
+  const pz0 = pz; pz += speed * dt; time -= dt; sectorT += dt; score += speed * dt * 0.5;
   for (const o of objs) { if (o.z <= pz0) continue; if (o.z > pz) break; collide(o); }
   forkCheck();
 
@@ -1181,12 +1192,19 @@ function drawOverlay() {
       ctx.fillStyle = C.ink; ctx.fillRect(aboutLink.x, aboutLink.y + s * 0.62, aboutLink.w, Math.max(1, u));
     }
   } else if (state === 'clear') {
-    txt('SECTOR ' + String(bonus.n).padStart(2, '0') + ' CLEAR', cx, cy - 70 * u, FONT_D, big * 0.75, C.ink, 'center');
-    txt('TIME BONUS    +' + bonus.tb, cx, cy - 18 * u, FONT_M, 16 * u, C.ink, 'center');
-    txt('SHIELD BONUS  +' + bonus.sb, cx, cy + 6 * u, FONT_M, 16 * u, C.ink, 'center');
-    txt(bonus.ship ? 'SHIP TOKEN: EXTRA SHIP  +1' : bonus.token ? 'SHIP TOKEN: SHIP BAY FULL' : 'NO SHIP TOKEN, NO EXTRA SHIP', cx, cy + 30 * u, FONT_M, 16 * u, bonus.ship ? C.gate : C.dim, 'center');
-    txt('SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy + 58 * u, FONT_M, 16 * u, lv.color, 'center');
-    if (blink) txt(go + ' FOR SECTOR ' + String(level).padStart(2, '0'), cx, cy + 100 * u, FONT_D, 14 * u, C.ink, 'center');
+    txt('SECTOR ' + String(bonus.n).padStart(2, '0') + ' CLEAR', cx, cy - 84 * u, FONT_D, big * 0.75, C.ink, 'center');
+    const small = Math.min(12 * u, W * 0.02), nth = ['', 'THE FASTEST', '2ND FASTEST', '3RD FASTEST'][bonus.place];
+    if (!bonus.ranked) txt('SECTOR TIME ' + fmtT(bonus.t) + '   NOT RANKED: FLIGHT SPEED WAS CHANGED IN SETTINGS', cx, cy - 46 * u, FONT_M, small, C.dim, 'center');
+    else {
+      txt('SECTOR TIME ' + fmtT(bonus.t) + (bonus.pb ? (bonus.old ? '   YOUR BEST YET' : '') : '   YOUR BEST ' + fmtT(bonus.old)), cx, cy - 48 * u, FONT_M, 16 * u, bonus.pb && bonus.old ? C.gate : C.ink, 'center');
+      if (nth) txt(nth + ' ON RECORD. POST YOUR SCORE AFTER THIS RUN TO CLAIM IT.', cx, cy - 29 * u, FONT_M, small, C.gate, 'center');
+      else if (bonus.rec) txt('RECORD ' + fmtT(bonus.rec.t) + '  ' + bonus.rec.name.toUpperCase(), cx, cy - 29 * u, FONT_M, small, C.dim, 'center');
+    }
+    txt('TIME BONUS    +' + bonus.tb, cx, cy - 4 * u, FONT_M, 16 * u, C.ink, 'center');
+    txt('SHIELD BONUS  +' + bonus.sb, cx, cy + 18 * u, FONT_M, 16 * u, C.ink, 'center');
+    txt(bonus.ship ? 'SHIP TOKEN: EXTRA SHIP  +1' : bonus.token ? 'SHIP TOKEN: SHIP BAY FULL' : 'NO SHIP TOKEN, NO EXTRA SHIP', cx, cy + 40 * u, FONT_M, 16 * u, bonus.ship ? C.gate : C.dim, 'center');
+    txt('SCORE ' + String(Math.floor(score)).padStart(6, '0'), cx, cy + 64 * u, FONT_M, 16 * u, lv.color, 'center');
+    if (blink) txt(go + ' FOR SECTOR ' + String(level).padStart(2, '0'), cx, cy + 102 * u, FONT_D, 14 * u, C.ink, 'center');
   } else {
     txt(deadWhy, cx, cy - 70 * u, FONT_D, big * 0.8, C.warn, 'center');
     txt(deadQuip, cx, cy - 34 * u, FONT_M, Math.min(13 * u, W * 0.021), C.ink, 'center');
@@ -1886,7 +1904,18 @@ function drawScene() {
 const API = 'https://doomsday-tunnels-api.acechase.workers.dev';                                // scoreboard server address; empty switches all of this off
 const optedOut = navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true;
 const online = { token: null, t0: 0, ended: true, posted: false, rank: 0 };
-const board = { open: false, rows: null, failed: false, me: '' };
+const board = { open: false, rows: null, failed: false, me: '', tab: 'scores', tabs: [] };
+// The shared fastest times: records[sector] = the top three as [{ name, t }], t in tenths of a second.
+// recState is '' before the first answer, then 'ok', 'old' (the server has no times yet) or 'failed'.
+const records = {}; let recState = '';
+function setRecords(list) { for (const k in records) delete records[k]; list.forEach(x => { records[x.sector] = x.top; }); recState = 'ok'; }
+function loadRecords() {
+  if (!API) return;
+  apiCall('/times').then(r => {
+    if (r.ok && Array.isArray(r.j.sectors)) setRecords(r.j.sectors);
+    else recState = r.status === 404 ? 'old' : 'failed';
+  }).catch(() => { recState = 'failed'; });
+}
 let postOpen = false;
 try { board.me = localStorage.getItem('doomsday-name') || ''; } catch (_) {}
 function apiCall(path, body) {
@@ -1900,6 +1929,7 @@ function runStarted() {
   try { const last = localStorage.getItem('doomsday-day'); firstToday = last !== day; firstEver = !last; localStorage.setItem('doomsday-day', day); } catch (_) {}
   apiCall('/event', { t: 'start', count: !optedOut, firstToday, firstEver, touch: touchUI, tilt: ctl.mode === 'tilt' })
     .then(r => { if (r.ok) online.token = r.j.token; }).catch(() => {});
+  loadRecords();
 }
 function runEnded(leaving) {
   if (!API || online.ended || !online.token) return;
@@ -1918,13 +1948,46 @@ try {
 
 function openBoard(rows) {
   if (!API) return;
-  board.open = true; board.failed = false; board.rows = rows || null;
+  board.open = true; board.failed = false; board.rows = rows || null; board.tab = 'scores';
   if (!rows) apiCall('/scores').then(r => { if (r.ok) board.rows = r.j.top; else board.failed = true; }).catch(() => { board.failed = true; });
 }
+// The board has two pages. A tap on the other page's heading switches to it; a tap anywhere else closes the board.
+function boardTap(x, y) {
+  const t = board.tabs.find(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+  if (!t) { board.open = false; return; }
+  if (t.id !== board.tab) switchBoard();
+}
+function switchBoard() { board.tab = board.tab === 'scores' ? 'times' : 'scores'; if (board.tab === 'times' && recState !== 'ok') { recState = ''; loadRecords(); } sfx.tink(); }
+function drawTimes(cx, top, n, rowH) {
+  const any = Object.keys(records).length > 0;
+  if (recState !== 'ok' || !any) {
+    txt(recState === '' ? 'LOADING...' : recState === 'old' ? 'FASTEST TIMES ARE NOT SWITCHED ON YET.' : recState === 'failed' ? (navigator.onLine === false ? 'YOU ARE OFFLINE. THE SCOREBOARD NEEDS A CONNECTION.' : 'THE SCOREBOARD IS NOT ANSWERING. TRY AGAIN LATER.') : 'NO TIMES YET. CLEAR A SECTOR, THEN POST YOUR SCORE.',
+      cx, H / 2, FONT_M, 14 * u, recState === 'ok' ? C.ink : C.dim, 'center');
+    return;
+  }
+  const colW = Math.min(W - padL - padR - 30 * u, 580 * u), x0 = cx - colW / 2, lab = 92 * u, cw = (colW - lab) / 3, me = board.me.toLowerCase(), fs = Math.min(13 * u, cw / 11.5);
+  for (let i = 0; i < n; i++) {
+    const y = top + i * rowH + rowH / 2, row = records[i + 1] || [];
+    txt('SECTOR ' + String(i + 1).padStart(2, '0'), x0, y, FONT_M, 12 * u, C.dim);
+    if (!row.length) txt('NO TIME YET', x0 + lab, y, FONT_M, 11 * u, C.dim);
+    row.forEach((r, j) => txt(fmtT(r.t) + ' ' + r.name.toUpperCase(), x0 + lab + j * cw, y, FONT_M, fs, me && r.name.toLowerCase() === me ? C.gate : j === 0 ? C.ink : C.dim));
+  }
+}
 function drawBoard() {
-  const cx = W / 2, n = 10, rowH = 22 * u, top = H / 2 - n * rowH / 2 + 4 * u;
+  const cx = W / 2, n = 10, rowH = 22 * u, top = H / 2 - n * rowH / 2 + 4 * u, ty = top - 32 * u;
   ctx.globalAlpha = 0.95; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; ctx.textBaseline = 'middle';
-  txt('HIGH SCORES', cx, top - 32 * u, FONT_D, 20 * u, lv.color, 'center');
+  board.tabs = [['scores', 'HIGH SCORES', -1], ['times', 'FASTEST TIMES', 1]].map(([id, label, side]) => {
+    const on = board.tab === id, size = Math.min(17 * u, W * 0.027), x = cx + side * Math.min(150 * u, W * 0.23);
+    txt(label, x, ty, FONT_D, size, on ? lv.color : C.dim, 'center');
+    const w = ctx.measureText(label).width; ctx.fillStyle = on ? lv.color : C.dim; ctx.fillRect(x - w / 2, ty + size * 0.85, w, on ? 3 * u : u);
+    return { id, x: x - w / 2 - 14 * u, y: ty - 24 * u, w: w + 28 * u, h: 48 * u };
+  });
+  if (board.tab === 'times') {
+    drawTimes(cx, top, n, rowH);
+    txt('TIMES ARE POSTED WITH YOUR SCORE. STANDARD FLIGHT SPEED ONLY.', cx, top + n * rowH + 12 * u, FONT_M, Math.min(11 * u, W * 0.018), C.dim, 'center');
+    txt((touchUI ? 'TAP' : 'PRESS A KEY') + ' TO CLOSE', cx, top + n * rowH + 34 * u, FONT_M, 12 * u, C.dim, 'center');
+    return;
+  }
   if (!board.rows) txt(board.failed ? (navigator.onLine === false ? 'YOU ARE OFFLINE. THE SCOREBOARD NEEDS A CONNECTION.' : 'THE SCOREBOARD IS NOT ANSWERING. TRY AGAIN LATER.') : 'LOADING...', cx, H / 2, FONT_M, 14 * u, C.dim, 'center');
   else if (!board.rows.length) txt('NO SCORES YET. BE THE FIRST.', cx, H / 2, FONT_M, 14 * u, C.ink, 'center');
   else {
@@ -1959,7 +2022,7 @@ function drawOverBtns() {
 
 // Name entry
 const postPanel = document.getElementById('post'), postName = document.getElementById('post-name'), postNote = document.getElementById('post-note');
-const postSend = document.getElementById('post-send'), POST_NOTE = 'Your name and score will be public. Nothing else is sent with them.';
+const postSend = document.getElementById('post-send'), POST_NOTE = 'Your name, your score and your sector times will be public. Nothing else is sent with them.';
 function openPost() {
   postOpen = true; postPanel.hidden = false; postNote.textContent = POST_NOTE; postSend.disabled = false;
   document.getElementById('post-score').textContent = String(Math.floor(score)).padStart(6, '0');
@@ -1973,11 +2036,12 @@ document.getElementById('post-form').addEventListener('submit', e => {
   const name = postName.value.trim();
   if (!name || postSend.disabled) return;
   postSend.disabled = true; postNote.textContent = 'Posting...';
-  apiCall('/scores', { name, score: Math.floor(score), sector: level, token: online.token }).then(r => {
+  const times = Array.from({ length: Math.min(level - 1, 30) }, (_, i) => runTimes[i] || 0);      // this run's time for each sector cleared
+  apiCall('/scores', { name, score: Math.floor(score), sector: level, token: online.token, times }).then(r => {
     if (r.ok) {
       online.posted = true; online.rank = r.j.rank; board.me = r.j.name;
       try { localStorage.setItem('doomsday-name', r.j.name); } catch (_) {}
-      closePost(); openBoard(r.j.top); sfx.clear();
+      closePost(); openBoard(r.j.top); if (Array.isArray(r.j.times)) setRecords(r.j.times); sfx.clear();     // the answer carries the fresh times list too
     } else {
       postSend.disabled = false;
       postNote.textContent = r.status === 422 && r.j.error === 'name' ? r.j.message : r.status === 429 ? 'Too many tries. Wait a minute, then post again.' : 'That score could not be posted.';

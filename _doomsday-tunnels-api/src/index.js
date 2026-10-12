@@ -2,6 +2,7 @@
 //
 // What this server stores:
 //   scores  - the name a player typed, their best score, the sector reached and the date. Public.
+//   times   - that name's fastest time through each sector. Public. Sent only along with a posted score.
 //   daily   - one row of counters per day (plays, players, seconds played and so on).
 //   reached - per day, how many runs ended in each sector.
 // What it never stores: network addresses, device or browser details, or any identifier for a
@@ -16,6 +17,14 @@ const MAX_NAME = 12;          // characters
 const TOP_N = 20;             // rows returned for the scoreboard
 const MAX_PER_SECTOR = 6000;  // no honest run scores more than this per sector reached
 const TOKEN_MAX_AGE = 12 * 3600 * 1000;
+const TIME_SECTORS = 30;      // sector times are kept for sectors 1 to 30
+const TIME_TOP = 3;           // fastest times shown per sector
+
+// The fastest a sector can possibly be flown, in tenths of a second: its length divided by top speed with boost held
+// the whole way. These two formulas mirror the game's own (makeLevel): keep them in step if the game changes.
+const sectorLength = n => 900 + 150 * Math.min(n, 8);
+const sectorSpeed = n => Math.min(20 + 2 * n, 38);
+const fastestPossible = n => Math.floor(sectorLength(n) / (sectorSpeed(n) * 1.5) * 10);
 
 const today = () => new Date().toISOString().slice(0, 10);
 const clampInt = (v, lo, hi) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.floor(Math.min(hi, Math.max(lo, v))) : lo; };
@@ -48,6 +57,8 @@ function ensureSchema(env) {
           finished INTEGER NOT NULL DEFAULT 0, seconds INTEGER NOT NULL DEFAULT 0, sectors_cleared INTEGER NOT NULL DEFAULT 0,
           finales INTEGER NOT NULL DEFAULT 0, scores_posted INTEGER NOT NULL DEFAULT 0)`),
       q(`CREATE TABLE IF NOT EXISTS reached (day TEXT NOT NULL, sector INTEGER NOT NULL, runs INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, sector))`),
+      q(`CREATE TABLE IF NOT EXISTS times (sector INTEGER NOT NULL, name_key TEXT NOT NULL, name TEXT NOT NULL, t INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (sector, name_key))`),
+      q(`CREATE INDEX IF NOT EXISTS times_by_sector ON times (sector, t)`),
       q(`CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)`)
     ]).catch(e => { schemaReady = null; throw e; });
   }
@@ -85,7 +96,7 @@ async function tokenTime(env, token) {            // start time in ms, or 0 if t
 
 /* ---------- helpers ---------- */
 async function readJson(request) {
-  try { const text = await request.text(); if (text.length > 600) return null; const b = JSON.parse(text); return b && typeof b === 'object' ? b : null; }
+  try { const text = await request.text(); if (text.length > 1500) return null; const b = JSON.parse(text); return b && typeof b === 'object' ? b : null; }
   catch (_) { return null; }
 }
 async function limited(limiter, request) {
@@ -101,6 +112,26 @@ function cleanName(raw) {
 }
 const topScores = async env =>
   (await env.DB.prepare(`SELECT name, score, sector, day FROM scores ORDER BY score DESC, day ASC LIMIT ?1`).bind(TOP_N).all()).results;
+// The fastest few names for every sector that has a time: [{ sector, top: [{ name, t, day }] }], t in tenths of a second.
+async function topTimes(env) {
+  const rows = (await env.DB.prepare(
+    `SELECT sector, name, t, day FROM (SELECT sector, name, t, day, ROW_NUMBER() OVER (PARTITION BY sector ORDER BY t ASC, day ASC) AS place FROM times)
+     WHERE place <= ?1 ORDER BY sector ASC, place ASC`).bind(TIME_TOP).all()).results;
+  const out = [];
+  for (const r of rows) { let s = out[out.length - 1]; if (!s || s.sector !== r.sector) out.push(s = { sector: r.sector, top: [] }); s.top.push({ name: r.name, t: r.t, day: r.day }); }
+  return out;
+}
+// Sector times sent with a score: times[i] is sector i + 1, in tenths of a second, 0 where the run has no time to
+// offer. Keeps the ones that could have happened; the whole set is dropped if it adds up to longer than the run.
+function cleanTimes(raw, sector, elapsed) {
+  if (!Array.isArray(raw)) return [];
+  const out = []; let total = 0;
+  raw.slice(0, Math.min(sector, TIME_SECTORS)).forEach((v, i) => {
+    const t = Math.floor(Number(v)), n = i + 1;
+    if (Number.isFinite(t) && t >= fastestPossible(n) && t <= 6000) { out.push({ sector: n, t }); total += t; }
+  });
+  return total / 10 <= elapsed + 5 ? out : [];
+}
 
 /* ---------- play counts ---------- */
 async function postEvent(request, env, cors) {
@@ -151,7 +182,9 @@ async function postScore(request, env, cors) {
   if (!(score > 0) || !(sector >= 1 && sector <= 500) || score > sector * MAX_PER_SECTOR) return json({ error: 'score' }, 422, cors);
   const t0 = await tokenTime(env, b.token);
   if (!t0) return json({ error: 'token' }, 422, cors);
-  if ((Date.now() - t0) / 1000 < 5 + (sector - 1) * 20) return json({ error: 'score' }, 422, cors);    // nobody clears a sector in under 20 seconds
+  const elapsed = (Date.now() - t0) / 1000;
+  if (elapsed < 5 + (sector - 1) * 20) return json({ error: 'score' }, 422, cors);    // nobody clears a sector in under 20 seconds
+  const times = cleanTimes(b.times, sector - 1, elapsed);       // only sectors the run finished: it ended in `sector`
 
   const key = name.toLowerCase(), day = today();
   await env.DB.batch([       // one row per name, holding that name's best score
@@ -160,11 +193,15 @@ async function postScore(request, env, cors) {
        ON CONFLICT(name_key) DO UPDATE SET name = excluded.name, score = excluded.score, sector = excluded.sector, day = excluded.day
        WHERE excluded.score > scores.score`
     ).bind(key, name, score, sector, day),
-    env.DB.prepare(`INSERT INTO daily (day, scores_posted) VALUES (?1, 1) ON CONFLICT(day) DO UPDATE SET scores_posted = scores_posted + 1`).bind(day)
+    env.DB.prepare(`INSERT INTO daily (day, scores_posted) VALUES (?1, 1) ON CONFLICT(day) DO UPDATE SET scores_posted = scores_posted + 1`).bind(day),
+    ...times.map(x => env.DB.prepare(       // one row per name per sector, holding that name's fastest time
+      `INSERT INTO times (sector, name_key, name, t, day) VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT(sector, name_key) DO UPDATE SET name = excluded.name, t = excluded.t, day = excluded.day WHERE excluded.t < times.t`
+    ).bind(x.sector, key, name, x.t, day))
   ]);
   const best = (await env.DB.prepare(`SELECT score FROM scores WHERE name_key = ?1`).bind(key).first()).score;
   const rank = (await env.DB.prepare(`SELECT COUNT(*) + 1 AS r FROM scores WHERE score > ?1`).bind(best).first()).r;
-  return json({ ok: true, name, best, rank, top: await topScores(env) }, 200, cors);
+  return json({ ok: true, name, best, rank, top: await topScores(env), times: await topTimes(env) }, 200, cors);
 }
 
 /* ---------- owner's page ---------- */
@@ -197,6 +234,7 @@ export default {
       await ensureSchema(env);
 
       if (path === '/scores' && method === 'GET') return json({ top: await topScores(env) }, 200, cors, 15);
+      if (path === '/times' && method === 'GET') return json({ sectors: await topTimes(env) }, 200, cors, 15);
       if ((path === '/scores' || path === '/event') && method === 'POST') {
         if (!originOk(origin, env)) return json({ error: 'forbidden' }, 403);      // only the game's own page may post
         return path === '/scores' ? await postScore(request, env, cors) : await postEvent(request, env, cors);
@@ -207,7 +245,8 @@ export default {
         if (!adminAllowed(request, env)) return json({ error: 'wrong key' }, 401);
         if (path === '/admin/data' && method === 'GET') return json(await adminData(env));
         if (path === '/admin/scores' && method === 'DELETE') {
-          await env.DB.prepare(`DELETE FROM scores WHERE name_key = ?1`).bind(url.searchParams.get('name') || '').run();
+          const gone = url.searchParams.get('name') || '';      // removing a name takes its sector times with it
+          await env.DB.batch([env.DB.prepare(`DELETE FROM scores WHERE name_key = ?1`).bind(gone), env.DB.prepare(`DELETE FROM times WHERE name_key = ?1`).bind(gone)]);
           return json({ ok: true });
         }
       }
