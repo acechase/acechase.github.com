@@ -248,7 +248,7 @@ footer p{margin-bottom:.5rem}
 <section id="data">
   <h2>What the game counts</h2>
   <p>The game keeps daily totals so its maker can tell whether anyone is playing. It has no accounts, sets no cookies, shows no ads and uses no analytics service. Nothing it sends says who you are.</p>
-  <p>The one exception is a high score, which is public and carries the name you choose to type. Posting one is always up to you.</p>
+  <p>The one exception is a high score, which is public and carries the name you choose to type, along with your times for the sectors you cleared. Posting one is always up to you.</p>
 
   <h3>What is sent, and when</h3>
 
@@ -271,8 +271,8 @@ footer p{margin-bottom:.5rem}
   <div class="moment">
     <h3>When you choose to post a score</h3>
     <dl>
-      <div><dt>Your browser sends</dt><dd>The name you typed, your score and the sector you reached.</dd></div>
-      <div><dt>The server keeps</dt><dd>That name with its best score, the sector and the date. This is the public scoreboard.</dd></div>
+      <div><dt>Your browser sends</dt><dd>The name you typed, your score, the sector you reached, and your time for each sector you cleared in that run.</dd></div>
+      <div><dt>The server keeps</dt><dd>That name with its best score, the sector and the date, and that name's fastest time for each sector. This is the public scoreboard.</dd></div>
     </dl>
   </div>
 
@@ -297,7 +297,7 @@ footer p{margin-bottom:.5rem}
   <p>The game saves a few things in your browser's storage for this site. They are never sent anywhere, apart from the name when you post a score.</p>
   <ul>
     <li>Your settings and your choice of thumb stick or tilt.</li>
-    <li>Your best score.</li>
+    <li>Your best score, and your best time for each sector.</li>
     <li>The name you last posted, so it is filled in next time.</li>
     <li>The date you last played.</li>
     <li>A copy of the game itself, so that it can open without a connection.</li>
@@ -316,7 +316,7 @@ footer p{margin-bottom:.5rem}
 
 <section id="scores">
   <h2>High scores</h2>
-  <p>When a run ends, tap <strong>POST SCORE</strong>, type a name and send it. Your name, your score and the sector you reached then appear on a board that anyone playing the game can see. You can post once per run, and you never have to.</p>
+  <p>When a run ends, tap <strong>POST SCORE</strong>, type a name and send it. Your name, your score and the sector you reached then appear on a board that anyone playing the game can see, and your sector times go in for the fastest-times list. You can post once per run, and you never have to.</p>
 
   <h3>Names</h3>
   <ul>
@@ -343,12 +343,22 @@ footer p{margin-bottom:.5rem}
   </div>
   <p>This is an example, not the live board. The names are characters from the game's story, and the yellow line is how your own entry looks.</p>
 
+  <h3>Fastest times</h3>
+  <p>Every sector is timed, and every sector is the same tunnel for everyone, so times can be compared. The board's second page, <strong>FASTEST TIMES</strong>, lists the three fastest names for each of the first ten sectors. Tap its heading to switch to it.</p>
+  <ul>
+    <li>When you clear a sector, the game shows your time, your own best for that sector, and the record. Your own bests are kept on your device.</li>
+    <li>Times are sent together with your score when you tap <strong>POST SCORE</strong>, and never on their own. A fast sector in a run you do not post is not recorded.</li>
+    <li>Each name keeps one time per sector, its fastest.</li>
+    <li>Only runs at the standard flight speed count. If you have changed the flight speed in the settings, your times are shown but not ranked.</li>
+  </ul>
+
   <h3>How scores are checked</h3>
   <p>Scores come from your browser, so the server cannot be sure every one is real. It turns away the ones that could not have happened:</p>
   <ul>
     <li>a score with no run behind it, or from a run that started more than 12 hours ago;</li>
     <li>a sector reached faster than 20 seconds per sector;</li>
     <li>a score higher than a run can earn by that sector;</li>
+    <li>a sector time faster than the sector can be flown, or times that add up to longer than the run;</li>
     <li>more than six posts a minute from one connection.</li>
   </ul>
   <p>A determined cheat can still get a score through. The game's maker can remove any entry. To ask for a name to be taken down, <a href="https://github.com/acechase/acechase.github.com/issues">open an issue on GitHub</a>.</p>

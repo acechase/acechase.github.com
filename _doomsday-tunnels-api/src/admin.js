@@ -58,7 +58,7 @@ svg{display:block;width:100%;height:auto}
       <div id="chart"></div></section>
     <section><h2>WHERE RUNS END, LAST 30 DAYS</h2><div id="reached"></div></section>
     <section><h2>DAY BY DAY (DAYS WITH ACTIVITY)</h2><div class="scroll"><table id="daily"></table></div></section>
-    <section><h2>SCOREBOARD NAMES</h2><p>Newest first. Remove deletes that name's entry for good.</p><div class="scroll"><table id="scores"></table></div></section>
+    <section><h2>SCOREBOARD NAMES</h2><p>Newest first. Remove deletes that name's score and its sector times for good.</p><div class="scroll"><table id="scores"></table></div></section>
     <section><h2>WHAT IS COUNTED</h2><p>Only daily totals. "Players" is how many devices played that day, counted by the game telling the server "first play today" once per day. No network addresses, device details or identifiers are stored. Days are in UTC.</p></section>
   </div>
 </main>

@@ -10,6 +10,7 @@ This folder starts with an underscore so GitHub Pages does not publish it with t
 | Table | Holds |
 | --- | --- |
 | `scores` | The name a player typed, that name's best score, the sector reached, and the date. Shown publicly in the game. |
+| `times` | That name's fastest time through each sector, and the date. Shown publicly in the game. Only sent along with a posted score. |
 | `daily` | One row of counters per day: runs started, players, new players, seconds played, sectors cleared, and so on. |
 | `reached` | Per day, how many runs ended in each sector. |
 | `meta` | A random signing key the server generates for itself. |
@@ -66,6 +67,9 @@ Scores come from the player's browser, so they can never be fully trusted. The s
   (`src/words.js`), including stretched, spaced-out and number-for-letter spellings;
 - posting is limited to a few tries per minute.
 
+Sector times get the same treatment: a time faster than the sector can physically be flown is ignored, and so is a
+set of times that adds up to longer than the run itself.
+
 A determined person can still fake a score. The Remove button on the stats page is the remedy.
 
 ## Endpoints
@@ -73,7 +77,8 @@ A determined person can still fake a score. The Remove button on the stats page 
 | Method and path | Purpose |
 | --- | --- |
 | `GET /scores` | Top 20 names and scores. |
-| `POST /scores` | Post a score: `{ name, score, sector, token }`. |
+| `GET /times` | The three fastest names for each sector. |
+| `POST /scores` | Post a score: `{ name, score, sector, token, times }`. `times` is optional: the run's time for each sector cleared, in tenths of a second. |
 | `POST /event` | `{ t: "start", ... }` returns a run token; `{ t: "end", token, sector, cleared, secs }` closes a run. |
 | `GET /admin` | The stats page. |
 | `GET /admin/data`, `DELETE /admin/scores?name=` | Used by the stats page; need the admin key. |
