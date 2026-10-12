@@ -431,7 +431,7 @@ let gunHeat = 0, gunHot = false;
 let fireCd = 0, gunSide = 1, flash = 0, flashCol = C.warn, shake = 0, scrapeCd = 0, lastBeep = 0;
 const bullets = [], parts = [], popups = [], shocks = [], motes = [];
 const BOOST_SECS = 6;                           // a full reserve lasts this long with the button held
-let boostFuel = 1, boosting = false, boostHeld = false;
+let boostFuel = 1, boosting = false, boostHeld = false, boostDryT = -9, boostFillT = -9;      // when the reserve last ran out (or was pressed empty), and was last refilled
 for (let i = 0; i < 34; i++) motes.push({ x: 0, y: 0, z: -1 });
 try { best = parseInt(localStorage.getItem('doomsday-best') || '0', 10) || 0; } catch (_) {}
 let bestWas = 0, overBest = false;                // the best score on this device when the run began; whether the run beat it
@@ -723,7 +723,7 @@ function collide(o) {
     if (o.kind === 'time') { sfx.pick(); time += 4; popups.push({ s: '+4 SEC', t: 0 }); }
     else if (o.kind === 'shield') { sfx.pick(); shield = Math.min(100, shield + 25); popups.push({ s: 'SHIELD +25', t: 0 }); }
     else if (o.kind === 'ship') { shipEarned = true; scored(150); sfx.clear(); popups.push({ s: lives < MAX_SPARES ? 'SHIP TOKEN! SPARE SHIP AT SECTOR END' : 'SHIP TOKEN (SHIP BAY FULL)', t: 0 }); }
-    else { sfx.refuel(); boostFuel = 1; popups.push({ s: 'BOOST FULL', t: 0 }); }
+    else { sfx.refuel(); boostFuel = 1; boostFillT = tNow; popups.push({ s: 'BOOST FULL', t: 0 }); }
   }
 }
 function bulletHit(o, b) {
@@ -757,8 +757,11 @@ function update(dt) {
   boosting = held && boostFuel > 0;
   if (boosting) boostFuel = Math.max(0, boostFuel - dt / BOOST_SECS);
   if (boosting && !was) { sfx.boostOn(); try { navigator.vibrate && navigator.vibrate(25); } catch (_) {} }
-  else if (was && !boosting && state === 'play') { sfx.boostOff(); if (held) popups.push({ s: 'BOOST EMPTY', t: 0 }); }
-  else if (held && !boostHeld && !boosting) sfx.boostDry();                  // pressed with nothing in reserve
+  else if (was && !boosting && state === 'play') {
+    sfx.boostOff();
+    if (held) { popups.push({ s: 'BOOST EMPTY', t: 0 }); boostDryT = tNow; try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch (_) {} }     // ran dry with the button still down
+  }
+  else if (held && !boostHeld && !boosting) { sfx.boostDry(); boostDryT = tNow; }      // pressed with nothing in reserve
   boostHeld = held;
   boostEase += ((boosting ? 1 : 0) - boostEase) * Math.min(1, dt * 4);       // boosting widens the view a little
   focal = focal0 * (1 - (reduceMotion ? 0 : 0.1) * boostEase);
@@ -1232,15 +1235,55 @@ function drawControls() {
     ctx.lineWidth = 4 * u; ctx.strokeStyle = gunHot || gunHeat > 0.7 ? C.warn : C.ink; ctx.globalAlpha = gunHot && !reduceMotion ? 0.6 + 0.4 * Math.sin(tNow * 14) : 0.9;
     ctx.beginPath(); ctx.arc(fireBtn.x, fireBtn.y, fireBtn.r + 6 * u, -Math.PI / 2, -Math.PI / 2 + 6.283 * gunHeat); ctx.stroke(); ctx.globalAlpha = 1;
   }
-  const dry = boostFuel <= 0;
-  if (dry) ctx.globalAlpha = 0.55;
-  ringBtn(boostBtn, dry ? 'EMPTY' : 'BOOST', boosting, 12);
-  const rr = boostBtn.r + 6 * u;                   // reserve gauge wrapped around the button
-  ctx.lineWidth = 4 * u; ctx.strokeStyle = C.void; ctx.globalAlpha = 0.5;
-  ctx.beginPath(); ctx.arc(boostBtn.x, boostBtn.y, rr, 0, 6.283); ctx.stroke();
+  boostButton();
+}
+// Two stacked arrowheads pointing up the tunnel: "faster".
+function chevrons(x, y, k) {
+  ctx.beginPath();
+  for (const dy of [-5, 5]) { ctx.moveTo(x - 9 * k, y + (dy + 4.5) * k); ctx.lineTo(x, y + (dy - 4.5) * k); ctx.lineTo(x + 9 * k, y + (dy + 4.5) * k); }
+  ctx.stroke();
+}
+// The boost button is its own fuel tank, so its state can be read from the corner of the eye without reading a word.
+// With boost in reserve it is a bright disc, and the bright part drains downwards as the reserve is used. Empty, it is
+// dark and hollow with a broken outline. Its ring blinks red through the last fifth of a burn and as it runs dry (or is
+// pressed while empty), and throws off a ring when a fuel cell fills it again.
+function boostButton() {
+  const b = boostBtn, r = b.r, k = r / 20, f = boostFuel, dry = f <= 0, low = !dry && f < 0.2, rr = r + 6 * u;
+  const out = tNow - boostDryT, got = tNow - boostFillT, level = b.y + r - 2 * r * f;
+  const flick = low && boosting && !reduceMotion && (tNow * 6) % 1 < 0.5;
+  const disc = () => { ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 6.283); };
+  ctx.textBaseline = 'middle'; ctx.globalAlpha = dry ? 0.7 : 0.9; txt(dry ? 'EMPTY' : 'BOOST', b.x, b.y - rr - 12 * u, FONT_M, 10 * u, dry ? C.dim : C.ink, 'center');
+  disc(); ctx.globalAlpha = 0.45; ctx.fillStyle = C.void; ctx.fill();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.4 * k;
+  if (dry) {
+    ctx.globalAlpha = 0.38; ctx.strokeStyle = C.ink; chevrons(b.x, b.y, k);
+    ctx.lineCap = 'butt'; ctx.setLineDash([5 * u, 6 * u]); ctx.lineWidth = 1.5 * u; ctx.globalAlpha = 0.55; disc(); ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    ctx.save(); disc(); ctx.clip();
+    ctx.globalAlpha = flick ? 0.35 : boosting ? 0.95 : 0.8; ctx.fillStyle = C.ink; ctx.fillRect(b.x - r, level, 2 * r, b.y + r - level);
+    ctx.globalAlpha = 1;                            // the arrows are dark where the disc is lit and light where it is not
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, level, 2 * r, 2 * r); ctx.clip(); ctx.strokeStyle = C.void; chevrons(b.x, b.y, k); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, b.y - r, 2 * r, level - (b.y - r)); ctx.clip(); ctx.strokeStyle = C.ink; chevrons(b.x, b.y, k); ctx.restore();
+    ctx.restore();
+    ctx.lineCap = 'butt'; ctx.lineWidth = 1.5 * u; ctx.strokeStyle = C.ink; disc(); ctx.stroke();
+  }
+  ctx.lineCap = 'butt'; ctx.lineWidth = 4 * u; ctx.strokeStyle = C.void; ctx.globalAlpha = 0.5;            // the reserve again, as a ring round the button
+  ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
   if (!dry) {
-    ctx.strokeStyle = C.ink; ctx.globalAlpha = boosting ? 0.7 + 0.3 * Math.sin(tNow * 20) : 0.9;
-    ctx.beginPath(); ctx.arc(boostBtn.x, boostBtn.y, rr, -Math.PI / 2, -Math.PI / 2 + 6.283 * boostFuel); ctx.stroke();
+    ctx.strokeStyle = C.ink; ctx.globalAlpha = flick ? 0.35 : boosting && !reduceMotion ? 0.7 + 0.3 * Math.sin(tNow * 20) : 0.9;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rr, -Math.PI / 2, -Math.PI / 2 + 6.283 * f); ctx.stroke();
+  }
+  if (low && boosting) {                            // the last fifth, while it is being burned: the ring blinks red as a warning
+    ctx.globalAlpha = reduceMotion ? 0.6 : flick ? 0.9 : 0.15; ctx.strokeStyle = C.warn; ctx.lineWidth = 5 * u;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
+  }
+  if (out < 0.7) {                                  // just ran dry, or pressed while empty: the ring blinks red
+    ctx.globalAlpha = (1 - out / 0.7) * (reduceMotion || (out * 8) % 1 < 0.6 ? 1 : 0.2); ctx.strokeStyle = C.warn; ctx.lineWidth = 5 * u;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
+  }
+  if (got < 0.5 && !reduceMotion) {                 // refilled: a ring bursts outwards
+    const t = got / 0.5; ctx.globalAlpha = 1 - t; ctx.strokeStyle = C.ink; ctx.lineWidth = (1 + 3 * (1 - t)) * u;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rr + t * 26 * u, 0, 6.283); ctx.stroke();
   }
   ctx.globalAlpha = 1;
 }
