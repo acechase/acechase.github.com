@@ -1976,11 +1976,15 @@ function drawTimes(cx, top, n, rowH) {
 function drawBoard() {
   const cx = W / 2, n = 10, rowH = 22 * u, top = H / 2 - n * rowH / 2 + 4 * u, ty = top - 32 * u;
   ctx.globalAlpha = 0.95; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; ctx.textBaseline = 'middle';
-  board.tabs = [['scores', 'HIGH SCORES', -1], ['times', 'FASTEST TIMES', 1]].map(([id, label, side]) => {
-    const on = board.tab === id, size = Math.min(17 * u, W * 0.027), x = cx + side * Math.min(150 * u, W * 0.23);
-    txt(label, x, ty, FONT_D, size, on ? lv.color : C.dim, 'center');
-    const w = ctx.measureText(label).width; ctx.fillStyle = on ? lv.color : C.dim; ctx.fillRect(x - w / 2, ty + size * 0.85, w, on ? 3 * u : u);
-    return { id, x: x - w / 2 - 14 * u, y: ty - 24 * u, w: w + 28 * u, h: 48 * u };
+  // The two pages are picked with a pair of joined buttons, centred above the list so they cannot be read as column
+  // headings: the page on show is filled in, the other is an outline. Same look as the two-way switches in the settings.
+  const bw = Math.min(150 * u, W * 0.26), bh = 28 * u;
+  board.tabs = [['scores', 'HIGH SCORES'], ['times', 'FASTEST TIMES']].map(([id, label], i) => {
+    const on = board.tab === id, x = cx - bw + i * bw, y = ty - bh / 2 - 4 * u;
+    ctx.globalAlpha = on ? 1 : 0.6; ctx.fillStyle = on ? C.ink : C.void; ctx.fillRect(x, y, bw, bh); ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5 * u; ctx.strokeRect(x, y, bw, bh);
+    ctx.font = Math.min(13 * u, bw / 9.5) + 'px ' + FONT_M; ctx.textAlign = 'center'; ctx.fillStyle = on ? C.void : C.ink; ctx.fillText(label, x + bw / 2, y + bh / 2 + u);
+    return { id, x, y: y - 10 * u, w: bw, h: bh + 20 * u };
   });
   if (board.tab === 'times') {
     drawTimes(cx, top, n, rowH);
