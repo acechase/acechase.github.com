@@ -427,7 +427,7 @@ const GUN_RANGE = 30;                           // how far ahead of the ship a s
 // break and they overheat, locking until they have cooled most of the way down.
 const HEAT_SHOTS = 18;                          // shots of unbroken fire before the guns overheat; 0 turns overheating off
 const HEAT_COOL = 0.45, HEAT_READY = 0.3;       // heat shed per second; overheated guns come back once below HEAT_READY
-let gunHeat = 0, gunHot = false;
+let gunHeat = 0, gunHot = false, gunHotT = -9, gunReadyT = -9;      // when the guns last overheated (or were tried while hot), and last came back
 let fireCd = 0, gunSide = 1, flash = 0, flashCol = C.warn, shake = 0, scrapeCd = 0, lastBeep = 0;
 const bullets = [], parts = [], popups = [], shocks = [], motes = [];
 const BOOST_SECS = 6;                           // a full reserve lasts this long with the button held
@@ -642,7 +642,7 @@ cv.addEventListener('pointerdown', e => {
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (x < W * 0.5) { if (stick.id === null) { stick.id = e.pointerId; stick.ax = x; stick.ay = y; stick.x = stick.y = 0; } }
   else if (hit(boostBtn, x, y, 1.3)) boostId = e.pointerId;
-  else fireId = e.pointerId;
+  else { fireId = e.pointerId; if (gunHot) gunHotT = tNow; }      // pressed while overheated: the button flashes its refusal
 });
 cv.addEventListener('pointermove', e => {
   if (e.pointerId !== stick.id) return;
@@ -830,12 +830,12 @@ function update(dt) {
   fireCd -= dt;
   if (HEAT_SHOTS) {
     if (!firing || gunHot) gunHeat = Math.max(0, gunHeat - HEAT_COOL * dt);
-    if (gunHot && gunHeat <= HEAT_READY) { gunHot = false; sfx.beep(); }
+    if (gunHot && gunHeat <= HEAT_READY) { gunHot = false; gunReadyT = tNow; sfx.beep(); }
   }
   if (firing && fireCd <= 0 && !gunHot) {
     fireCd = 0.14; gunSide = -gunSide; sfx.laser();
     bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, sx: aimSX, sy: aimSY, dead: false });
-    if (HEAT_SHOTS) { gunHeat += 1 / HEAT_SHOTS; if (gunHeat >= 1) { gunHeat = 1; gunHot = true; sfx.tink(); } }
+    if (HEAT_SHOTS) { gunHeat += 1 / HEAT_SHOTS; if (gunHeat >= 1) { gunHeat = 1; gunHot = true; gunHotT = tNow; sfx.tink(); try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch (_) {} } }
   }
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i], z0 = b.z, step = (speed + 95) * dt, fk = lv.fork, open = fk && fk.chosen == null; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
@@ -1192,17 +1192,19 @@ function drawHUD() {
     ctx.strokeStyle = low ? C.warn : C.ink; ctx.lineWidth = crit ? 1.5 * u : u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by, bw, bh);
     ctx.globalAlpha = crit ? 0.6 + 0.4 * beat : 1; ctx.fillStyle = low ? C.warn : lv.color; ctx.fillRect(x0, by, bw * clamp(shield / 100, 0, 1), bh); ctx.globalAlpha = 1;
   }
-  const dry = boostFuel <= 0, by2 = m + 87 * u, pulse = boosting && (tNow * 8) % 1 < 0.5;
-  txt(dry ? 'BOOST EMPTY' : boosting ? 'BOOST ON' : 'BOOST', x0, m + 72 * u, FONT_M, 11 * u, boosting ? C.ink : C.dim);
-  ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by2, bw, bh);
-  ctx.strokeStyle = dry ? C.dim : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by2, bw, bh);
-  ctx.globalAlpha = pulse ? 0.7 : 1; ctx.fillStyle = C.ink; ctx.fillRect(x0, by2, bw * boostFuel, bh); ctx.globalAlpha = 1;
-  if (HEAT_SHOTS) {                                 // gun heat: fills as the guns warm, red when close to or past the limit
-    const by3 = m + 116 * u, warm = gunHeat > 0.7, flashOn = gunHot && !reduceMotion && (tNow * 6) % 1 < 0.5;
-    txt(gunHot ? 'GUNS OVERHEATED' : 'GUNS', x0, m + 101 * u, FONT_M, 11 * u, gunHot ? C.warn : C.dim);
-    ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by3, bw, bh);
-    ctx.strokeStyle = gunHot || warm ? C.warn : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by3, bw, bh);
-    ctx.globalAlpha = flashOn ? 0.55 : 1; ctx.fillStyle = gunHot || warm ? C.warn : C.ink; ctx.fillRect(x0, by3, bw * gunHeat, bh); ctx.globalAlpha = 1;
+  if (!touchUI) {                                   // with a keyboard there are no thumb buttons to show the boost reserve and the gun heat
+    const dry = boostFuel <= 0, by2 = m + 87 * u, pulse = boosting && (tNow * 8) % 1 < 0.5;
+    txt(dry ? 'BOOST EMPTY' : boosting ? 'BOOST ON' : 'BOOST', x0, m + 72 * u, FONT_M, 11 * u, boosting ? C.ink : C.dim);
+    ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by2, bw, bh);
+    ctx.strokeStyle = dry ? C.dim : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by2, bw, bh);
+    ctx.globalAlpha = pulse ? 0.7 : 1; ctx.fillStyle = C.ink; ctx.fillRect(x0, by2, bw * boostFuel, bh); ctx.globalAlpha = 1;
+    if (HEAT_SHOTS) {                                 // gun heat: fills as the guns warm, red when close to or past the limit
+      const by3 = m + 116 * u, warm = gunHeat > 0.7, flashOn = gunHot && !reduceMotion && (tNow * 6) % 1 < 0.5;
+      txt(gunHot ? 'GUNS OVERHEATED' : 'GUNS', x0, m + 101 * u, FONT_M, 11 * u, gunHot ? C.warn : C.dim);
+      ctx.globalAlpha = 0.55; ctx.fillStyle = C.void; ctx.fillRect(x0, by3, bw, bh);
+      ctx.strokeStyle = gunHot || warm ? C.warn : C.ink; ctx.lineWidth = u; ctx.globalAlpha = 0.9; ctx.strokeRect(x0, by3, bw, bh);
+      ctx.globalAlpha = flashOn ? 0.55 : 1; ctx.fillStyle = gunHot || warm ? C.warn : C.ink; ctx.fillRect(x0, by3, bw * gunHeat, bh); ctx.globalAlpha = 1;
+    }
   }
 
   const urgent = time < 10, blink = urgent && (tNow * 4 % 1) < 0.5;
@@ -1229,60 +1231,65 @@ function drawControls() {
   ctx.beginPath(); ctx.arc(ax + stick.x * R, ay + stick.y * R, 22 * u, 0, 6.283); ctx.fill();
   if (!on) { ctx.globalAlpha = 0.7; ctx.textBaseline = 'middle'; txt(tiltActive() ? 'AIM' : 'STEER', ax, ay, FONT_M, 11 * u, C.ink, 'center'); }
   ctx.globalAlpha = 1;
-  if (gunHot) ctx.globalAlpha = 0.55;
-  ringBtn(fireBtn, gunHot ? 'HOT' : 'FIRE', fireId !== null && !gunHot, 15); ctx.globalAlpha = 1;
-  if (HEAT_SHOTS && gunHeat > 0.01) {               // heat gauge wrapped round the button, as the boost button carries its reserve
-    ctx.lineWidth = 4 * u; ctx.strokeStyle = gunHot || gunHeat > 0.7 ? C.warn : C.ink; ctx.globalAlpha = gunHot && !reduceMotion ? 0.6 + 0.4 * Math.sin(tNow * 14) : 0.9;
-    ctx.beginPath(); ctx.arc(fireBtn.x, fireBtn.y, fireBtn.r + 6 * u, -Math.PI / 2, -Math.PI / 2 + 6.283 * gunHeat); ctx.stroke(); ctx.globalAlpha = 1;
-  }
-  boostButton();
+  const heat = HEAT_SHOTS ? gunHeat : 0, shooting = fireId !== null && !gunHot;
+  gaugeBtn(fireBtn, { f: 1 - heat, dead: gunHot, active: shooting, warn: shooting && heat > 0.7, label: gunHot ? 'HOT' : 'FIRE', icon: sight, lw: 2.5, out: tNow - gunHotT, got: tNow - gunReadyT });
+  gaugeBtn(boostBtn, { f: boostFuel, dead: boostFuel <= 0, active: boosting, warn: boosting && boostFuel < 0.2, label: boostFuel <= 0 ? 'EMPTY' : 'BOOST', icon: chevrons, lw: 3.4, out: tNow - boostDryT, got: tNow - boostFillT });
 }
-// Two stacked arrowheads pointing up the tunnel: "faster".
+// Button icons. Boost: two stacked arrowheads pointing up the tunnel, as on the boost cell. Fire: a gun sight.
 function chevrons(x, y, k) {
   ctx.beginPath();
   for (const dy of [-5, 5]) { ctx.moveTo(x - 9 * k, y + (dy + 4.5) * k); ctx.lineTo(x, y + (dy - 4.5) * k); ctx.lineTo(x + 9 * k, y + (dy + 4.5) * k); }
   ctx.stroke();
 }
-// The boost button is its own fuel tank, so its state can be read from the corner of the eye without reading a word.
-// With boost in reserve it is a bright disc, and the bright part drains downwards as the reserve is used. Empty, it is
-// dark and hollow with a broken outline. Its ring blinks red through the last fifth of a burn and as it runs dry (or is
-// pressed while empty), and throws off a ring when a fuel cell fills it again.
-function boostButton() {
-  const b = boostBtn, r = b.r, k = r / 20, f = boostFuel, dry = f <= 0, low = !dry && f < 0.2, rr = r + 6 * u;
-  const out = tNow - boostDryT, got = tNow - boostFillT, level = b.y + r - 2 * r * f;
-  const flick = low && boosting && !reduceMotion && (tNow * 6) % 1 < 0.5;
+function sight(x, y, k) {
+  ctx.beginPath(); ctx.arc(x, y, 6 * k, 0, 6.283);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.moveTo(x + dx * 3 * k, y + dy * 3 * k); ctx.lineTo(x + dx * 10.5 * k, y + dy * 10.5 * k); }
+  ctx.stroke();
+}
+// The two thumb buttons are their own gauges, so their state can be read from the corner of the eye without reading a
+// word. A button is a bright disc while it has something to give, and the bright part drains downwards as that is used
+// up: the boost reserve, or how much more firing the guns can take before they overheat. Spent, it is dark and hollow
+// with a broken outline (the guns' disc refills faintly as they cool). The ring blinks red when the button is nearly
+// spent, and again as it gives out or is pressed while spent, and a ring bursts outwards when it comes back.
+//   o.f       how much is left, 0 to 1          o.dead    spent: pressing does nothing
+//   o.active  in use right now                  o.warn    nearly spent and still being used
+//   o.out     seconds since it gave out         o.got     seconds since it came back
+function gaugeBtn(b, o) {
+  const r = b.r, k = r / 20, rr = r + 6 * u, f = clamp(o.f, 0, 1), level = b.y + r - 2 * r * f;
+  const flick = o.warn && !reduceMotion && (tNow * 6) % 1 < 0.5;
   const disc = () => { ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 6.283); };
-  ctx.textBaseline = 'middle'; ctx.globalAlpha = dry ? 0.7 : 0.9; txt(dry ? 'EMPTY' : 'BOOST', b.x, b.y - rr - 12 * u, FONT_M, 10 * u, dry ? C.dim : C.ink, 'center');
+  ctx.textBaseline = 'middle'; ctx.globalAlpha = o.dead ? 0.7 : 0.9; txt(o.label, b.x, b.y - rr - 12 * u, FONT_M, 10 * u, o.dead ? C.dim : C.ink, 'center');
   disc(); ctx.globalAlpha = 0.45; ctx.fillStyle = C.void; ctx.fill();
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.4 * k;
-  if (dry) {
-    ctx.globalAlpha = 0.38; ctx.strokeStyle = C.ink; chevrons(b.x, b.y, k);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (o.dead) {
+    if (f > 0) { ctx.save(); disc(); ctx.clip(); ctx.globalAlpha = 0.2; ctx.fillStyle = C.ink; ctx.fillRect(b.x - r, level, 2 * r, b.y + r - level); ctx.restore(); }
+    ctx.lineWidth = o.lw * k; ctx.globalAlpha = 0.38; ctx.strokeStyle = C.ink; o.icon(b.x, b.y, k);
     ctx.lineCap = 'butt'; ctx.setLineDash([5 * u, 6 * u]); ctx.lineWidth = 1.5 * u; ctx.globalAlpha = 0.55; disc(); ctx.stroke(); ctx.setLineDash([]);
   } else {
     ctx.save(); disc(); ctx.clip();
-    ctx.globalAlpha = flick ? 0.35 : boosting ? 0.95 : 0.8; ctx.fillStyle = C.ink; ctx.fillRect(b.x - r, level, 2 * r, b.y + r - level);
-    ctx.globalAlpha = 1;                            // the arrows are dark where the disc is lit and light where it is not
-    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, level, 2 * r, 2 * r); ctx.clip(); ctx.strokeStyle = C.void; chevrons(b.x, b.y, k); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, b.y - r, 2 * r, level - (b.y - r)); ctx.clip(); ctx.strokeStyle = C.ink; chevrons(b.x, b.y, k); ctx.restore();
+    ctx.globalAlpha = flick ? 0.35 : o.active ? 0.95 : 0.8; ctx.fillStyle = C.ink; ctx.fillRect(b.x - r, level, 2 * r, b.y + r - level);
+    ctx.globalAlpha = 1; ctx.lineWidth = o.lw * k;  // the icon is dark where the disc is lit and light where it is not
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, level, 2 * r, 2 * r); ctx.clip(); ctx.strokeStyle = C.void; o.icon(b.x, b.y, k); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x - r, b.y - r, 2 * r, level - (b.y - r)); ctx.clip(); ctx.strokeStyle = C.ink; o.icon(b.x, b.y, k); ctx.restore();
     ctx.restore();
     ctx.lineCap = 'butt'; ctx.lineWidth = 1.5 * u; ctx.strokeStyle = C.ink; disc(); ctx.stroke();
   }
-  ctx.lineCap = 'butt'; ctx.lineWidth = 4 * u; ctx.strokeStyle = C.void; ctx.globalAlpha = 0.5;            // the reserve again, as a ring round the button
+  ctx.lineCap = 'butt'; ctx.lineWidth = 4 * u; ctx.strokeStyle = C.void; ctx.globalAlpha = 0.5;            // what is left again, as a ring round the button
   ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
-  if (!dry) {
-    ctx.strokeStyle = C.ink; ctx.globalAlpha = flick ? 0.35 : boosting && !reduceMotion ? 0.7 + 0.3 * Math.sin(tNow * 20) : 0.9;
+  if (f > 0) {
+    ctx.strokeStyle = C.ink; ctx.globalAlpha = o.dead ? 0.3 : flick ? 0.35 : o.active && !reduceMotion ? 0.7 + 0.3 * Math.sin(tNow * 20) : 0.9;
     ctx.beginPath(); ctx.arc(b.x, b.y, rr, -Math.PI / 2, -Math.PI / 2 + 6.283 * f); ctx.stroke();
   }
-  if (low && boosting) {                            // the last fifth, while it is being burned: the ring blinks red as a warning
+  if (o.warn) {                                     // nearly spent and still going: the ring blinks red as a warning
     ctx.globalAlpha = reduceMotion ? 0.6 : flick ? 0.9 : 0.15; ctx.strokeStyle = C.warn; ctx.lineWidth = 5 * u;
     ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
   }
-  if (out < 0.7) {                                  // just ran dry, or pressed while empty: the ring blinks red
-    ctx.globalAlpha = (1 - out / 0.7) * (reduceMotion || (out * 8) % 1 < 0.6 ? 1 : 0.2); ctx.strokeStyle = C.warn; ctx.lineWidth = 5 * u;
+  if (o.dead && o.out < 0.7) {                      // just gave out, or pressed while spent: the ring blinks red
+    ctx.globalAlpha = (1 - o.out / 0.7) * (reduceMotion || (o.out * 8) % 1 < 0.6 ? 1 : 0.2); ctx.strokeStyle = C.warn; ctx.lineWidth = 5 * u;
     ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, 6.283); ctx.stroke();
   }
-  if (got < 0.5 && !reduceMotion) {                 // refilled: a ring bursts outwards
-    const t = got / 0.5; ctx.globalAlpha = 1 - t; ctx.strokeStyle = C.ink; ctx.lineWidth = (1 + 3 * (1 - t)) * u;
+  if (o.got < 0.5 && !o.dead && !reduceMotion) {    // back again: a ring bursts outwards
+    const t = o.got / 0.5; ctx.globalAlpha = 1 - t; ctx.strokeStyle = C.ink; ctx.lineWidth = (1 + 3 * (1 - t)) * u;
     ctx.beginPath(); ctx.arc(b.x, b.y, rr + t * 26 * u, 0, 6.283); ctx.stroke();
   }
   ctx.globalAlpha = 1;
