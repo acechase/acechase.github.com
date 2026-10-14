@@ -286,14 +286,14 @@ function audioInit() {
   } catch (_) { ac = null; }
 }
 function tone(type, f0, f1, dur, vol, delay) {
-  if (!ac) return;
+  if (!ac || attract.on) return;
   const t = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
 }
 function noise(dur, vol, freq, delay) {
-  if (!ac) return;
+  if (!ac || attract.on) return;
   const t = ac.currentTime + (delay || 0), s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -313,6 +313,7 @@ const sfx = {
   boostDry: () => { tone('square', 150, 110, 0.07, 0.1); tone('square', 150, 110, 0.07, 0.1, 0.11); },
   refuel:   () => [440, 660, 880, 1320].forEach((f, i) => tone('triangle', f, f, 0.09, 0.14, i * 0.06))
 };
+function buzz(pattern) { if (attract.on) return; try { navigator.vibrate && navigator.vibrate(pattern); } catch (_) {} }
 function toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.5; }
 
 /* ---------- levels ---------- */
@@ -435,9 +436,9 @@ let boostFuel = 1, boosting = false, boostHeld = false, boostDryT = -9, boostFil
 for (let i = 0; i < 34; i++) motes.push({ x: 0, y: 0, z: -1 });
 try { best = parseInt(localStorage.getItem('doomsday-best') || '0', 10) || 0; } catch (_) {}
 let bestWas = 0, overBest = false;                // the best score on this device when the run began; whether the run beat it
-function saveBest() { if (score > best) { best = Math.floor(score); try { localStorage.setItem('doomsday-best', String(best)); } catch (_) {} } }
+function saveBest() { if (attract.on) return; if (score > best) { best = Math.floor(score); try { localStorage.setItem('doomsday-best', String(best)); } catch (_) {} } }
 
-function attract() { lv = makeLevel(1); lv.L = 1e9; lv.fork = null; objs = []; pz = 0; rx = ry = vx = vy = 0; state = 'title'; stateT = 0; }
+function titleScreen() { lv = makeLevel(1); lv.L = 1e9; lv.fork = null; objs = []; pz = 0; rx = ry = vx = vy = 0; state = 'title'; stateT = 0; }
 // Points for things shot or collected show as a running "+N" beside the score, never in the play area. Awards that
 // land within a moment of each other add up into one number, so a burst of gate blocks reads as a single total.
 const gain = { n: 0, t: -9 };
@@ -456,7 +457,7 @@ function newGame() {
 let wakeLock = null;
 function keepAwake() {
   try {
-    if (wakeLock || !navigator.wakeLock || state === 'title') return;
+    if (wakeLock || !navigator.wakeLock || state === 'title' || attract.on) return;
     navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => { wakeLock = null; }); }).catch(() => {});
   } catch (_) {}
 }
@@ -469,7 +470,7 @@ function togglePause() { if (state === 'play') { paused = !paused; if (!paused) 
 // Shield warning: in the last 15% the shield bar and the edges of the screen pulse red, and when the shield
 // gives out the bar itself blows apart.
 const LOW_SHIELD = 15;
-const shieldLow = () => state === 'play' && shield > 0 && shield <= LOW_SHIELD;
+const shieldLow = () => state === 'play' && !attract.on && shield > 0 && shield <= LOW_SHIELD;
 const dangerBeat = () => reduceMotion ? 0.6 : Math.pow(0.5 + 0.5 * Math.sin(tNow * 9), 1.4);      // about 1.4 beats a second
 const shieldBar = () => ({ x: padL + 14 * u, y: 72 * u, w: 112 * u, h: 7 * u });
 let barBroken = false; const shards = [];
@@ -483,6 +484,7 @@ function breakShieldBar() {
 }
 // Losing a ship: with a spare in hand the run carries on, otherwise it is game over.
 function loseShip(why) {
+  if (attract.on) { attractNext(why); return; }
   if (why === 'SHIP LOST') breakShieldBar();
   if (lives <= 0) { gameOver(why); return; }
   lives--; respawnWhy = why; state = 'respawn'; stateT = 0; boosting = false;
@@ -510,6 +512,7 @@ function gameOver(why) {
   if (overBest) celebrate(2, OVER_CHEER);                       // once the wreckage has cleared
 }
 function sectorClear() {
+  if (attract.on) { attractNext(); return; }
   const tb = Math.ceil(time) * 10, sb = Math.round(shield) * 2;
   const token = shipEarned, gotShip = token && lives < MAX_SPARES; if (gotShip) lives++;
   const t = Math.max(1, Math.round(sectorT * 10)), ranked = fairSpeed(), old = pbTimes[level] || 0, pb = ranked && (!old || t < old);
@@ -587,7 +590,7 @@ function drawConfetti() {
 function celebrate(tier, d) {
   if (tier > 1) cheerSfx.big(d, tier > 2); else cheerSfx.small(d);
   party([0, 36, 70, 110][tier], d + 0.1, [0, 0, 16, 44][tier]);
-  if (tier > 1) try { navigator.vibrate && navigator.vibrate([0, d * 1000, 30, 50, 30, 50, 140]); } catch (_) {}
+  if (tier > 1) buzz([0, d * 1000, 30, 50, 30, 50, 140]);
 }
 function twinkle(x, y, r, ph) {                   // a four-point star that glints
   const a = r * (reduceMotion ? 0.85 : 0.65 + 0.35 * Math.sin(tNow * 7 + ph)), b = a * 0.24;
@@ -611,6 +614,71 @@ function cheer(s, x, y, size, t) {
   ctx.restore();
 }
 
+/* ---------- attract mode ---------- */
+// Leave the title screen alone for a few seconds and the game plays a sector by itself behind the menu, to show what it
+// is: a random sector flown by a simple bot. Nothing the bot does counts. No score or time is saved, nothing is sent to
+// the server, nothing sounds or buzzes, and the screen is not kept awake. Any touch or key ends the demo at once and then
+// does what it would have done anyway, so a tap on TAP TO LAUNCH launches. After a minute and a half the demo gives up
+// and the title rests, drawn only a few times a second, until someone comes back.
+const ATTRACT_AFTER = 6, ATTRACT_MAX = 90, ATTRACT_SECTORS = 11;      // idle seconds before it starts; how long it runs; sectors it picks from
+const attract = { on: false, idle: 0, t: 0, rested: false };
+const bot = { x: 0, y: 0, fire: false, boost: false, hold: 0, side: 0 };
+function wake() { attract.idle = 0; attract.rested = false; if (attract.on) endAttract(false); }
+function attractTick(dt) {
+  if (attract.on) { attract.t += dt; botThink(dt); if (attract.t > ATTRACT_MAX) endAttract(true); return; }
+  if (state !== 'title' || attract.rested || tuneOpen || board.open || postOpen) { attract.idle = 0; return; }
+  attract.idle += dt; if (attract.idle > ATTRACT_AFTER) startAttract();
+}
+function attractLevel() {                         // a fresh random sector, flown as a player would get it, clock and all
+  score = 0; shield = 100; invuln = 0; lives = 0; stick.id = null; fireId = null; boostId = null;
+  startLevel(1 + Math.floor(Math.random() * ATTRACT_SECTORS));
+  Object.assign(bot, { x: 0, y: 0, fire: false, boost: false, hold: 0, side: Math.random() < 0.5 ? 0 : 1 });
+}
+function startAttract() { attract.on = true; attract.t = 0; attract.idle = 0; attractLevel(); }
+function attractNext(why) {                       // the bot lost its ship or the clock ran out: no game over, just another sector
+  if (why === 'SHIP LOST') { flash = 1; flashCol = C.warn; shake = 1; burst(0, 0, C.warn, 40, 420 * u); burst(0, 0, C.ink, 20, 260 * u); }
+  attractLevel();
+}
+function endAttract(rest) {
+  attract.on = false; attract.rested = rest; attract.idle = 0;
+  bullets.length = 0; parts.length = 0; popups.length = 0; shocks.length = 0; flash = 0; shake = 0; boosting = false; boostEase = 0; focal = focal0;
+  titleScreen(); stateT = 1;                      // the plain title, ready: the tap that ended the demo can launch the game
+}
+// The bot. A few times a second it picks a point to head for: the gap in the next wall, a hole already shot in the next
+// gate, or the nearest pickup when the way is clear. It fires in bursts at gates and at mines in front of it, keeps clear
+// of mines, picks a side at a fork, and boosts when nothing is coming. It is not good at any of this.
+function botThink(dt) {
+  bot.hold -= dt; if (bot.hold > 0) return;
+  bot.hold = 0.15 + Math.random() * 0.25;
+  const f = lv.fork, open = f && f.chosen == null;
+  let tx = 0.3 * Math.sin(tNow * 0.7), ty = 0.2 * Math.sin(tNow * 0.9), wall = null, goal = null, mine = null, shoot = false, near = 99;
+  for (const o of objs) {
+    const dz = o.z - pz; if (dz < 0.5) continue; if (dz > 40) break;
+    if (open && o.br != null) continue;            // the branches are past the split
+    if (o.kind === 'wall') { if (!o.hit && !wall) { wall = o; near = Math.min(near, dz); } }
+    else if (o.kind === 'gate') { if (!wall) { wall = o; near = Math.min(near, dz); } if (dz < GUN_RANGE) shoot = true; }
+    else if (o.kind === 'mine') { if (o.alive) { near = Math.min(near, dz); if (!mine && dz < 22) mine = o; if (dz < GUN_RANGE && Math.abs(mineX(o) - rx) < 0.35 && Math.abs(o.y - ry) < 0.35) shoot = true; } }
+    else if (!o.taken && !goal && dz < 32) goal = o;
+  }
+  if (open && pz > f.z0 - 25 && pz < f.z1) { tx = bot.side ? 0.9 : -0.9; ty = 0; }      // heading for the chosen branch
+  else if (goal && (!wall || goal.z < wall.z)) { tx = goal.x; ty = goal.y; }
+  else if (wall && wall.kind === 'wall') {         // the nearest point of a grid that is clear of every slab
+    let best = 1e9;
+    for (let gx = -1.05; gx <= 1.06; gx += 0.25) for (let gy = -0.6; gy <= 0.61; gy += 0.2) {
+      if (wall.rects.some(r => inRect(r, gx, gy, 0.17))) continue;
+      const d = Math.hypot(gx - rx, gy - ry) + Math.random() * 0.1; if (d < best) { best = d; tx = gx; ty = gy; }
+    }
+  } else if (wall) {                               // a gate: through a hole if one has been shot, otherwise straight at it, firing
+    const hole = wall.blocks.find(b => b.hp <= 0);
+    if (hole) { tx = (hole.r[0] + hole.r[2]) / 2; ty = (hole.r[1] + hole.r[3]) / 2; } else { tx = rx; ty = ry; }
+  }
+  if (mine && Math.abs(mineX(mine) - tx) < 0.45 && Math.abs(mine.y - ty) < 0.45) tx = clamp(tx + (tx < mineX(mine) ? -0.55 : 0.55), -1, 1);
+  tx += (Math.random() - 0.5) * 0.12; ty += (Math.random() - 0.5) * 0.1;
+  bot.x = clamp((tx - rx) * 3, -1, 1); bot.y = clamp((ty - ry) * 3, -1, 1);
+  bot.fire = shoot && !gunHot && gunHeat < 0.8;
+  bot.boost = near > 28 && boostFuel > 0.25 && shield > 40 && (bot.boost || Math.random() < 0.35);
+}
+
 /* ---------- input ---------- */
 const keys = {};
 const stick = { id: null, ax: 0, ay: 0, x: 0, y: 0 }, STICK_R = 74;
@@ -623,7 +691,7 @@ function tryFullscreen() {
   } catch (_) {}
 }
 cv.addEventListener('pointerdown', e => {
-  e.preventDefault(); audioInit();
+  e.preventDefault(); audioInit(); wake();
   if (e.pointerType === 'touch' && !touchUI) { touchUI = true; resize(); }
   const [x, y] = toLogical(e);
   if (state === 'scene') { sceneTap(x, y); return; }
@@ -669,6 +737,7 @@ cv.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
+  wake();
   if (postOpen) { if (e.code === 'Escape') closePost(); return; }      // typing a name: leave the keys alone
   if (board.open) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Tab') switchBoard(); else board.open = false; e.preventDefault(); return; }
   if (!tuneOpen && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
@@ -684,7 +753,7 @@ window.addEventListener('keydown', e => {
   else if (paused && e.code === 'Space') paused = false;
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') paused = true; });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) return; if (attract.on) endAttract(false); else if (state === 'play') paused = true; });
 
 /* ---------- simulation ---------- */
 const tmp = { x: 0, y: 0, s: 1 };
@@ -753,13 +822,14 @@ function updateFx(dt) {
 function update(dt) {
   tNow += dt; stateT += dt; updateFx(dt);
   if (state === 'scene') { if (scene.shots) updateScene(dt); return; }
-  const held = state === 'play' && !!(keys.ShiftLeft || keys.ShiftRight || boostId !== null), was = boosting;
+  attractTick(dt);
+  const held = attract.on ? bot.boost : state === 'play' && !!(keys.ShiftLeft || keys.ShiftRight || boostId !== null), was = boosting;
   boosting = held && boostFuel > 0;
   if (boosting) boostFuel = Math.max(0, boostFuel - dt / BOOST_SECS);
-  if (boosting && !was) { sfx.boostOn(); try { navigator.vibrate && navigator.vibrate(25); } catch (_) {} }
+  if (boosting && !was) { sfx.boostOn(); buzz(25); }
   else if (was && !boosting && state === 'play') {
     sfx.boostOff();
-    if (held) { popups.push({ s: 'BOOST EMPTY', t: 0 }); boostDryT = tNow; try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch (_) {} }     // ran dry with the button still down
+    if (held) { popups.push({ s: 'BOOST EMPTY', t: 0 }); boostDryT = tNow; buzz([30, 40, 30]); }     // ran dry with the button still down
   }
   else if (held && !boostHeld && !boosting) { sfx.boostDry(); boostDryT = tNow; }      // pressed with nothing in reserve
   boostHeld = held;
@@ -768,7 +838,7 @@ function update(dt) {
   if (state !== 'play') {
     if (state === 'respawn') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; forkCheck(); if (stateT > 2) finishRespawn(); return; }
     if (state === 'over') { speed *= Math.max(0, 1 - 3 * dt); pz += speed * dt; }
-    else pz = Math.min(pz + 14 * dt, lv.fork ? lv.fork.z0 - 90 : Infinity);     // the idle cruise stops short of the fork
+    else if (!attract.rested) pz = Math.min(pz + 14 * dt, lv.fork ? lv.fork.z0 - 90 : Infinity);     // the idle cruise stops short of the fork
     roll += (0 - roll) * Math.min(1, dt * 4);
     return;
   }
@@ -793,9 +863,10 @@ function update(dt) {
     const k = Math.min(1, dt * 14); tilt.fx += (tx - tilt.fx) * k; tilt.fy += (ty - tilt.fy) * k;
     ix += tilt.fx; iy += tilt.fy; tsx = jx * AIM_MAX_X; tsy = jy * AIM_MAX_Y;
   } else { ix += jx; iy += jy; }
+  if (attract.on) { ix = bot.x; iy = bot.y; }
   { const k = Math.min(1, dt * 14); aimSX += (tsx - aimSX) * k; aimSY += (tsy - aimSY) * k; }
   const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
-  const firing = keys.Space || fireId !== null;
+  const firing = attract.on ? bot.fire : keys.Space || fireId !== null;
 
   const target = lv.v0 * TUNE.speed * (boosting ? 1.5 : 1);
   speed += (target - speed) * Math.min(1, dt * (speed < target ? (boosting ? 2.4 : 1.0) : 2.0));
@@ -835,7 +906,7 @@ function update(dt) {
   if (firing && fireCd <= 0 && !gunHot) {
     fireCd = 0.14; gunSide = -gunSide; sfx.laser();
     bullets.push({ z: pz + 0.6, x: rx + gunSide * 0.14, y: ry - 0.09, sx: aimSX, sy: aimSY, dead: false });
-    if (HEAT_SHOTS) { gunHeat += 1 / HEAT_SHOTS; if (gunHeat >= 1) { gunHeat = 1; gunHot = true; gunHotT = tNow; sfx.tink(); try { navigator.vibrate && navigator.vibrate([30, 40, 30]); } catch (_) {} } }
+    if (HEAT_SHOTS) { gunHeat += 1 / HEAT_SHOTS; if (gunHeat >= 1) { gunHeat = 1; gunHot = true; gunHotT = tNow; sfx.tink(); buzz([30, 40, 30]); } }
   }
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i], z0 = b.z, step = (speed + 95) * dt, fk = lv.fork, open = fk && fk.chosen == null; b.z += step; b.x += b.sx * step; b.y += b.sy * step;
@@ -1153,9 +1224,9 @@ function drawHUD() {
   const m = 14 * u, x0 = padL + m;
   ringBtn(muteBtn, '', !muted, 11); if (!muted) { ctx.globalAlpha = 0.5; ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(muteBtn.x, muteBtn.y, muteBtn.r, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
   speakerIcon(muteBtn, muted);
-  if ((state !== 'play' || paused) && state !== 'respawn') { ringBtn(tuneBtn, '', false, 10); gearIcon(tuneBtn); }
-  if (API && (state === 'title' || state === 'over')) ringBtn(scoresBtn, 'SCORES', false, 9);
-  if (state === 'title' || state === 'clear') return;
+  if ((state !== 'play' || paused || attract.on) && state !== 'respawn') { ringBtn(tuneBtn, '', false, 10); gearIcon(tuneBtn); }
+  if (API && (state === 'title' || state === 'over' || attract.on)) ringBtn(scoresBtn, 'SCORES', false, 9);
+  if (state === 'title' || state === 'clear' || attract.on) return;
   ringBtn(pauseBtn, paused ? '>' : 'II', paused, 14);
   ctx.textBaseline = 'top';
   txt('SECTOR ' + String(level).padStart(2, '0'), x0, m, FONT_M, 12 * u, C.dim);
@@ -1221,7 +1292,7 @@ function drawHUD() {
   ctx.globalAlpha = 1;
 }
 function drawControls() {
-  if (!touchUI || state !== 'play') return;
+  if (!touchUI || state !== 'play' || attract.on) return;
   const R = STICK_R * u, on = stick.id !== null;
   const ax = on ? stick.ax : padL + 112 * u, ay = on ? stick.ay : H - 104 * u;
   ctx.beginPath(); ctx.arc(ax, ay, R, 0, 6.283);
@@ -1302,7 +1373,7 @@ function legend(y, size) {
   for (const it of items) { txt(it[0], x, y, FONT_M, size, it[1], 'left'); x += ctx.measureText(it[0]).width + gap; }
 }
 function drawOverlay() {
-  if (state === 'play' && !paused) return;
+  if (state === 'play' && !paused && !attract.on) return;
   if (state === 'respawn') {
     const cx = W / 2, cy = H / 2, big = Math.min(44 * u, W * 0.06);
     ctx.globalAlpha = 0.4; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; ctx.textBaseline = 'middle';
@@ -1311,12 +1382,12 @@ function drawOverlay() {
     txt(deadQuip, cx, cy + 30 * u, FONT_M, Math.min(13 * u, W * 0.021), C.dim, 'center');
     return;
   }
-  ctx.globalAlpha = state === 'title' ? 0.4 : 0.55; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  ctx.globalAlpha = attract.on ? 0.5 : state === 'title' ? 0.4 : 0.55; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
   ctx.textBaseline = 'middle';
   const cx = W / 2, cy = H / 2, big = Math.min(44 * u, W * 0.06), blink = (tNow * 1.6 % 1) < 0.65;
   const go = touchUI ? 'TAP' : 'PRESS SPACE';
-  if (state === 'play') { txt('PAUSED', cx, cy - 10 * u, FONT_D, big * 0.8, C.ink, 'center'); txt(go + ' TO RESUME', cx, cy + 34 * u, FONT_M, 15 * u, C.dim, 'center'); return; }
-  if (state === 'title') {
+  if (state === 'play' && !attract.on) { txt('PAUSED', cx, cy - 10 * u, FONT_D, big * 0.8, C.ink, 'center'); txt(go + ' TO RESUME', cx, cy + 34 * u, FONT_M, 15 * u, C.dim, 'center'); return; }
+  if (state === 'title' || attract.on) {
     txt('DOOMSDAY', cx, cy - 92 * u, FONT_D, big, C.ink, 'center');
     txt('TUNNELS', cx, cy - 92 * u + big * 1.15, FONT_D, big, lv.color, 'center');
     txt('Reach the end of each sector before the countdown hits zero.', cx, cy + 6 * u, FONT_M, Math.min(15 * u, W * 0.026), C.ink, 'center');
@@ -2098,7 +2169,7 @@ window.addEventListener('pagehide', () => runEnded(true));
 // background, restart to pick it up, but only from the title screen so that a run is never interrupted.
 try {
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.type === 'updated' && state === 'title' && !tuneOpen && !board.open && !postOpen) location.reload();
+    if (e.data && e.data.type === 'updated' && (state === 'title' || attract.on) && !tuneOpen && !board.open && !postOpen) location.reload();
   });
 } catch (_) {}
 
@@ -2234,13 +2305,16 @@ document.getElementById('post-form').addEventListener('submit', e => {
 });
 
 /* ---------- loop and boot ---------- */
-let last = 0;
+let last = 0, frames = 0;
 function frame(t) {
+  // To spare the battery, the demo is drawn at half the display's rate and the resting title at a fifth of it.
+  const every = attract.on ? 2 : attract.rested ? 5 : 1;
+  if (++frames % every) { requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, Math.max(0, (t - last) / 1000) || 0); last = t;
   if (!paused) update(dt);
   if (tuneOpen) refreshCtl();
   if (ac && humG) {
-    const live = state === 'play' && !paused;
+    const live = state === 'play' && !paused && !attract.on;
     humG.gain.setTargetAtTime(live ? 0.07 + 0.09 * boostEase : 0, ac.currentTime, 0.08);
     hum.frequency.setTargetAtTime(50 + speed * 2.2 + 50 * boostEase, ac.currentTime, 0.1);
   }
@@ -2252,13 +2326,13 @@ function start(d) {
   window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 150));
   window.addEventListener('pageshow', resize); setTimeout(resize, 300); setTimeout(resize, 1200);      // phones can settle on their real size a moment after launch
   try { new ResizeObserver(resize).observe(cv); } catch (_) {}
-  attract();
+  titleScreen();
   if (d && d.best) best = Math.max(best, d.best);
   if (d && d.playing) { score = d.score || 0; shield = d.shield || 100; lives = typeof d.lives === 'number' ? d.lives : START_SPARES; startLevel(d.level || 1); paused = true; }
   requestAnimationFrame(frame);
 }
 const hot = window.claude && window.claude.hot;
-try { hot && hot.snapshot && hot.snapshot(() => ({ best, playing: state === 'play' || state === 'clear' || state === 'respawn', level, score: Math.floor(score), shield, lives })); } catch (_) {}
+try { hot && hot.snapshot && hot.snapshot(() => ({ best, playing: !attract.on && (state === 'play' || state === 'clear' || state === 'respawn'), level, score: Math.floor(score), shield, lives })); } catch (_) {}
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 })();
 </script>
