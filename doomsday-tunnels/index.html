@@ -621,6 +621,7 @@ function cheer(s, x, y, size, t) {
 // does what it would have done anyway, so a tap on TAP TO LAUNCH launches. After a minute and a half the demo gives up
 // and the title rests, drawn only a few times a second, until someone comes back.
 const ATTRACT_AFTER = 6, ATTRACT_MAX = 90, ATTRACT_SECTORS = 11;      // idle seconds before it starts; how long it runs; sectors it picks from
+const ATTRACT_DIM = 0.65;                        // how far the demo is darkened behind the menu (the plain title uses 0.4)
 const attract = { on: false, idle: 0, t: 0, rested: false };
 const bot = { x: 0, y: 0, fire: false, boost: false, hold: 0, side: 0 };
 function wake() { attract.idle = 0; attract.rested = false; if (attract.on) endAttract(false); }
@@ -1382,7 +1383,7 @@ function drawOverlay() {
     txt(deadQuip, cx, cy + 30 * u, FONT_M, Math.min(13 * u, W * 0.021), C.dim, 'center');
     return;
   }
-  ctx.globalAlpha = attract.on ? 0.5 : state === 'title' ? 0.4 : 0.55; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  ctx.globalAlpha = attract.on ? ATTRACT_DIM : state === 'title' ? 0.4 : 0.55; ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
   ctx.textBaseline = 'middle';
   const cx = W / 2, cy = H / 2, big = Math.min(44 * u, W * 0.06), blink = (tNow * 1.6 % 1) < 0.65;
   const go = touchUI ? 'TAP' : 'PRESS SPACE';
