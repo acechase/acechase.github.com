@@ -1,56 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <title>Andrew Chase's github home</title>
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/bootstrap-responsive.min.css" rel="stylesheet">
-    <link href="/css/acechase.css" rel="stylesheet">
-  
-  </head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Andrew Chase</title>
+<meta name="description" content="Andrew Chase's home page: games for phones you can play right now, a volumetric Game of Life, and a link to everything else on GitHub.">
+<meta name="theme-color" content="#f4f6f8">
+<link rel="icon" type="image/png" href="doomsday-tunnels/icon-192.png?v=2">
+<link rel="preload" href="fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/ShareTechMono-Regular.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Share Tech Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ShareTechMono-Regular.woff) format("woff")}
+@font-face{font-family:"Syncopate";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/Syncopate-Bold.woff) format("woff")}
+:root{
+  color-scheme:light;
+  --paper:#f4f6f8; --ink:#121417; --text:#30343b; --dim:#646b78; --rule:#d3d8e0;
+  --display:"Syncopate","Arial Black",sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --tone:var(--ink);
+}
+*{box-sizing:border-box}
+html{background:var(--paper);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--text);font:16px/1.65 var(--mono)}
+.page{max-width:44rem;margin:0 auto;padding:clamp(28px,6vw,72px) 20px 64px}
+a{color:var(--ink);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+p,ul,figure{margin:0 0 1.1rem}
 
-  <body>
-    <div class="navbar navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container"><a class="brand" href="./index.html">Andrew Chase</a></div>
-      </div>
-    </div>
-    <div class="container">
-      
-      <section>
-        <h2>Find me on:</h2>
-        <ul>
-          <li><a href="http://www.linkedin.com/in/acechase">LinkedIn</a></li>
-	  <li><a href="https://www.facebook.com/acechase">Facebook</a></li>
-	  <li><a href="https://twitter.com/#!/andrew_chase">Twitter</a></li>
-	  <li><a href="https://github.com/acechase">github</a></li>
-        </ul>
-      </section>
-      <section>
-	<h2>
-          <a href="https://github.com/acechase/following" target="internal">github projects I'm following</a>
-        <h2>
-      </section>
-      <section>
-        <h2>Stuff I've been reading lately:</h2>
-        <ul>
-    	  <li><a href="http://addyosmani.com/resources/essentialjsdesignpatterns/book/">Learning JavaScript Design Patterns</a></li>
-	  <li><a href="http://javascriptenlightenment.com/">Javascript Enlightenment</a></li>
-          <li><a href="http://www.12factor.net/">Twelve Factor App</li>
-        </ul>
-      </section>
-      <section>
-        <h2>Engineering blogs I like to follow:</h2>
-        <ul>
-    	  <li><a href="http://highscalability.com/">HighScalability</a></li>
-        </ul>
-      </section>
-      <section>
-        <h2>Useful coding resources:</h2>
-        <ul>
-    	  <li><a href="http://playground.html5rocks.com/">HTML5 playground</a></li>
-    	  <li><a href="http://jsfiddle.net/">JSFiddle</a></li>
-        </ul>
-      </section>
-    </div>
-  </body>
+/* masthead: the name stacked as a wordmark, one line about what I do, where to find me */
+header{margin-bottom:3.4rem}
+h1{margin:0 0 1.2rem;font:700 clamp(2rem,9.5vw,3.8rem)/1.02 var(--display);letter-spacing:-.01em;color:var(--ink)}
+h1 span{display:block}
+.lede{font-size:1.08rem;color:var(--ink);max-width:36rem}
+.find{display:flex;flex-wrap:wrap;gap:.4rem 1.6rem;list-style:none;padding:0;margin:0}
+
+/* each project takes one colour, as the sectors in the game do: a bar at its edge and the button that opens it */
+h2{margin:0 0 1.6rem;font:700 clamp(1rem,4vw,1.2rem)/1.2 var(--display);color:var(--dim)}
+.projects{list-style:none;padding:0;margin:0 0 2.2rem;display:grid;gap:2.6rem}
+.more{margin:0 0 3.4rem;max-width:38rem}
+.project{margin:0;padding:.1rem 0 .1rem 1.1rem;border-left:4px solid var(--tone)}
+h3{margin:0 0 .25rem;font:700 clamp(1.15rem,5vw,1.5rem)/1.15 var(--display);color:var(--ink);text-wrap:balance}
+.when{margin:0 0 1rem;color:var(--dim);font-size:.9rem}
+.shot{margin:0 0 1.2rem}
+.shot img{display:block;width:100%;height:auto;aspect-ratio:1408/650;border:2px solid var(--tone)}
+.links{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem 1.4rem;margin:0}
+.go{display:inline-block;padding:.65rem 1.1rem;background:var(--tone);color:var(--ink);border:2px solid var(--ink);
+  font:700 .78rem/1 var(--display);letter-spacing:.04em;text-decoration:none}
+.go:hover{background:var(--ink);color:var(--paper)}
+
+/* older work and the footer stay quiet */
+.before{padding-top:1.6rem;border-top:1px solid var(--rule);max-width:38rem}
+footer{margin-top:3.4rem;padding-top:1.2rem;border-top:1px solid var(--rule);color:var(--dim);font-size:.9rem;max-width:38rem}
+footer p{margin:0}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Andrew <span>Chase</span></h1>
+  <p class="lede">I write software. Lately that has meant small games for phones, the kind you hold sideways, and an experiment or two in 3D.</p>
+  <ul class="find">
+    <li><a href="https://github.com/acechase">GitHub</a></li>
+    <li><a href="https://www.linkedin.com/in/acechase">LinkedIn</a></li>
+    <li><a href="https://www.instagram.com/acechase">Instagram</a></li>
+  </ul>
+</header>
+
+<main>
+
+<h2>Recent projects</h2>
+<ul class="projects">
+
+  <li class="project" style="--tone:#35d9ff">
+    <h3>Doomsday Tunnels</h3>
+    <p class="when"><time datetime="2026-10">October 2026</time></p>
+    <figure class="shot">
+      <img src="doomsday-tunnels/about/fork.webp" width="1408" height="650" alt="The game on a phone held sideways. A cyan wireframe tunnel splits in two: a bright branch on the left and a dark branch on the right with a white coin floating inside it.">
+    </figure>
+    <p>A tunnel flyer for phones, after Tunnels of Armageddon on the Apple IIGS. Steer, shoot and boost through colour-coded tunnels before the countdown hits zero, then post your score to a shared board. Once you have opened it, it plays with no connection at all. The scoreboard runs on a small Cloudflare Worker that keeps no record of who anyone is.</p>
+    <p class="links">
+      <a class="go" href="doomsday-tunnels/">Play the game</a>
+      <a href="doomsday-tunnels/about/">Manual</a>
+      <a href="doomsday-tunnels/changelog/">Changelog</a>
+      <a href="https://github.com/acechase/acechase.github.com/tree/master/_doomsday-tunnels-api">Scoreboard server</a>
+    </p>
+  </li>
+
+  <li class="project" style="--tone:#ffc400">
+    <h3>Hardhat Mac</h3>
+    <p class="when"><time datetime="2026-10">October 2026</time></p>
+    <p>A clone of Hard Hat Mac, the 1983 construction-site platformer, made for phones. Bolt the steel frame together, collect the lunchboxes and feed the crates into the hopper. The whole game is one HTML file with no build step.</p>
+    <p class="links">
+      <a class="go" href="hardhat-mac/">Play the game</a>
+      <a href="https://github.com/acechase/hardhat-mac">Code</a>
+    </p>
+  </li>
+
+  <li class="project" style="--tone:#4dffa6">
+    <h3>Game of Life 3D</h3>
+    <p class="when"><time datetime="2026-08">August 2026</time></p>
+    <p>Conway's Game of Life in three dimensions, for Unity 6. The automaton runs in a compute shader and the live cells are drawn as glowing instanced cubes in a single indirect draw call. Any birth-and-survival rule can be set, cells can fade out over a few generations instead of dying at once, and a one-cell-thick grid gives you the classic 2D game back. Built AR-first for OpenXR; it runs on a desktop today.</p>
+    <p class="links">
+      <a class="go" href="https://github.com/acechase/GameOfLife3D">See the code</a>
+    </p>
+  </li>
+
+</ul>
+
+<p class="more">A few more projects are incubating in private repos. They will turn up here once they are ready to be seen.</p>
+
+<section class="before">
+  <h2>Before this</h2>
+  <p>My GitHub account goes back to 2008. Most of what is there from those years is forks and patches from the Rails era, with a few experiments alongside. <a href="https://github.com/acechase?tab=repositories">It is all still up.</a></p>
+</section>
+
+</main>
+
+<footer>
+  <p>The games above were imagined and built together with Claude, an AI made by Anthropic. This page loads nothing from other sites.</p>
+</footer>
+
+</div>
+</body>
 </html>
