@@ -21,7 +21,7 @@ namespace DoomsdayTunnels.Tunnel
     public sealed class SectorObject
     {
         public ObjKind Kind;
-        public float Z, X, Y;
+        public float Z, X, Y;              // x and y are measured from the centre of the trunk, or of the object's branch
         public int Branch = -1;            // which fork branch it belongs to; -1 before the fork
         public Rect4[] Rects;              // walls
         public GateBlock[] Blocks;         // gates
@@ -34,6 +34,19 @@ namespace DoomsdayTunnels.Tunnel
         public float MineX(float t) => X + Mathf.Sin(t * 1.6f + Phase) * Sway;
     }
 
+    /// <summary>
+    /// The fork: the tunnel widens to twice its width over [Z0, Z1], then splits into branch 0 (left) and branch 1 (right),
+    /// each a full tunnel again. One of them is the dark, harder branch that holds the sector's ship token.
+    /// </summary>
+    public sealed class Fork
+    {
+        public float Z0, Z1;
+        public int Dark;                                      // which branch is the dark one
+        public bool Hinted;                                   // the "fork ahead" warning has been shown
+        public Core.Palette[] Pal = new Core.Palette[2];      // the light branch is paler than the sector, the dark one deeper
+        public float[][] Wig = new float[2][];                // each branch's own wander: amplitude and frequency
+    }
+
     /// <summary>A sector: its tunnel shape, timing and contents. Built once by SectorGenerator; read by everything else.</summary>
     public sealed class Sector
     {
@@ -44,7 +57,8 @@ namespace DoomsdayTunnels.Tunnel
         public float Length;               // metres to the exit
         public float Limit;                // seconds on the clock
         public float[] Px = new float[6], Py = new float[6];   // the two-sine centreline recipe per axis
+        public Fork Fork;
         public List<SectorObject> Objs = new List<SectorObject>();
-        public SectorObject ShipToken;
+        public SectorObject ShipToken;     // null once the ship has taken the other branch
     }
 }

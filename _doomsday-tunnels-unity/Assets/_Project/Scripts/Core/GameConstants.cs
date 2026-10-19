@@ -22,6 +22,10 @@ namespace DoomsdayTunnels.Core
         public const float BoostSecs = 6f;      // a full reserve lasts this long with the button held
         public const float BoostMul = 1.5f;
 
+        // The fork: the tunnel widens over ForkWiden metres, then splits into two branches that drift ForkSep metres
+        // apart over ForkSpread metres. Clipping the dividing wall costs ForkWallHit shield.
+        public const float ForkWiden = 24f, ForkSep = 5f, ForkSpread = 70f, ForkWallHit = 18f;
+
         // Ship and shield
         public const int StartSpares = 0, MaxSpares = 5;
         public const float LowShield = 15f;

@@ -39,8 +39,8 @@ namespace DoomsdayTunnels.Fx
                 if (rods[i].gameObject.activeSelf != on) rods[i].gameObject.SetActive(on);
                 if (!on) continue;
                 var b = sim.Bullets[i];
-                var from = path.World(b.X, b.Y, b.Z);
-                var to = path.World(b.X + b.Sx * 2.6f, b.Y + b.Sy * 2.6f, b.Z + 2.6f);
+                var from = path.World(b.X, b.Y, b.Z, b.Branch);
+                var to = path.World(b.X + b.Sx * 2.6f, b.Y + b.Sy * 2.6f, b.Z + 2.6f, b.Branch);
                 rods[i].position = from; rods[i].rotation = Quaternion.LookRotation(to - from);
             }
         }
