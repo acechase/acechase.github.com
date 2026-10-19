@@ -1,16 +1,38 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "doomsday-tunnels-api",
-  "main": "src/index.js",
-  "compatibility_date": "2026-09-01",
-  "workers_dev": true,
-  "observability": { "enabled": false },
-  // The database is created automatically on the first deploy (Wrangler 4.45 or newer).
-  "d1_databases": [{ "binding": "DB", "database_name": "doomsday-tunnels" }],
-  // Spam brakes. The key is the caller's network address, held briefly in memory by Cloudflare
-  // and never written to the database.
-  "ratelimits": [
-    { "name": "EVENT_LIMIT", "namespace_id": "4101", "simple": { "limit": 40, "period": 60 } },
-    { "name": "SCORE_LIMIT", "namespace_id": "4102", "simple": { "limit": 6, "period": 60 } }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "doomsday-tunnels-api",
+	"main": "src/index.js",
+	"compatibility_date": "2026-09-01",
+	"workers_dev": true,
+	"observability": {
+		"enabled": false
+	},
+	// The database is created automatically on the first deploy (Wrangler 4.45 or newer).
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "doomsday-tunnels",
+			"database_id": "1de11b39-ce17-464b-abbb-778fc38f22d0"
+		}
+	],
+	// Spam brakes. The key is the caller's network address, held briefly in memory by Cloudflare
+	// and never written to the database.
+	"ratelimits": [
+		{
+			"name": "EVENT_LIMIT",
+			"namespace_id": "4101",
+			"simple": {
+				"limit": 40,
+				"period": 60
+			}
+		},
+		{
+			"name": "SCORE_LIMIT",
+			"namespace_id": "4102",
+			"simple": {
+				"limit": 6,
+				"period": 60
+			}
+		}
+	]
 }
