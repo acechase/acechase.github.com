@@ -10,6 +10,7 @@ Shader "Doomsday/Unlit"
         _FogDepth ("Fog Depth", Float) = 76
         _FogPow ("Fog Power", Float) = 1.3
         _FogAmount ("Fog Amount", Range(0,1)) = 1
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
     }
     SubShader
     {
@@ -18,7 +19,7 @@ Shader "Doomsday/Unlit"
         {
             Name "Forward"
             Tags { "LightMode"="UniversalForward" }
-            Cull Off
+            Cull [_Cull]
             ZWrite On
             HLSLPROGRAM
             #pragma vertex vert

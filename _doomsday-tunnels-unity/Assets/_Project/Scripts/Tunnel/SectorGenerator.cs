@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DoomsdayTunnels.Core;
 
 namespace DoomsdayTunnels.Tunnel
 {
-    /// <summary>Builds sector N from its seed. Same N, same tune, same layout on every device.</summary>
+    /// <summary>
+    /// Builds sector N from its seed. Same N, same tune, same layout on every device, and the same layout as the web
+    /// game: the random numbers are drawn in the same order it draws them.
+    /// </summary>
     public static class SectorGenerator
     {
         const float TAU = (float)(Math.PI * 2);
@@ -17,9 +21,19 @@ namespace DoomsdayTunnels.Tunnel
             lv.Py = new[] { Math.Min(0.6f + 0.25f * n, 2f), TAU / (150 + R.NextF() * 40), R.NextF() * TAU, Math.Min(0.25f + 0.08f * n, 0.7f), TAU / (72 + R.NextF() * 16), R.NextF() * TAU };
             lv.Pal = Palette.For(n);
             lv.Limit = (float)Math.Ceiling(lv.Length / (lv.V0 * tune.Speed) * 1.2 + 5);
-            // Milestone 1: no fork yet. The whole stretch between the start and the exit is one trunk.
-            GenObjs(lv.Objs, ref R, n, 90, lv.Length - 50, -1, Mode.Trunk);
-            lv.Objs.Sort((a, b) => a.Z.CompareTo(b.Z));
+            // The fork: the tunnel widens, then splits into a light branch and a dark branch of the sector's colour.
+            // The dark branch is the harder one and holds the sector's ship token; the light branch is the easy way round.
+            float z0 = (float)Math.Round(lv.Length * 0.4 / 4) * 4, z1 = z0 + G.ForkWiden;
+            int dark = R.Next() < 0.5 ? 0 : 1;
+            var fork = new Fork { Z0 = z0, Z1 = z1, Dark = dark };
+            for (int b = 0; b < 2; b++) fork.Pal[b] = Palette.For(n, b == dark ? 0.3f : -0.22f);
+            for (int b = 0; b < 2; b++) fork.Wig[b] = new[] { 0.6f + R.NextF() * 0.9f, TAU / (70 + R.NextF() * 40) };
+            lv.Fork = fork;
+            GenObjs(lv.Objs, ref R, n, 90, z0 - 14, -1, Mode.Trunk);
+            for (int b = 0; b < 2; b++) GenObjs(lv.Objs, ref R, n, z1 + 34, lv.Length - 50, b, b == dark ? Mode.Hard : Mode.Easy);
+            lv.ShipToken = new SectorObject { Z = z1 + 22, Kind = ObjKind.Ship, X = 0, Y = 0, Branch = dark };   // in sight from the split
+            lv.Objs.Add(lv.ShipToken);
+            lv.Objs = lv.Objs.OrderBy(o => o.Z).ToList();     // a stable sort, as the web game's is: ties keep their order
             return lv;
         }
 

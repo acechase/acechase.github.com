@@ -11,6 +11,7 @@ namespace DoomsdayTunnels.Hazards
     public sealed class HazardView : MonoBehaviour
     {
         public SectorObject Obj;
+        public bool Dropped;                 // in the branch the ship did not take: never shown again this sector
         TunnelPath path; Material baseMat; int seen = -1;
         Renderer[] parts; Transform spin;
         static readonly Color WallFill = Color.Lerp(Palette.Warn, Palette.Void, 0.48f), WallHit = Color.Lerp(Palette.Warn, Palette.Void, 0.82f);
@@ -40,7 +41,7 @@ namespace DoomsdayTunnels.Hazards
 
         void Build(Palette pal)
         {
-            transform.position = path.World(0, 0, Obj.Z);
+            transform.position = path.World(0, 0, Obj.Z, Obj.Branch);
             float haze = 1f;
             switch (Obj.Kind)
             {
@@ -121,19 +122,19 @@ namespace DoomsdayTunnels.Hazards
         public void Tick(float now, float camZ)
         {
             // Nothing far behind the camera or far beyond the haze needs to move or draw.
-            bool near = Obj.Z - camZ > -4 && Obj.Z - camZ < G.Depth + 6;
+            bool near = !Dropped && Obj.Z - camZ > -4 && Obj.Z - camZ < G.Depth + 6;
             if (gameObject.activeSelf != near) gameObject.SetActive(near);
             if (!near) return;
             if (Obj.Version != seen) Refresh();
             switch (Obj.Kind)
             {
                 case ObjKind.Mine:
-                    transform.position = path.World(Obj.MineX(now), Obj.Y, Obj.Z);
+                    transform.position = path.World(Obj.MineX(now), Obj.Y, Obj.Z, Obj.Branch);
                     spin.localRotation = Quaternion.Euler(0, 0, (now * 2 + Obj.Phase) * Mathf.Rad2Deg);
                     break;
                 case ObjKind.Wall: case ObjKind.Gate: break;
                 default:
-                    transform.position = path.World(Obj.X, Obj.Y + Mathf.Sin(now * 3 + Obj.Z) * 0.04f, Obj.Z);
+                    transform.position = path.World(Obj.X, Obj.Y + Mathf.Sin(now * 3 + Obj.Z) * 0.04f, Obj.Z, Obj.Branch);
                     spin.localRotation = Quaternion.Euler(0, now * 90f, 0);
                     break;
             }

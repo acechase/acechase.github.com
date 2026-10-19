@@ -51,8 +51,10 @@ namespace DoomsdayTunnels
             sparks = new GameObject("Sparks").AddComponent<Sparks>(); sparks.Init(Additive, cam);
             Attract();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
-            // headless build can be checked by eye. Used by the verification notes in the README.
+            // headless build can be checked by eye; "-shotz <metres>" starts that run part-way down sector 1 (say, just
+            // before the fork). Used by the verification notes in the README.
             var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -63,7 +65,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
             yield return new WaitForSeconds(0.5f);
-            NewGame();
+            NewGame(); if (shotZ > 0) sim.Pz = shotZ;
             for (int i = 0; i < 4; i++)
             {
                 latestOverride = new SimInput { SteerX = (i % 2 == 0 ? 0.6f : -0.6f), SteerY = i == 1 ? 0.5f : 0f, Fire = true, Boost = i == 3 };
@@ -73,7 +75,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride;
+        SimInput? latestOverride; float shotZ;
 
         void LoadSector(int n)
         {
@@ -82,7 +84,7 @@ namespace DoomsdayTunnels
             tunnel.Build(lv, sim.Path, Unlit);
             foreach (var h in hazards) if (h) Destroy(h.gameObject);
             hazards.Clear();
-            foreach (var o in lv.Objs) hazards.Add(HazardView.Create(o, sim.Path, Unlit, lv.Pal, hazardRoot));
+            foreach (var o in lv.Objs) hazards.Add(HazardView.Create(o, sim.Path, Unlit, o.Branch >= 0 ? lv.Fork.Pal[o.Branch] : lv.Pal, hazardRoot));
             bullets.SetLineColor(lv.Pal.Line);
             rig.Cam.backgroundColor = lv.Pal.Haze;
         }
@@ -105,7 +107,7 @@ namespace DoomsdayTunnels
             if (latestOverride.HasValue) latest = latestOverride.Value;
             if (input.PauseKey && State == GameState.Play) Paused = !Paused;
             if (input.Advance) { if (State == GameState.Play) { if (Paused) Paused = false; } else Advance(); }
-            if (State == GameState.Title) { sim.Now += dt; sim.Pz += 14 * dt; if (sim.Pz > sim.Sector.Length - 90) sim.Pz = 0; }   // the idle cruise
+            if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
             foreach (var h in hazards) h.Tick(sim.Now, sim.Pz);
             bullets.Sync(sim, sim.Path);
@@ -115,7 +117,7 @@ namespace DoomsdayTunnels
         void FixedUpdate()
         {
             if (State == GameState.Play && !Paused) { sim.Step(Time.fixedDeltaTime, latest); Drain(); }
-            else if (State == GameState.Respawn || State == GameState.Over) sim.Step(Time.fixedDeltaTime, default);
+            else if (State == GameState.Respawn || State == GameState.Over) { sim.Step(Time.fixedDeltaTime, default); Drain(); }   // coasting: it may still pass the fork
         }
 
         void OnApplicationPause(bool paused) { if (paused && State == GameState.Play) Paused = true; }
@@ -128,7 +130,8 @@ namespace DoomsdayTunnels
                 switch (e.Kind)
                 {
                     case SimEventKind.Popup: hud.Popups.Add(new Hud.Popup { Text = e.Text }); break;
-                    case SimEventKind.Burst: sparks.Burst(sim.Path.World(e.X, e.Y, e.Z), e.Color, e.Count, 3f); if (e.Count >= 12) sparks.Burst(sim.Path.World(e.X, e.Y, e.Z), Palette.Ink, e.Count / 2, 4f); break;
+                    case SimEventKind.Burst: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); sparks.Burst(at, e.Color, e.Count, 3f); if (e.Count >= 12) sparks.Burst(at, Palette.Ink, e.Count / 2, 4f); break; }
+                    case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
                     case SimEventKind.Shake: rig.Shake = 1; break;
@@ -138,6 +141,14 @@ namespace DoomsdayTunnels
                 }
             }
             sim.Events.Clear();
+        }
+
+        // The ship has taken a branch: the world takes on that branch's palette, and the other branch is dropped.
+        void OnFork(int side)
+        {
+            var P = sim.Sector.Fork.Pal[side];
+            rig.Cam.backgroundColor = P.Haze; bullets.SetLineColor(P.Line);
+            foreach (var h in hazards) if (h.Obj.Branch >= 0 && h.Obj.Branch != side) h.Dropped = true;
         }
 
         void OnSectorClear()

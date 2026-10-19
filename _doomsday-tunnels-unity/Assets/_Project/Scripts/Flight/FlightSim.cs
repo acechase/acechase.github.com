@@ -69,7 +69,7 @@ namespace DoomsdayTunnels.Flight
             BoostHeld = held;
             BoostEase += ((Boosting ? 1 : 0) - BoostEase) * Math.Min(1, dt * 4);
 
-            if (!Playing) { Speed *= Math.Max(0, 1 - 3 * dt); Pz += Speed * dt; Roll += (0 - Roll) * Math.Min(1, dt * 4); return; }
+            if (!Playing) { Speed *= Math.Max(0, 1 - 3 * dt); Pz += Speed * dt; ForkCheck(); Roll += (0 - Roll) * Math.Min(1, dt * 4); return; }
             if (Invuln > 0) Invuln -= dt;
 
             // Steering: a first-order lag toward the input, so the ship eases into its turns.
@@ -108,7 +108,8 @@ namespace DoomsdayTunnels.Flight
 
             // Forward.
             float pz0 = Pz; Pz += Speed * dt; Time -= dt; SectorT += dt; Score += Speed * dt * 0.5f;
-            foreach (var o in Sector.Objs) { if (o.Z <= pz0) continue; if (o.Z > Pz) break; Collide(o); }
+            foreach (var o in Sector.Objs) { if (o.Z <= pz0) continue; if (o.Z > Pz) break; if (o.Branch >= 0 && o.Branch != Path.Chosen) continue; Collide(o); }
+            ForkCheck();
 
             // Guns: heat up while firing, cool when released, lock when overheated.
             fireCd -= dt;
@@ -120,25 +121,47 @@ namespace DoomsdayTunnels.Flight
             if (inp.Fire && fireCd <= 0 && !GunHot)
             {
                 fireCd = G.FireInterval; gunSide = -gunSide; Events.Add(SimEvent.Of(SimEventKind.Laser));
-                Bullets.Add(new Bullet { Z = Pz + 0.6f, X = Rx + gunSide * 0.14f, Y = Ry - 0.09f, Sx = AimSX, Sy = AimSY });
+                Bullets.Add(new Bullet { Z = Pz + 0.6f, X = Rx + gunSide * 0.14f, Y = Ry - 0.09f, Sx = AimSX, Sy = AimSY, Branch = Path.Chosen });
                 if (G.HeatShots > 0) { GunHeat += 1f / G.HeatShots; if (GunHeat >= 1) { GunHeat = 1; GunHot = true; Events.Add(SimEvent.Of(SimEventKind.Tink)); } }
             }
             for (int i = Bullets.Count - 1; i >= 0; i--)
             {
-                var b = Bullets[i]; float z0 = b.Z, step = (Speed + G.BulletSpeedBonus) * dt;
+                var b = Bullets[i]; float z0 = b.Z, step = (Speed + G.BulletSpeedBonus) * dt; var fk = Sector.Fork; bool open = fk != null && Path.Chosen < 0;
                 b.Z += step; b.X += b.Sx * step; b.Y += b.Sy * step;
-                foreach (var o in Sector.Objs) { if (o.Z <= z0) continue; if (o.Z > b.Z) break; if (BulletHit(o, b)) { b.Dead = true; break; } }
-                float bw = Path.HalfWidth(b.Z);
+                if (open && b.Branch < 0 && b.Z > fk.Z1) { b.Branch = b.X < 0 ? 0 : 1; b.X -= (b.Branch == 1 ? 1 : -1) * G.HW; }      // a shot flying on past the split picks a branch too
+                foreach (var o in Sector.Objs) { if (o.Z <= z0) continue; if (o.Z > b.Z) break; if (o.Branch >= 0 && o.Branch != b.Branch) continue; if (BulletHit(o, b)) { b.Dead = true; break; } }
+                float bw = b.Branch >= 0 ? G.HW : Path.HalfWidth(b.Z);
                 if (!b.Dead && (Math.Abs(b.X) > bw || Math.Abs(b.Y) > G.HH))
-                { Events.Add(SimEvent.At(SimEventKind.Burst, Mathf.Clamp(b.X, -bw, bw), Mathf.Clamp(b.Y, -G.HH, G.HH), b.Z, Palette.Ink, 3)); b.Dead = true; }
-                if (!b.Dead && b.Z - Pz > G.GunRange) { Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, b.Z, Palette.Ink, 2)); b.Dead = true; }
+                { Events.Add(SimEvent.At(SimEventKind.Burst, Mathf.Clamp(b.X, -bw, bw), Mathf.Clamp(b.Y, -G.HH, G.HH), b.Z, Palette.Ink, 3, b.Branch)); b.Dead = true; }
+                if (!b.Dead && b.Z - Pz > G.GunRange) { Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, b.Z, Palette.Ink, 2, b.Branch)); b.Dead = true; }
                 if (b.Dead || b.Z > Sector.Length) Bullets.RemoveAt(i);
             }
+
+            // Warnings: the fork coming up, and a ship token flown past.
+            var f = Sector.Fork;
+            if (f != null && !f.Hinted && Path.Chosen < 0 && f.Z0 - Pz < 70) { f.Hinted = true; Events.Add(SimEvent.Of(SimEventKind.Beep)); Events.Add(SimEvent.Say("FORK AHEAD: DARK SIDE HAS THE SHIP TOKEN")); }
+            var tk = Sector.ShipToken;
+            if (tk != null && !tk.Taken && !tk.Gone && Pz > tk.Z + 1) { tk.Gone = true; Events.Add(SimEvent.Say("SHIP TOKEN MISSED")); }
 
             if (Time < 10 && Time > 0) { int c = (int)Math.Ceiling(Time); if (c != lastBeep) { lastBeep = c; Events.Add(SimEvent.Of(SimEventKind.Beep)); } }
             if (Pz >= Sector.Length) { Playing = false; Events.Add(SimEvent.Of(SimEventKind.SectorClear)); }
             else if (Shield <= 0) { Shield = 0; Playing = false; Events.Add(SimEvent.Of(SimEventKind.ShipLost)); }
             else if (Time <= 0) { Time = 0; Playing = false; Events.Add(SimEvent.Of(SimEventKind.TimeOut)); }
+        }
+
+        /// <summary>The ship has reached the split: whichever side of the dividing wall it is on becomes the tunnel.</summary>
+        void ForkCheck()
+        {
+            var f = Sector.Fork;
+            if (f == null || Path.Chosen >= 0 || Pz < f.Z1) return;
+            int side = Rx < 0 ? 0 : 1; float sgn = side == 1 ? 1 : -1;
+            if (Math.Abs(Rx) < 0.22f) { if (Playing) Crash(G.ForkWallHit); Rx = sgn * 0.22f; }      // clipped the dividing wall
+            Path.Chosen = side; Rx -= sgn * G.HW;                                                   // same spot, now measured from the branch's centre
+            foreach (var b in Bullets) if (b.Branch < 0) { b.Branch = b.X < 0 ? 0 : 1; b.X -= (b.Branch == 1 ? 1 : -1) * G.HW; }
+            Bullets.RemoveAll(b => b.Branch != side);
+            if (Sector.ShipToken != null && Sector.ShipToken.Branch != side) Sector.ShipToken = null;
+            Events.Add(SimEvent.At(SimEventKind.Fork, 0, 0, 0, Color.white, side));
+            Events.Add(SimEvent.Say(side == f.Dark ? "DARK TUNNEL" : "LIGHT TUNNEL: NO SHIP TOKEN THIS WAY")); Events.Add(SimEvent.Of(SimEventKind.Tink));
         }
 
         void Crash(float d)
@@ -147,7 +170,7 @@ namespace DoomsdayTunnels.Flight
             Shield -= d; Speed *= 0.6f;
             Events.Add(SimEvent.Of(SimEventKind.Hit)); Events.Add(SimEvent.At(SimEventKind.Flash, 0, 0, 0, Palette.Warn, 0)); Events.Add(SimEvent.Of(SimEventKind.Shake));
             Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Warn, 30));
-            Events.Add(SimEvent.At(SimEventKind.Shock, Rx, Ry, Pz + 0.5f, Palette.Warn, 0));
+            Events.Add(SimEvent.At(SimEventKind.Shock, Rx, Ry, Pz + 0.5f, Palette.Warn, 0, Path.Chosen));
         }
 
         void Collide(SectorObject o)
@@ -181,21 +204,21 @@ namespace DoomsdayTunnels.Flight
             switch (o.Kind)
             {
                 case ObjKind.Wall:
-                    foreach (var r in o.Rects) if (r.Contains(b.X, b.Y, 0)) { Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, o.Z, Palette.Warn, 4)); Events.Add(SimEvent.Of(SimEventKind.Tink)); return true; }
+                    foreach (var r in o.Rects) if (r.Contains(b.X, b.Y, 0)) { Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, o.Z, Palette.Warn, 4, o.Branch)); Events.Add(SimEvent.Of(SimEventKind.Tink)); return true; }
                     return false;
                 case ObjKind.Gate:
                     foreach (var k in o.Blocks)
                         if (k.Hp > 0 && k.R.Contains(b.X, b.Y, 0))
                         {
                             k.Hp--; o.Version++;
-                            if (k.Hp <= 0) { Scored(25); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, k.R.Cx, k.R.Cy, o.Z, Palette.Gate, 22)); Events.Add(SimEvent.At(SimEventKind.Shock, k.R.Cx, k.R.Cy, o.Z, Palette.Gate, 0)); }
-                            else { Events.Add(SimEvent.Of(SimEventKind.Tink)); Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, o.Z, Palette.Gate, 4)); }
+                            if (k.Hp <= 0) { Scored(25); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, k.R.Cx, k.R.Cy, o.Z, Palette.Gate, 22, o.Branch)); Events.Add(SimEvent.At(SimEventKind.Shock, k.R.Cx, k.R.Cy, o.Z, Palette.Gate, 0, o.Branch)); }
+                            else { Events.Add(SimEvent.Of(SimEventKind.Tink)); Events.Add(SimEvent.At(SimEventKind.Burst, b.X, b.Y, o.Z, Palette.Gate, 4, o.Branch)); }
                             return true;
                         }
                     return false;
                 case ObjKind.Mine:
                     { float mx = o.MineX(Now);
-                      if (o.Alive && Dist(mx - b.X, o.Y - b.Y) < 0.38f) { o.Alive = false; o.Version++; Scored(100); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, mx, o.Y, o.Z, Palette.Gate, 26)); Events.Add(SimEvent.At(SimEventKind.Shock, mx, o.Y, o.Z, Palette.Gate, 0)); return true; }
+                      if (o.Alive && Dist(mx - b.X, o.Y - b.Y) < 0.38f) { o.Alive = false; o.Version++; Scored(100); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, mx, o.Y, o.Z, Palette.Gate, 26, o.Branch)); Events.Add(SimEvent.At(SimEventKind.Shock, mx, o.Y, o.Z, Palette.Gate, 0, o.Branch)); return true; }
                       return false; }
                 default: return false;
             }
