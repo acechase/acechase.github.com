@@ -25,14 +25,15 @@ namespace DoomsdayTunnels.Tunnel
             {
                 float zf = k * G.Seg, zn = Mathf.Min((k + 1) * G.Seg, zEnd);
                 if (zf >= zEnd) break;
-                float fx = path.Cx(zf, br), fy = path.Cy(zf), nx = path.Cx(zn, br), ny = path.Cy(zn);
                 float fw = br < 0 ? path.BuiltHalfWidth(zf) : G.HW, nw = br < 0 ? path.BuiltHalfWidth(zn) : G.HW;
+                Vector3 F(float x, float y) => path.World(x, y, zf, br); Vector3 N(float x, float y) => path.World(x, y, zn, br);
                 bool band = ((k >> 1) & 1) == 1, lit = k % 8 == 0;
                 Color floor = lit ? P.Light : band ? P.FloorA : P.FloorB, ceil = lit ? P.Light : band ? P.CeilA : P.CeilB, wall = lit ? P.LightWall : band ? P.WallB : P.WallA;
                 // Corners of the near ring (f) and the far ring (n): bottom-left, bottom-right, top-right, top-left.
-                var f0 = new Vector3(fx - fw, fy - HH, zf); var f1 = new Vector3(fx + fw, fy - HH, zf); var f2 = new Vector3(fx + fw, fy + HH, zf); var f3 = new Vector3(fx - fw, fy + HH, zf);
-                var n0 = new Vector3(nx - nw, ny - HH, zn); var n1 = new Vector3(nx + nw, ny - HH, zn); var n2 = new Vector3(nx + nw, ny + HH, zn); var n3 = new Vector3(nx - nw, ny + HH, zn);
-                var centre = new Vector3((fx + nx) * 0.5f, (fy + ny) * 0.5f, (zf + zn) * 0.5f);
+                const float e = 0.012f;                                                        // lines sit a hair inside the surface they belong to
+                var f0 = F(-fw, -HH); var f1 = F(fw, -HH); var f2 = F(fw, HH); var f3 = F(-fw, HH);
+                var n0 = N(-nw, -HH); var n1 = N(nw, -HH); var n2 = N(nw, HH); var n3 = N(-nw, HH);
+                var centre = path.World(0, 0, (zf + zn) * 0.5f, br);
                 Quad(verts, cols, tris, f0, f1, n1, n0, floor, centre);
                 Quad(verts, cols, tris, f3, f2, n2, n3, ceil, centre);
                 Quad(verts, cols, tris, f0, f3, n3, n0, wall, centre);
@@ -42,18 +43,19 @@ namespace DoomsdayTunnels.Tunnel
                 for (int i = 0; i <= n; i++)
                 {
                     float t = (float)i / n;
-                    Line(verts, cols, lines, fx, fy, Vector3.Lerp(f0, f1, t), Vector3.Lerp(n0, n1, t), P.Line);
-                    Line(verts, cols, lines, fx, fy, Vector3.Lerp(f3, f2, t), Vector3.Lerp(n3, n2, t), P.Line);
+                    Line(verts, cols, lines, F(Mathf.Lerp(-fw, fw, t), -HH + e), N(Mathf.Lerp(-nw, nw, t), -HH + e), P.Line);
+                    Line(verts, cols, lines, F(Mathf.Lerp(-fw, fw, t), HH - e), N(Mathf.Lerp(-nw, nw, t), HH - e), P.Line);
                 }
                 for (int j = 1; j <= 3; j++)
                 {
                     float y = -HH + j * HH / 2;
-                    Line(verts, cols, lines, fx, fy, new Vector3(fx - fw, fy + y, zf), new Vector3(nx - nw, ny + y, zn), P.Line);
-                    Line(verts, cols, lines, fx, fy, new Vector3(fx + fw, fy + y, zf), new Vector3(nx + nw, ny + y, zn), P.Line);
+                    Line(verts, cols, lines, F(-fw + e, y), N(-nw + e, y), P.Line);
+                    Line(verts, cols, lines, F(fw - e, y), N(nw - e, y), P.Line);
                 }
                 // Ribs: a bright rectangle every fourth segment, a plain one on the others.
                 Color rib = k % 4 == 0 ? P.Bright : P.Line;
-                Line(verts, cols, lines, fx, fy, f0, f1, rib); Line(verts, cols, lines, fx, fy, f1, f2, rib); Line(verts, cols, lines, fx, fy, f2, f3, rib); Line(verts, cols, lines, fx, fy, f3, f0, rib);
+                var r0 = F(-fw + e, -HH + e); var r1 = F(fw - e, -HH + e); var r2 = F(fw - e, HH - e); var r3 = F(-fw + e, HH - e);
+                Line(verts, cols, lines, r0, r1, rib); Line(verts, cols, lines, r1, r2, rib); Line(verts, cols, lines, r2, r3, rib); Line(verts, cols, lines, r3, r0, rib);
             }
             var mesh = new Mesh { name = (br < 0 ? "Trunk " : "Branch " + br + " ") + firstSeg, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             mesh.SetVertices(verts); mesh.SetColors(cols);
@@ -73,11 +75,9 @@ namespace DoomsdayTunnels.Tunnel
             if (inward) { t.Add(i); t.Add(i + 1); t.Add(i + 2); t.Add(i); t.Add(i + 2); t.Add(i + 3); }
             else { t.Add(i); t.Add(i + 2); t.Add(i + 1); t.Add(i); t.Add(i + 3); t.Add(i + 2); }
         }
-        // Lines sit a hair inside the surface they belong to, so they never fight it for the same depth.
-        static Vector3 In(Vector3 p, float cx, float cy) { var d = new Vector2(cx - p.x, cy - p.y); return p + (Vector3)(d.normalized * 0.012f); }
-        static void Line(List<Vector3> v, List<Color32> c, List<int> l, float cx, float cy, Vector3 a, Vector3 b, Color col)
+        static void Line(List<Vector3> v, List<Color32> c, List<int> l, Vector3 a, Vector3 b, Color col)
         {
-            int i = v.Count; v.Add(In(a, cx, cy)); v.Add(In(b, cx, cy)); Color32 k = col.linear; c.Add(k); c.Add(k); l.Add(i); l.Add(i + 1);
+            int i = v.Count; v.Add(a); v.Add(b); Color32 k = col.linear; c.Add(k); c.Add(k); l.Add(i); l.Add(i + 1);
         }
     }
 }

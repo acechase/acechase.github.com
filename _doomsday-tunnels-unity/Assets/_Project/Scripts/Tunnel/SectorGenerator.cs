@@ -34,6 +34,7 @@ namespace DoomsdayTunnels.Tunnel
             lv.ShipToken = new SectorObject { Z = z1 + 22, Kind = ObjKind.Ship, X = 0, Y = 0, Branch = dark };   // in sight from the split
             lv.Objs.Add(lv.ShipToken);
             lv.Objs = lv.Objs.OrderBy(o => o.Z).ToList();     // a stable sort, as the web game's is: ties keep their order
+            lv.Course = Course.For(lv);                        // its own random stream: the layout above is untouched
             return lv;
         }
 

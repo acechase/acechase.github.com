@@ -56,10 +56,10 @@ namespace DoomsdayTunnels.Fx
             if (gameObject.activeSelf != show) gameObject.SetActive(show);
             if (!show) return;
             transform.position = path.World(sim.Rx, sim.Ry, sim.Pz);
-            var fwd = path.Tangent(sim.Pz + 1.5f);
+            var fwd = path.Tangent(sim.Pz + 1.5f); var upv = path.Up(sim.Pz + 1.5f);
             float k = Mathf.Min(1, dt * 8);
             bank += (-sim.Vx * 0.22f - bank) * k; pitch += (sim.Vy * 0.09f - pitch) * k; yaw += (sim.Vx * 0.05f - yaw) * k;
-            transform.rotation = Quaternion.LookRotation(fwd, Vector3.up) * Quaternion.Euler(-pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, bank * Mathf.Rad2Deg);
+            transform.rotation = Quaternion.LookRotation(fwd, upv) * Quaternion.Euler(-pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, bank * Mathf.Rad2Deg);
             // the engine: longer and brighter under boost, flickering a little
             float len = 0.3f + 0.5f * sim.BoostEase + 0.05f * Mathf.Sin(sim.Now * 40);
             flare.transform.localScale = new Vector3(0.14f + 0.06f * sim.BoostEase, 0.07f + 0.03f * sim.BoostEase, len);

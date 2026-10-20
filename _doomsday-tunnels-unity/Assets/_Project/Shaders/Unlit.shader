@@ -59,7 +59,7 @@ Shader "Doomsday/Unlit"
                 // brighten the surface in its own colour, with just a hint of the light's
                 float lum = dot(lit, float3(0.3, 0.59, 0.11));
                 c = c * (1.0 + 1.6 * lum * _Lit) + lit * (0.12 * _Lit);
-                float dist = i.world.z - _WorldSpaceCameraPos.z;
+                float dist = length(i.world - _WorldSpaceCameraPos);
                 float f = (1.0 - pow(saturate(1.0 - dist / _FogDepth), _FogPow)) * _FogAmount;
                 return half4(lerp(c, _Haze.rgb, f), 1);
             }

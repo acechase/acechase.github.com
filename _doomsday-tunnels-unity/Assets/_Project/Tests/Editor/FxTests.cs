@@ -50,15 +50,15 @@ namespace DoomsdayTunnels.Tests
             L.Flash(new Vector3(0, 0, 110), Color.white, 1, 0.2f, 1);   // dim
             L.Flash(new Vector3(0, 0, 120), Color.yellow, 6, 2, 1);
             var p = new Vector4[DynamicLights.Max]; var c = new Vector4[DynamicLights.Max];
-            int n = L.Select(cam, p, c);
+            int n = L.Select(cam, Vector3.forward, p, c);
             Assert.AreEqual(3, n);
             Assert.AreEqual(105f, p[0].z, 1e-4f); Assert.AreEqual(120f, p[1].z, 1e-4f); Assert.AreEqual(170f, p[2].z, 1e-4f);
             for (int i = n; i < DynamicLights.Max; i++) Assert.AreEqual(0f, c[i].w, "unused slots are dark");
-            L.Tick(0.5f); L.Select(cam, p, c);
+            L.Tick(0.5f); L.Select(cam, Vector3.forward, p, c);
             Assert.AreEqual(1.5f, c[0].w, 1e-4f, "a flash fades with its life");
             L.Tick(0.6f); Assert.AreEqual(0, L.Lights.Count);
-            L.BeginFrame(); L.Hold(new Vector3(0, 0, 101), Color.cyan, 3, 1); Assert.AreEqual(1, L.Select(cam, p, c));
-            L.BeginFrame(); Assert.AreEqual(0, L.Select(cam, p, c), "held lights last one frame");
+            L.BeginFrame(); L.Hold(new Vector3(0, 0, 101), Color.cyan, 3, 1); Assert.AreEqual(1, L.Select(cam, Vector3.forward, p, c));
+            L.BeginFrame(); Assert.AreEqual(0, L.Select(cam, Vector3.forward, p, c), "held lights last one frame");
         }
 
         [Test]

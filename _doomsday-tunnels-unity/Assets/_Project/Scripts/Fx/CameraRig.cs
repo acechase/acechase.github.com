@@ -17,7 +17,7 @@ namespace DoomsdayTunnels.Fx
         public float Shake;                     // 0..1, decays: the old random jitter, kept for big hits
         public bool ReduceMotion;
         public bool Chase = true;               // false: the web game's view, from the ship itself
-        Vector3 smoothForward = Vector3.forward, kick, kickVel, follow;
+        Vector3 smoothForward = Vector3.forward, smoothUp = Vector3.up, kick, kickVel, follow;
 
         /// <summary>A push in a screen-space direction (x right, y up), in metres, that springs back.</summary>
         public void Impulse(Vector2 dir, float amount) { if (!ReduceMotion) kickVel += new Vector3(dir.x, dir.y, 0) * amount; }
@@ -30,12 +30,13 @@ namespace DoomsdayTunnels.Fx
             var pos = path.World(follow.x, follow.y, sim.Pz - back);
             var aim = path.World(sim.Rx * 0.25f, sim.Ry * 0.25f, sim.Pz + 5f);
             var ahead = Chase ? (aim - pos).normalized : path.Tangent(sim.Pz + 3f);
-            smoothForward = Vector3.Slerp(smoothForward, ahead, Mathf.Min(1, dt * 4f)).normalized;
+            smoothForward = Vector3.Slerp(smoothForward, ahead, Mathf.Min(1, dt * 6f)).normalized;
+            smoothUp = Vector3.Slerp(smoothUp, path.Up(sim.Pz + 2f), Mathf.Min(1, dt * 6f)).normalized;   // the tunnel's up: through a loop the world turns over
             // impulses settle on a damped spring; the old shake adds a little random jitter on top
             kickVel += (-kick * 90f - kickVel * 12f) * dt; kick += kickVel * dt;
             Shake = Mathf.Max(0, Shake - dt * 3f);
             float k = ReduceMotion ? 0 : Shake * 0.08f * sway;
-            var rot = Quaternion.LookRotation(smoothForward, Vector3.up);
+            var rot = Quaternion.LookRotation(smoothForward, smoothUp);
             pos += rot * (kick * (ReduceMotion ? 0 : 1) * sway) + new Vector3((Random.value - 0.5f) * k, (Random.value - 0.5f) * k, 0);
             if (!ReduceMotion) rot = rot * Quaternion.AngleAxis(sim.Roll * Mathf.Rad2Deg * (Chase ? 0.6f : 1f), Vector3.forward);
             transform.SetPositionAndRotation(pos, rot);
