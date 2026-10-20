@@ -82,7 +82,7 @@ namespace DoomsdayTunnels
             ghostShip = new GameObject("Ghost").AddComponent<ShipView>(); ghostShip.Ghost = true; ghostShip.Init(Unlit, Additive); ghostShip.gameObject.SetActive(false);
             debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
             shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
-            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, cam, Quality);
+            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, Unlit, cam, Quality);
             scene.Sound = n => audio.Play(n);
             var cfg = OnlineConfig.Load();
             if (cfg.Enabled) { api = new GameObject("Online").AddComponent<ApiClient>(); api.Config = cfg; }
@@ -101,7 +101,7 @@ namespace DoomsdayTunnels
             foreach (var a in args) if (a == "-shot") shotting = true;
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -110,6 +110,7 @@ namespace DoomsdayTunnels
         {
             System.IO.Directory.CreateDirectory(folder);
             if (shotTouch) input.TouchUI = true;
+            if (shotSafe) UI.SafeArea.Fake = new Rect(59, 21, Screen.width - 118, Screen.height - 21);      // an iPhone held sideways: the island on the left, the home bar below
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
             if (shotAttract)
@@ -168,6 +169,7 @@ namespace DoomsdayTunnels
             }
             if (shotSector > 1) StartLevel(shotSector);
             if (shotZ > 0) sim.Pz = shotZ;
+            if (shotEnd) { sim.Pz = sim.Sector.Length - 75; latestOverride = new SimInput { SteerX = 0.1f }; yield return new WaitForSeconds(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-exit.png")); yield return new WaitForSeconds(1.3f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "03-exit.png")); yield return new WaitForSeconds(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "04-exit.png")); Application.Quit(); yield break; }
             Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");
             for (int i = 0; i < 4; i++)
             {
@@ -179,7 +181,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer, shotSafe, shotEnd;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -201,7 +203,7 @@ namespace DoomsdayTunnels
             foreach (var o in lv.Objs) hazards.Add(HazardView.Create(o, sim.Path, Unlit, o.Branch >= 0 ? lv.Fork.Pal[o.Branch] : lv.Pal, hazardRoot));
             bullets.SetLineColor(lv.Pal.Line);
             rig.Cam.backgroundColor = lv.Pal.Haze; pal = lv.Pal;
-            ambience.SetSector(lv.Pal, lv.Length); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
+            ambience.SetSector(lv.Pal, lv.Length); ambience.BuildGate(lv.Pal, lv.Length, sim.Path, lv.Fork != null); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
         }
 
         void TitleScreen() { level = 1; DailyMode = false; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; rested = false; idle = 0; }
@@ -389,6 +391,9 @@ namespace DoomsdayTunnels
 
         void OnSectorClear()
         {
+            {   // through the gate: a ring and a blaze of light at the exit
+                var at = sim.Path.World(0, 0, sim.Sector.Length); shocks.Add(at, sim.Path.Rotation(sim.Sector.Length), Palette.Ink, 9f, 0.9f); lights.Flash(at, Palette.Ink, 16f, 4f, 0.9f); rig.Impulse(new Vector2(0, 0.6f), 0.5f);
+            }
             if (Attract) { AttractLevel(); return; }
             Bonus = sim.SectorClear();
             if (DailyMode)

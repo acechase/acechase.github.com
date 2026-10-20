@@ -40,7 +40,8 @@ namespace DoomsdayTunnels.UI
                 }
                 circle.Apply();
             }
-            W = Screen.width; H = Screen.height; u = Mathf.Clamp(H / 400f, 0.75f, 1.7f);
+            W = SafeArea.W; H = SafeArea.H; u = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
+            GUI.matrix = Matrix4x4.Translate(new Vector3(SafeArea.Left, SafeArea.Top, 0));      // everything below is laid out inside the safe area
         }
 
         void Text(string s, float x, float y, float size, Color col, TextAnchor anchor = TextAnchor.UpperLeft, bool bold = false)
@@ -55,7 +56,9 @@ namespace DoomsdayTunnels.UI
         }
         void Box(float x, float y, float w, float h, Color col, float alpha = 1f) { GUI.color = new Color(col.r, col.g, col.b, alpha); GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture); GUI.color = Color.white; }
         void Ring(Vector2 c, float r, Color col, float alpha) { GUI.color = new Color(col.r, col.g, col.b, alpha); GUI.DrawTexture(new Rect(c.x - r, c.y - r, r * 2, r * 2), circle); GUI.color = Color.white; }
-        Vector2 Gui(Vector2 screen) => new Vector2(screen.x, H - screen.y);     // Unity screen (y up) to GUI (y down)
+        Vector2 Gui(Vector2 screen) => SafeArea.ToGui(screen);                  // Unity screen (y up) to GUI (y down), inside the safe area
+        /// <summary>A wash over the whole screen, safe area or not.</summary>
+        void Full(Color col, float alpha = 1f) => Box(-SafeArea.Left, -SafeArea.Top, Screen.width, Screen.height, col, alpha);
 
         public void Bar(float x, float y, float w, float h, float frac, Color fill, Color edge, string label, Color labelCol)
         {
@@ -73,7 +76,7 @@ namespace DoomsdayTunnels.UI
             if (state == GameState.Scene && g.Scene.Active) { DrawScene(g.Scene, input, Time.time); return; }
             float now = Time.time;
             if (g.Attract) { DrawControls(sim, input, state, now); DrawOverlay(g, sim, input); if (PanelOpen) DrawPanel(g.S, input); return; }   // the demo: the title over a sector being flown
-            if (Flash > 0 && !ReduceMotion) Box(0, 0, W, H, FlashColor, Flash * 0.35f);
+            if (Flash > 0 && !ReduceMotion) Full(FlashColor, Flash * 0.35f);
             if (sim.Invuln > 0 && state == GameState.Play)
             {
                 float a = 0.35f + 0.35f * Mathf.Sin(sim.Now * 14); Box(5 * u, 5 * u, W - 10 * u, 4 * u, Palette.Ink, a); Box(5 * u, H - 9 * u, W - 10 * u, 4 * u, Palette.Ink, a);
@@ -115,7 +118,7 @@ namespace DoomsdayTunnels.UI
                 Text("VEL " + Mathf.RoundToInt(sim.Speed * 12).ToString("000") + (sim.Boosting ? "  BOOST" : ""), W / 2, H - 22 * u, (sim.Boosting ? 14 : 12) * u, sim.Boosting ? Palette.Ink : Palette.Dim, TextAnchor.UpperCenter);
                 for (int i = 0; i < Popups.Count; i++) { var p = Popups[i]; var c = Palette.Pick; c.a = Mathf.Clamp01(1 - p.T / 1.2f); Text(p.Text, W / 2, H * 0.3f - p.T * 34 * u, 18 * u, c, TextAnchor.MiddleCenter); }
             }
-            if (state == GameState.Play && !g.Paused && input.TiltActive) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);
+            if (state == GameState.Play && !g.Paused) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);
             DrawControls(sim, input, state, now);
             if (state == GameState.Play && !g.Paused && input.TouchUI) DrawPauseButton();
             DrawOverlay(g, sim, input);
@@ -146,7 +149,7 @@ namespace DoomsdayTunnels.UI
             var state = g.State; if (state == GameState.Play && !g.Paused && !g.Attract) return;
             float cx = W / 2, cy = H / 2, big = Mathf.Min(44 * u, W * 0.06f); bool blink = (sim.Now * 1.6f) % 1 < 0.65f; float now = Time.time;
             string go = input.TouchUI ? "TAP" : "PRESS SPACE";
-            Box(0, 0, W, H, Palette.Void, g.Attract ? 0.65f : state == GameState.Title ? 0.4f : 0.55f);
+            Full(Palette.Void, g.Attract ? 0.65f : state == GameState.Title ? 0.4f : 0.55f);
             if (g.Attract) { state = GameState.Title; }
             if (state != GameState.Respawn) { DrawTuneButton(); DrawMuteButton(g.S.Sound); }
             if (g.Online && (state == GameState.Title || state == GameState.Over)) DrawScoresButton();

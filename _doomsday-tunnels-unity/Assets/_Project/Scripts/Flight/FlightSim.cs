@@ -202,7 +202,7 @@ namespace DoomsdayTunnels.Flight
             switch (o.Kind)
             {
                 case ObjKind.Wall:
-                    foreach (var r in o.Rects) if (r.Contains(Rx, Ry, 0.05f)) { Bounce(o, r); break; }
+                    foreach (var r in o.Rects) if (r.Contains(Rx, Ry, G.WallMargin)) { Bounce(o, r); break; }
                     break;
                 case ObjKind.Gate:
                     foreach (var b in o.Blocks) if (b.Hp > 0 && b.R.Contains(Rx, Ry, 0.04f)) { b.Hp = 0; o.Version++; Crash(G.GateHit); break; }
@@ -242,7 +242,7 @@ namespace DoomsdayTunnels.Flight
                     return false;
                 case ObjKind.Mine:
                     { float mx = o.MineX(Now);
-                      if (o.Alive && Dist(mx - b.X, o.Y - b.Y) < 0.38f) { o.Alive = false; o.Version++; Scored(100); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, mx, o.Y, o.Z, Palette.Gate, 26, o.Branch)); Events.Add(SimEvent.At(SimEventKind.Shock, mx, o.Y, o.Z, Palette.Gate, 0, o.Branch)); return true; }
+                      if (o.Alive && Dist(mx - b.X, o.Y - b.Y) < G.MineShotRadius) { o.Alive = false; o.Version++; Scored(100); Events.Add(SimEvent.Of(SimEventKind.Boom)); Events.Add(SimEvent.At(SimEventKind.Burst, mx, o.Y, o.Z, Palette.Gate, 26, o.Branch)); Events.Add(SimEvent.At(SimEventKind.Shock, mx, o.Y, o.Z, Palette.Gate, 0, o.Branch)); return true; }
                       return false; }
                 default: return false;
             }

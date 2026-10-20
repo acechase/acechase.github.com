@@ -98,6 +98,12 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- The HUD lays itself out inside the phone's safe area (`UI/SafeArea.cs`): nothing sits under the Dynamic Island or the
+  home bar. `-shotsafe` fakes those insets on a Mac. The exit of every sector is a lit gate, a white frame inside two in
+  the sector's colour with strips chasing toward it, and clearing it sets off a ring and a blaze of light. The ship is
+  drawn small enough that its wings stay inside the collision margins, and a red slab counts from 14 cm rather than
+  the web's 5 cm, so a visible wing never passes through a wall before the hit lands. The aiming reticle shows in every
+  mode now, since the chase camera sits off the gun line. Cut-scene letters blip at the speaker's pitch, as on the web.
 - What the web game's changelog added, checked item by item: the title plays itself after six idle seconds (a bot
   flies a random sector behind the menu, `Flight/Bot.cs`; nothing counts, no sound, any input ends it, and after
   ninety seconds it rests); the fire and boost buttons are their own gauges (`UI/Hud.Controls.cs`: a bright disc

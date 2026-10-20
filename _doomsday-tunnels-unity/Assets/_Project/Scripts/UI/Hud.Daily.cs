@@ -19,9 +19,9 @@ namespace DoomsdayTunnels.UI
         static Rect DailyPostRect(float w, float h, float u) => new Rect(w / 2 - 150 * u, h / 2 + 62 * u, 140 * u, 30 * u);
         static Rect DailyTimesRect(float w, float h, float u) => new Rect(w / 2 + 10 * u, h / 2 + 62 * u, 140 * u, 30 * u);
         static float U() => Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
-        public bool DailyHit(Vector2 p) => Hit(p, DailyRect(Screen.width, Screen.height, U()), 10);
-        public bool DailyPostHit(Vector2 p) => Hit(p, DailyPostRect(Screen.width, Screen.height, U()), 8);
-        public bool DailyTimesHit(Vector2 p) => Hit(p, DailyTimesRect(Screen.width, Screen.height, U()), 8);
+        public bool DailyHit(Vector2 p) => Hit(p, DailyRect(SafeArea.W, SafeArea.H, U()), 10);
+        public bool DailyPostHit(Vector2 p) => Hit(p, DailyPostRect(SafeArea.W, SafeArea.H, U()), 8);
+        public bool DailyTimesHit(Vector2 p) => Hit(p, DailyTimesRect(SafeArea.W, SafeArea.H, U()), 8);
 
         void DrawDailyButton() { var r = DailyRect(W, H, u); Box(r.x, r.y, r.width, r.height, Palette.Void, 0.5f); Outline(r, Palette.Gate, u); Text("DAILY", r.center.x, r.center.y, 12 * u, Palette.Gate, TextAnchor.MiddleCenter); }
 

@@ -12,14 +12,18 @@ namespace DoomsdayTunnels.Fx
     /// </summary>
     public sealed class Ambience : MonoBehaviour
     {
-        Transform glow; Material glowMat; ParticleSystem motes, streaks; Camera cam;
+        Transform glow; Material glowMat, unlitBase; ParticleSystem motes, streaks; Camera cam;
+        readonly System.Collections.Generic.List<GameObject> gate = new System.Collections.Generic.List<GameObject>();
+        readonly System.Collections.Generic.List<(Renderer r, MaterialPropertyBlock b, int i)> strips = new System.Collections.Generic.List<(Renderer, MaterialPropertyBlock, int)>();
+        Material gateBright, gateHue; static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+        const float GateRun = 44f;                     // the lit strips lead in over the last stretch
         int moteBudget = 200; bool streaksOn = true; float moteCd;
         Color line; float length;
         static readonly int TintId = Shader.PropertyToID("_Tint");
 
-        public void Init(Material additive, Camera camera, Quality q)
+        public void Init(Material additive, Material unlit, Camera camera, Quality q)
         {
-            cam = camera; moteBudget = q.Motes; streaksOn = q.Streaks;
+            cam = camera; moteBudget = q.Motes; streaksOn = q.Streaks; unlitBase = unlit;
             // exit glow: a soft disc
             var tex = new Texture2D(64, 64, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
             for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) { float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(32, 32)) / 32f; float a = Mathf.Pow(Mathf.Clamp01(1 - d), 2.2f); tex.SetPixel(x, y, new Color(1, 1, 1, a)); }
@@ -47,6 +51,49 @@ namespace DoomsdayTunnels.Fx
         }
 
         public void SetSector(Palette P, float len) { line = P.Line; length = len; glowMat.SetColor(TintId, P.Glow); motes.Clear(); }
+
+        /// <summary>
+        /// The exit: a bright gate across the end of each branch, a frame in white inside a frame in the sector's colour,
+        /// with lit strips on the floor and ceiling chasing toward it over the last stretch. Something to fly through.
+        /// </summary>
+        public void BuildGate(Palette P, float len, TunnelPath path, bool forked)
+        {
+            foreach (var g in gate) if (g) Destroy(g); gate.Clear(); strips.Clear();
+            if (gateBright) Destroy(gateBright); if (gateHue) Destroy(gateHue);
+            gateBright = new Material(unlitBase); gateBright.SetColor(TintId, Palette.Ink); gateBright.SetFloat(IntensityId, 3.6f); gateBright.SetFloat("_FogAmount", 0f); gateBright.SetFloat("_Lit", 0f);
+            gateHue = new Material(unlitBase); gateHue.SetColor(TintId, P.Line); gateHue.SetFloat(IntensityId, 2.6f); gateHue.SetFloat("_FogAmount", 0f); gateHue.SetFloat("_Lit", 0f);
+            int branches = forked ? 2 : 1;
+            for (int b = 0; b < branches; b++)
+            {
+                int br = forked ? b : -1;
+                var root = new GameObject("ExitGate" + b).transform; root.SetParent(transform, false);
+                root.position = path.World(0, 0, len, br); root.rotation = path.Rotation(len);
+                Frame(root, G.HW + 0.1f, G.HH + 0.1f, 0.14f, gateBright);
+                Frame(root, G.HW + 0.42f, G.HH + 0.42f, 0.1f, gateHue);
+                Frame(root, G.HW + 0.75f, G.HH + 0.75f, 0.07f, gateHue);
+                gate.Add(root.gameObject);
+                for (int i = 0; i < 9; i++)
+                {   // strips on the floor and ceiling, every few metres, each lit in turn
+                    float z = len - GateRun + i * (GateRun / 9);
+                    foreach (float y in new[] { -G.HH + 0.03f, G.HH - 0.03f })
+                    {
+                        var s = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(s.GetComponent<Collider>()); s.transform.SetParent(transform, false);
+                        s.transform.position = path.World(0, y, z, br); s.transform.rotation = path.Rotation(z); s.transform.localScale = new Vector3(0.7f, 0.04f, 0.22f);
+                        var r = s.GetComponent<Renderer>(); r.sharedMaterial = gateHue; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        var pb = new MaterialPropertyBlock(); strips.Add((r, pb, i)); gate.Add(s);
+                    }
+                }
+            }
+        }
+        void Frame(Transform root, float hw, float hh, float t, Material m)
+        {
+            foreach (var (pos, scale) in new[] { (new Vector3(0, -hh, 0), new Vector3(2 * hw + t, t, t)), (new Vector3(0, hh, 0), new Vector3(2 * hw + t, t, t)), (new Vector3(-hw, 0, 0), new Vector3(t, 2 * hh + t, t)), (new Vector3(hw, 0, 0), new Vector3(t, 2 * hh + t, t)) })
+            {
+                var bar = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(bar.GetComponent<Collider>()); bar.transform.SetParent(root, false);
+                bar.transform.localPosition = pos; bar.transform.localScale = scale;
+                var r = bar.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
         public void SetPalette(Palette P) { line = P.Line; glowMat.SetColor(TintId, P.Glow); }
 
         public void Tick(FlightSim sim, TunnelPath path, float dt, bool reduceMotion)
@@ -57,6 +104,9 @@ namespace DoomsdayTunnels.Fx
             glow.position = at; glow.rotation = path.Rotation(length);
             float pulse = reduceMotion ? 1 : 0.9f + 0.1f * Mathf.Sin(sim.Now * 2.2f);
             glow.localScale = Vector3.one * Mathf.Lerp(3.4f, 9f, Mathf.Clamp01(1 - left / 120f)) * pulse;
+            // the gate's strips chase toward the exit; the gate itself breathes
+            foreach (var (r, b, i) in strips) { float k = reduceMotion ? 0.5f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(sim.Now * 6f - i * 0.7f), 3); b.SetFloat(IntensityId, 0.8f + 2.2f * k); r.SetPropertyBlock(b); }
+            if (gateHue) gateHue.SetFloat(IntensityId, reduceMotion ? 2.6f : 2.2f + 1.0f * (0.5f + 0.5f * Mathf.Sin(sim.Now * 3f)));
             // motes ahead of the ship, in the tunnel it is in, drifting down a little
             if (moteBudget > 0)
             {

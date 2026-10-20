@@ -21,9 +21,9 @@ namespace DoomsdayTunnels.Input
         int stickId = -1, fireId = -1, boostId = -1;
         public float U => Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);     // the web game's size unit
         public float StickRadius => 74f * U;
-        public Vector2 BoostCentre => new Vector2(Screen.width - 186f * U, 54f * U);
+        public Vector2 BoostCentre { get { var sa = UI.SafeArea.Get(); return new Vector2(sa.xMax - 186f * U, sa.y + 54f * U); } }
         public float BoostRadius => 34f * U;
-        public Vector2 FireCentre => new Vector2(Screen.width - 82f * U, 84f * U);
+        public Vector2 FireCentre { get { var sa = UI.SafeArea.Get(); return new Vector2(sa.xMax - 82f * U, sa.y + 84f * U); } }
         public float FireRadius => 46f * U;
 
         /// <summary>True once per frame when the player tapped or pressed to advance a screen.</summary>
@@ -90,7 +90,7 @@ namespace DoomsdayTunnels.Input
                 if (!t.press.wasPressedThisFrame) continue;                 // a touch we never claimed (started on a button)
                 Advance = true; TapPos = p;
                 if (Blocked || Reserved.Contains(p)) continue;
-                if (p.x < Screen.width * 0.5f) { if (stickId < 0) { stickId = id; StickAnchor = p; StickPos = p; Stick = Vector2.zero; StickDown = true; stickSeen = true; } }
+                if (p.x < UI.SafeArea.Get().center.x) { if (stickId < 0) { stickId = id; StickAnchor = p; StickPos = p; Stick = Vector2.zero; StickDown = true; stickSeen = true; } }
                 else if (Vector2.Distance(p, BoostCentre) < BoostRadius * 1.3f) { boostId = id; boostSeen = true; }
                 else { fireId = id; fireSeen = true; }
             }

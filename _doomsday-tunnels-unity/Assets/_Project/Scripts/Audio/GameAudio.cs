@@ -28,6 +28,7 @@ namespace DoomsdayTunnels.Audio
         {
             if (clips.TryGetValue(name, out var c)) return c;
             var p = Synth.Named(name);
+            if (p == null && name.StartsWith("blip:") && int.TryParse(name.Substring(5), out int pitch)) p = new Synth.Patch().T(Synth.Wave.Square, pitch, pitch * 0.96f, 0.035f, 0.035f);   // a typed letter
             c = p == null ? null : Synth.Clip(name, Synth.Render(p));
             clips[name] = c;
             return c;

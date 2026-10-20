@@ -23,7 +23,7 @@ namespace DoomsdayTunnels.Story
         public int Shown => Mathf.Min(Cur.Text.Length, Mathf.FloorToInt(Lt * CPS));
 
         public void Play(Shot[] shots, Action done) { Shots = shots; I = 0; Done = done; Elapsed = 0; ShotEnter(); }
-        void LineEnter() { Lt = 0; if (Cur.Fx != null) Sound?.Invoke(Cur.Fx); }
+        void LineEnter() { Lt = 0; typed = 0; if (Cur.Fx != null) Sound?.Invoke(Cur.Fx); }
         void ShotEnter() { T = 0; LineNo = 0; Sound?.Invoke("static"); if (Shot.Jingle != null) Sound?.Invoke(Shot.Jingle); LineEnter(); }
         public void End() { var d = Done; Shots = null; Done = null; d?.Invoke(); }
 
@@ -36,6 +36,12 @@ namespace DoomsdayTunnels.Story
             else End();
         }
 
-        public void Update(float dt) { if (Shots == null) return; T += dt; Lt += dt; Elapsed += dt; }
+        int typed;
+        public void Update(float dt)
+        {
+            if (Shots == null) return; T += dt; Lt += dt; Elapsed += dt;
+            int n = Shown;                                                        // every third letter typed makes a blip at the speaker's pitch
+            if (n > typed) { if (n % 3 == 0 && Cur.Text[n - 1] != ' ' && Lt < 1e3f && Script.Who.TryGetValue(Cur.Who, out var who)) Sound?.Invoke("blip:" + (int)who.Pitch); typed = n; }
+        }
     }
 }
