@@ -118,9 +118,10 @@ namespace DoomsdayTunnels.UI
             // the switches
             y = cy0 + ch - 36 * u;
             if (Check(x, y, "SOUND", s.Sound)) { s.Sound = !s.Sound; PanelChanged = true; }
-            if (Check(x + 110 * u, y, "COUNT MY PLAYS", s.CountPlays)) { s.CountPlays = !s.CountPlays; PanelChanged = true; }
-            if (Check(x + 270 * u, y, "REDUCE MOTION", s.ReduceMotion)) { s.ReduceMotion = !s.ReduceMotion; PanelChanged = true; }
-            if (Check(x + 420 * u, y, "GHOST OF YOUR BEST", s.ShowGhost)) { s.ShowGhost = !s.ShowGhost; PanelChanged = true; }
+            if (Check(x + 90 * u, y, "HAPTICS", s.Haptics)) { s.Haptics = !s.Haptics; PanelChanged = true; }
+            if (Check(x + 185 * u, y, "COUNT MY PLAYS", s.CountPlays)) { s.CountPlays = !s.CountPlays; PanelChanged = true; }
+            if (Check(x + 335 * u, y, "REDUCE MOTION", s.ReduceMotion)) { s.ReduceMotion = !s.ReduceMotion; PanelChanged = true; }
+            if (Check(x + 475 * u, y, "GHOST", s.ShowGhost)) { s.ShowGhost = !s.ShowGhost; PanelChanged = true; }
         }
 
         /// <summary>In tilt mode the guns can be aimed off-centre: a small cross marks where they point.</summary>
