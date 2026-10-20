@@ -32,7 +32,7 @@ namespace DoomsdayTunnels.Core
         public const float WallHit = 20f, GateHit = 18f, MineHit = 16f, ScrapePerSec = 11f;
         // Red walls are solid: the ship is held BounceBack metres short of one, thrown back at BounceRecoil m/s at least,
         // and shoved sideways toward the nearest gap at BounceShove m/s.
-        public const float BounceBack = 0.4f, BounceRecoil = 5f, BounceShove = 3.2f;
+        public const float BounceBack = 0.22f, BounceRecoil = 5f, BounceShove = 3.2f;    // BounceBack: the ship's nose just touches the slab
         public const float WallMargin = 0.14f;  // how close the ship's centre gets to a red slab before it counts (the web used 0.05; the ship is visible now)
         public const float MineShotRadius = 0.45f;
 

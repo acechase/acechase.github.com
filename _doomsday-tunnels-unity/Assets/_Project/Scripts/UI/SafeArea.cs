@@ -10,6 +10,11 @@ namespace DoomsdayTunnels.UI
     public static class SafeArea
     {
         public static Rect Fake;
+        /// <summary>Device pixels per point: 1 on a plain display, about 3 on an iPhone. The web game sizes in points.</summary>
+        public static float FakeDpr;
+        public static float Dpr => FakeDpr > 0 ? FakeDpr : Screen.dpi > 0 ? Mathf.Max(1f, Screen.dpi / 160f) : 1f;
+        /// <summary>The web game's size unit, in device pixels: the screen's height in points over 400, clamped as the web clamps it, then scaled back up to pixels.</summary>
+        public static float U => Mathf.Clamp(Screen.height / Dpr / 400f, 0.75f, 1.7f) * Dpr;
         public static Rect Get() => Fake.width > 0 ? Fake : Screen.safeArea;
         public static float W => Get().width;
         public static float H => Get().height;

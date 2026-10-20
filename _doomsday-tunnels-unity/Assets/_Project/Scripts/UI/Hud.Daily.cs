@@ -18,7 +18,7 @@ namespace DoomsdayTunnels.UI
         static Rect DailyRect(float w, float h, float u) => new Rect(168 * u, h - 46 * u, 96 * u, 30 * u);
         static Rect DailyPostRect(float w, float h, float u) => new Rect(w / 2 - 150 * u, h / 2 + 62 * u, 140 * u, 30 * u);
         static Rect DailyTimesRect(float w, float h, float u) => new Rect(w / 2 + 10 * u, h / 2 + 62 * u, 140 * u, 30 * u);
-        static float U() => Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
+        static float U() => UI.SafeArea.U;
         public bool DailyHit(Vector2 p) => Hit(p, DailyRect(SafeArea.W, SafeArea.H, U()), 10);
         public bool DailyPostHit(Vector2 p) => Hit(p, DailyPostRect(SafeArea.W, SafeArea.H, U()), 8);
         public bool DailyTimesHit(Vector2 p) => Hit(p, DailyTimesRect(SafeArea.W, SafeArea.H, U()), 8);

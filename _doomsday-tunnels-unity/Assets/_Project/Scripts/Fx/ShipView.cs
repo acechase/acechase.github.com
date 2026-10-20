@@ -17,7 +17,7 @@ namespace DoomsdayTunnels.Fx
         public bool Visible = true;
         public bool Ghost;                       // the replay of a best run: edges only, dim, no engine
         Transform body; Renderer hull, edges, flare; Material hullMat, edgeMat, flareMat;
-        float bank, pitch, yaw, sparkCd;
+        float bank, pitch, yaw, sparkCd; Vector3 jolt, joltVel; float tumble, tumbleVel;
         static readonly int TintId = Shader.PropertyToID("_Tint");
 
         public void Init(Material unlit, Material additive)
@@ -51,13 +51,17 @@ namespace DoomsdayTunnels.Fx
         }
 
         public Vector3 EnginePos => body.TransformPoint(new Vector3(0, 0, -0.45f));
+        /// <summary>A knock: the hull is shoved back along the tunnel and tumbles, then settles on a spring.</summary>
+        public void Jolt(float back, float spin) { joltVel += new Vector3(0, 0, -back); tumbleVel += spin; }
 
         public void Place(FlightSim sim, TunnelPath path, Color lineCol, Color haze, float dt, Sparks sparks)
         {
             bool show = Visible && (sim.Playing || sim.Shield > 0);
             if (gameObject.activeSelf != show) gameObject.SetActive(show);
             if (!show) return;
+            joltVel += (-jolt * 120f - joltVel * 10f) * dt; jolt += joltVel * dt; tumbleVel += (-tumble * 60f - tumbleVel * 6f) * dt; tumble += tumbleVel * dt;
             transform.position = path.World(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen);
+            body.localPosition = jolt; body.localRotation = Quaternion.Euler(tumble * Mathf.Rad2Deg, 0, 0);
             var fwd = path.Tangent(sim.Pz + 1.5f); var upv = path.Up(sim.Pz + 1.5f);
             float k = Mathf.Min(1, dt * 8);
             bank += (-sim.Vx * 0.22f - bank) * k; pitch += (sim.Vy * 0.09f - pitch) * k; yaw += (sim.Vx * 0.05f - yaw) * k;

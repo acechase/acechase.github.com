@@ -53,7 +53,7 @@ namespace DoomsdayTunnels.UI
                 float lit = flick ? 0.35f : active ? 0.95f : 0.8f;
                 Fill(c, r, level, Palette.Ink, lit);
                 Icon(c, r, chevrons, y => y > level ? Palette.Void : Palette.Ink, 1f);     // dark where the disc is lit, light where it is not
-                DashedRing(c, r, Palette.Ink, 0.9f, 0);
+                Circle(c, r, 1.5f * u, Palette.Ink, 0.9f);
             }
             // what is left again, as a ring round the button
             Arc(c, rr, 0, 1, Palette.Void, 0.5f, 4 * u);
@@ -63,32 +63,29 @@ namespace DoomsdayTunnels.UI
             if (gotT < 0.5f && !dead && !ReduceMotion) { float t = gotT / 0.5f; Arc(c, rr + t * 26 * u, 0, 1, Palette.Ink, 1 - t, (1 + 3 * (1 - t)) * u); }   // back again: a ring bursts outwards
         }
 
-        /// <summary>The part of a disc below `level`, as horizontal slices.</summary>
+        /// <summary>The part of a disc below `level`: the disc, clipped to a band.</summary>
         void Fill(Vector2 c, float r, float level, Color col, float alpha)
         {
-            float step = Mathf.Max(1f, 1.5f * u);
-            for (float y = Mathf.Max(level, c.y - r); y < c.y + r; y += step)
-            {
-                float dy = y + step / 2 - c.y, hw = Mathf.Sqrt(Mathf.Max(0, r * r - dy * dy));
-                Box(c.x - hw, y, 2 * hw, Mathf.Min(step, c.y + r - y), col, alpha);
-            }
+            float top = Mathf.Max(level, c.y - r), h = c.y + r - top; if (h <= 0) return;
+            GUI.BeginGroup(new Rect(c.x - r, top, 2 * r, h)); Disc(new Vector2(r, c.y - top), r, col, alpha); GUI.EndGroup();
         }
 
-        /// <summary>A ring from fraction `from` to `to` of a turn (clockwise from the top), as a run of dots.</summary>
+        /// <summary>A stroke from fraction `from` to `to` of a turn (clockwise from the top): a full turn is an outline, less is a run of overlapping round dots.</summary>
         void Arc(Vector2 c, float r, float from, float to, Color col, float alpha, float w)
         {
-            int n = Mathf.Max(8, Mathf.RoundToInt(r * 0.9f)); float d = w * 1.1f;
+            if (to - from >= 0.999f) { Circle(c, r, w, col, alpha); return; }
+            int n = Mathf.Max(2, Mathf.CeilToInt(2 * Mathf.PI * r * (to - from) / (w * 0.4f)));
             for (int i = 0; i <= n; i++)
             {
-                float t = from + (to - from) * i / n; if (t > to + 1e-4f) break;
-                float ang = -Mathf.PI / 2 + t * 2 * Mathf.PI;
-                Box(c.x + Mathf.Cos(ang) * r - d / 2, c.y + Mathf.Sin(ang) * r - d / 2, d, d, col, alpha);
+                float t = from + (to - from) * i / n, ang = -Mathf.PI / 2 + t * 2 * Mathf.PI;
+                Disc(new Vector2(c.x + Mathf.Cos(ang) * r, c.y + Mathf.Sin(ang) * r), w / 2, col, alpha);
             }
         }
         void DashedRing(Vector2 c, float r, Color col, float alpha, int gap = 1)
         {
-            int n = gap > 0 ? 40 : Mathf.Max(48, Mathf.RoundToInt(r * 2.2f)); float d = gap > 0 ? 1.6f * u : 2f * u;
-            for (int i = 0; i < n; i++) { if (gap > 0 && (i / 3) % 2 == 1) continue; float ang = i * 2 * Mathf.PI / n; Box(c.x + Mathf.Cos(ang) * r - d / 2, c.y + Mathf.Sin(ang) * r - d / 2, d, d, col, alpha); }
+            if (gap == 0) { Circle(c, r, 1.5f * u, col, alpha); return; }
+            int n = Mathf.Max(24, Mathf.RoundToInt(r / (2.2f * u))); float w = 1.6f * u;
+            for (int i = 0; i < n; i++) { if ((i / 3) % 2 == 1) continue; float ang = i * 2 * Mathf.PI / n; Disc(new Vector2(c.x + Mathf.Cos(ang) * r, c.y + Mathf.Sin(ang) * r), w, col, alpha); }
         }
 
         // Boost: two stacked arrowheads pointing up the tunnel, as on the boost cell. Fire: a gun sight.
@@ -110,12 +107,19 @@ namespace DoomsdayTunnels.UI
             }
             else
             {
-                float lw = 2.5f * k; int n = 28;
-                for (int i = 0; i < n; i++) { float ang = i * 2 * Mathf.PI / n, y = c.y + Mathf.Sin(ang) * 6 * k; Box(c.x + Mathf.Cos(ang) * 6 * k - lw / 2, y - lw / 2, lw, lw, colAt(y), alpha); }
+                float lw = 2.5f * k;
+                {   // the sight's ring, in two halves so each can take its own colour
+                    float cut = Mathf.Clamp(colAt(c.y - 100) == colAt(c.y + 100) ? c.y + r : LevelFor(colAt, c.y - 6 * k, c.y + 6 * k), c.y - 6 * k, c.y + 6 * k);
+                    GUI.BeginGroup(new Rect(c.x - 7 * k, c.y - 7 * k, 14 * k, cut - (c.y - 7 * k))); Circle(new Vector2(7 * k, 7 * k), 6 * k, lw, colAt(c.y - 7 * k), alpha); GUI.EndGroup();
+                    GUI.BeginGroup(new Rect(c.x - 7 * k, cut, 14 * k, c.y + 7 * k - cut)); Circle(new Vector2(7 * k, c.y - cut), 6 * k, lw, colAt(c.y + 7 * k), alpha); GUI.EndGroup();
+                }
                 foreach (var (dx, dy) in new[] { (1f, 0f), (-1f, 0f), (0f, 1f), (0f, -1f) })
                     for (int j = 0; j < 3; j++) { float t0 = 3 + 2.5f * j, t1 = t0 + 2.5f; var a = new Vector2(c.x + dx * t0 * k, c.y + dy * t0 * k); var b = new Vector2(c.x + dx * t1 * k, c.y + dy * t1 * k); Bar(a, b, lw, colAt((a.y + b.y) / 2), alpha); }
             }
         }
+
+        // Where the colour changes between two heights (the lit level), by bisection.
+        static float LevelFor(System.Func<float, Color> colAt, float a, float b) { var ca = colAt(a); for (int i = 0; i < 12; i++) { float m = (a + b) / 2; if (colAt(m) == ca) a = m; else b = m; } return (a + b) / 2; }
 
         /// <summary>Rotates what is drawn next about a point, in the HUD's own coordinates (Unity's helper ignores the safe-area shift).</summary>
         static void Rot(float deg, Vector2 pivot) => GUI.matrix = GUI.matrix * Matrix4x4.TRS(pivot, Quaternion.Euler(0, 0, deg), Vector3.one) * Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
@@ -125,7 +129,7 @@ namespace DoomsdayTunnels.UI
         {
             var d = b - a; float len = d.magnitude; if (len < 0.01f) return;
             var m = GUI.matrix; Rot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, a);
-            Box(a.x, a.y - w / 2, len, w, col, alpha);
+            RoundBox(new Rect(a.x - w / 2, a.y - w / 2, len + w, w), w / 2, col, alpha);      // round caps
             GUI.matrix = m;
         }
     }

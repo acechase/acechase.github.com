@@ -77,7 +77,7 @@ namespace DoomsdayTunnels
             sparks = new GameObject("Sparks").AddComponent<Sparks>(); sparks.Init(Additive, cam);
             audio = new GameObject("Audio").AddComponent<GameAudio>(); audio.Muted = !S.Sound;
             Quality = Quality.Detect(); lights.Budget = Quality.Lights; post = new PostFx(Quality);
-            Debug.Log("[Doomsday] Quality " + Quality.Tier + " on " + SystemInfo.deviceModel);
+            Debug.Log("[Doomsday] Quality " + Quality.Tier + " on " + SystemInfo.deviceModel + ", " + Screen.width + "x" + Screen.height + " at " + Screen.dpi + " dpi: unit " + UI.SafeArea.U.ToString("0.00") + " px");
             ship = new GameObject("Ship").AddComponent<ShipView>(); ship.Init(Unlit, Additive);
             ghostShip = new GameObject("Ghost").AddComponent<ShipView>(); ghostShip.Ghost = true; ghostShip.Init(Unlit, Additive); ghostShip.gameObject.SetActive(false);
             debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
@@ -100,6 +100,7 @@ namespace DoomsdayTunnels
             var args = System.Environment.GetCommandLineArgs();
             foreach (var a in args) if (a == "-shot") shotting = true;
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotdpr") { float.TryParse(args[i + 1], out float d); UI.SafeArea.FakeDpr = d; }   // preview a phone's pixel density on a Mac
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
             foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
@@ -371,7 +372,7 @@ namespace DoomsdayTunnels
                     case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
-                    case SimEventKind.Shake: rig.Shake = 1; break;
+                    case SimEventKind.Shake: rig.Shake = 1; ship.Jolt(3f, -8f); break;      // a crash or a wall bounce: the hull is knocked back and tumbles
                     case SimEventKind.SectorClear: OnSectorClear(); break;
                     case SimEventKind.ShipLost: case SimEventKind.TimeOut: LoseShip(e.Kind); break;
                     default: if (Sounds.TryGetValue(e.Kind, out var snd)) audio.Play(snd); break;

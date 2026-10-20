@@ -40,7 +40,7 @@ namespace DoomsdayTunnels.UI
                 }
                 circle.Apply();
             }
-            W = SafeArea.W; H = SafeArea.H; u = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
+            W = SafeArea.W; H = SafeArea.H; u = SafeArea.U;
             GUI.matrix = Matrix4x4.Translate(new Vector3(SafeArea.Left, SafeArea.Top, 0));      // everything below is laid out inside the safe area
         }
 
@@ -55,7 +55,11 @@ namespace DoomsdayTunnels.UI
             st.normal.textColor = col; GUI.Label(new Rect(bx, by, w, h), s, st);
         }
         void Box(float x, float y, float w, float h, Color col, float alpha = 1f) { GUI.color = new Color(col.r, col.g, col.b, alpha); GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture); GUI.color = Color.white; }
-        void Ring(Vector2 c, float r, Color col, float alpha) { GUI.color = new Color(col.r, col.g, col.b, alpha); GUI.DrawTexture(new Rect(c.x - r, c.y - r, r * 2, r * 2), circle); GUI.color = Color.white; }
+        // Discs, outlines and capped strokes go through IMGUI's rounded-rectangle path, which is anti-aliased.
+        void Ring(Vector2 c, float r, Color col, float alpha) => Disc(c, r, col, alpha);
+        void Disc(Vector2 c, float r, Color col, float alpha = 1f) { if (r <= 0) return; GUI.DrawTexture(new Rect(c.x - r, c.y - r, r * 2, r * 2), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(col.r, col.g, col.b, alpha), 0, r); }
+        void Circle(Vector2 c, float r, float w, Color col, float alpha = 1f) { if (r <= 0) return; GUI.DrawTexture(new Rect(c.x - r, c.y - r, r * 2, r * 2), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(col.r, col.g, col.b, alpha), w, r); }
+        void RoundBox(Rect r, float radius, Color col, float alpha = 1f) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(col.r, col.g, col.b, alpha), 0, radius);
         Vector2 Gui(Vector2 screen) => SafeArea.ToGui(screen);                  // Unity screen (y up) to GUI (y down), inside the safe area
         /// <summary>A wash over the whole screen, safe area or not.</summary>
         void Full(Color col, float alpha = 1f) => Box(-SafeArea.Left, -SafeArea.Top, Screen.width, Screen.height, col, alpha);

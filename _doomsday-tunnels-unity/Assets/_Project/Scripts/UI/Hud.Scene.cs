@@ -23,7 +23,7 @@ namespace DoomsdayTunnels.UI
         public bool SkipHit(Vector2 screenPos)
         {
             if (screenPos.x < 0) return false;
-            float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
+            float uu = SafeArea.U;
             var b = SkipRect(SafeArea.W, uu); var g = SafeArea.ToGui(screenPos); float gx = g.x, gy = g.y;
             return gx > b.x - 10 * uu && gx < b.xMax + 10 * uu && gy < b.yMax + 12 * uu;
         }
