@@ -85,6 +85,7 @@ namespace DoomsdayTunnels.UI
             if (state != GameState.Title && state != GameState.Clear)
             {
                 Text("SECTOR " + sim.Sector.N.ToString("00"), x0, m, 12 * u, Palette.Dim);
+                if (g.GhostTime > 0 && state == GameState.Play) Text("GHOST " + g.GhostTime.ToString("0.0") + (sim.SectorT > g.GhostTime ? "  BEHIND" : ""), x0 + 78 * u + (sim.GainN > 0 && sim.Now - sim.GainT < 1.7f ? 46 * u : 0), m, 10 * u, Palette.Dim);
                 float ga = sim.Now - sim.GainT; bool gaining = sim.GainN > 0 && ga < 1.7f;
                 if (gaining) { var c = Palette.Ink; c.a = ga < 1.2f ? 1 : 1 - (ga - 1.2f) / 0.5f; Text("+" + sim.GainN, x0 + 78 * u, m, (sim.GainN >= 100 ? 15 : 12.5f) * u, c); }
                 Text(((int)sim.Score).ToString("000000"), x0, m + 15 * u, 21 * u, gaining && ga < 0.22f && !ReduceMotion ? sim.Sector.Hue : Palette.Ink);

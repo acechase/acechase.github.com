@@ -54,7 +54,7 @@ namespace DoomsdayTunnels.Core
         readonly IStore store;
         public readonly Tune Tune = new Tune();
         public SteerMode Steer = SteerMode.Stick;
-        public bool InvertTilt, Sound = true, CountPlays = true, ReduceMotion;
+        public bool InvertTilt, Sound = true, CountPlays = true, ReduceMotion, ShowGhost = true;
         public int Best;
         public string Name = "", LastDay = "";    // the name last posted with; the last day a run was started, for the anonymous player count
 
@@ -68,7 +68,7 @@ namespace DoomsdayTunnels.Core
             InvertTilt = store.GetInt("ctl.invertY", 0) == 1;
             Sound = store.GetInt("sound", 1) == 1;
             CountPlays = store.GetInt("countPlays", 1) == 1;
-            ReduceMotion = store.GetInt("reduceMotion", 0) == 1;
+            ReduceMotion = store.GetInt("reduceMotion", 0) == 1; ShowGhost = store.GetInt("ghost", 1) == 1;
             Best = store.GetInt("best", 0);
             Name = store.GetString("name", ""); LastDay = store.GetString("day", "");
         }
@@ -80,7 +80,7 @@ namespace DoomsdayTunnels.Core
             store.SetInt("ctl.invertY", InvertTilt ? 1 : 0);
             store.SetInt("sound", Sound ? 1 : 0);
             store.SetInt("countPlays", CountPlays ? 1 : 0);
-            store.SetInt("reduceMotion", ReduceMotion ? 1 : 0);
+            store.SetInt("reduceMotion", ReduceMotion ? 1 : 0); store.SetInt("ghost", ShowGhost ? 1 : 0);
             store.SetInt("best", Best);
             store.SetString("name", Name ?? ""); store.SetString("day", LastDay ?? "");
             store.Save();
@@ -90,6 +90,10 @@ namespace DoomsdayTunnels.Core
 
         /// <summary>A slider's value snapped to its step and kept in range.</summary>
         public static float Snap(TuneDef d, float v) => Mathf.Clamp(Mathf.Round((v - d.Min) / d.Step) * d.Step + d.Min, d.Min, d.Max);
+
+        /// <summary>The recorded best run through a sector (an InputLog, serialised), or null.</summary>
+        public string Ghost(int sector) { var s = store.GetString("ghost." + sector, ""); return s.Length > 0 ? s : null; }
+        public void SaveGhost(int sector, string log) { store.SetString("ghost." + sector, log); store.Save(); }
 
         /// <summary>The fastest fair time flown through a sector on this device, or 0.</summary>
         public float BestTime(int sector) => store.GetFloat("pb." + sector, 0f);

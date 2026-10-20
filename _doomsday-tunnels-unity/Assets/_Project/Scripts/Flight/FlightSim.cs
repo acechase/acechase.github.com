@@ -42,7 +42,8 @@ namespace DoomsdayTunnels.Flight
             Sector = lv; Tune = tune; Path = new TunnelPath(lv, tune);
             Pz = 0; Rx = Ry = Vx = Vy = 0; Speed = lv.V0 * tune.Speed * 0.5f;
             Time = lv.Limit; SectorT = 0; GainN = 0; lastBeep = 0;
-            Bullets.Clear(); AimSX = AimSY = 0; BoostFuel = 1; Boosting = false; ShipEarned = false; GunHeat = 0; GunHot = false;
+            Bullets.Clear(); AimSX = AimSY = 0; BoostFuel = 1; Boosting = false; BoostHeld = false; ShipEarned = false; GunHeat = 0; GunHot = false;
+            fireCd = 0; gunSide = 1; scrapeCd = 0; ScrapeX = ScrapeY = 0;     // nothing carries over from the last sector: a run is a function of its inputs alone
             Playing = true;
         }
 
