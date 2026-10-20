@@ -28,7 +28,7 @@ namespace DoomsdayTunnels.Tests
             while (steps++ < 60 * 8 && sim.Playing && sim.Pz < wall.Z + 1)
             {
                 sim.Step(1f / 60f, default);
-                if (wall.Hit && !bounced) { bounced = true; Assert.Less(sim.Pz, wall.Z, "held short of the wall"); Assert.Less(sim.Speed, 0, "thrown back"); Assert.AreEqual(shield0 - G.WallHit, sim.Shield, 1e-3, "one hit's worth of shield"); }
+                if (wall.Hit && !bounced) { bounced = true; Assert.Less(sim.Pz, wall.Z - G.ShipNose + 0.01f, "held short of the wall by the length of the nose"); Assert.Less(sim.Speed, 0, "thrown back"); Assert.AreEqual(shield0 - G.WallHit, sim.Shield, 1e-3, "one hit's worth of shield"); }
                 sim.Events.Clear();
             }
             Assert.IsTrue(bounced);

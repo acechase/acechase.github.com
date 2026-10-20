@@ -394,7 +394,7 @@ namespace DoomsdayTunnels
                     case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
-                    case SimEventKind.Shake: rig.Shake = 1; ship.Jolt(4f, -10f); if (!Attract) hitStop = 0.09f; break;      // a crash or a wall bounce: the hull is knocked back and tumbles, and the world freezes for a beat
+                    case SimEventKind.Shake: rig.Shake = 1; ship.Jolt(2.5f, -3f); if (!Attract) hitStop = 0.09f; break;      // a crash or a wall bounce: the hull is knocked back and tumbles, and the world freezes for a beat
                     case SimEventKind.SectorClear: OnSectorClear(); break;
                     case SimEventKind.ShipLost: case SimEventKind.TimeOut: LoseShip(e.Kind); break;
                     default: if (Sounds.TryGetValue(e.Kind, out var snd)) audio.Play(snd); break;
