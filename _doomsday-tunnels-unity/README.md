@@ -66,7 +66,8 @@ while; later ones are quick.
 ## Checking it works
 
 - Edit-mode tests (sector generator determinism, the RNG and the fork layout against the web game, the flight model,
-  the fork and the ship token, the story script, the scene player and every cut-scene set). With
+  the fork and the ship token, the story script, the scene player and every cut-scene set, the settings store, the
+  tilt maths, every synthesised sound and the Part Two palette). With
   `DT3D_SCENE_SHOTS` set to a folder, the cut-scene test also writes one PNG per set there, to be looked at:
 
 ```sh
@@ -75,13 +76,59 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
 ```
 
 - Screenshots without a phone: build **Doomsday > Build > macOS (debug)** and run it with a folder to write to.
+  The first macOS build after an iOS export has twice come out rendering black with "Render Graph Execution
+  error" in its log (the target switch rewrites the pipeline settings asset); building a second time fixes it.
   It plays a few seconds of sector 1 on its own and saves frames there. Add `-shotz <metres>` to start that
   run part-way down the sector: sector 1's fork is at 420 m, so `-shotz 370` shows the widening and the split.
-  `-shotscene` instead captures the opening cut scene, advancing a line or two between frames.
+  `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
+  captures the opening cut scene, advancing a line or two between frames, `-shotpanel` captures the settings panel and
+  `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one).
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
 ```
+
+## The look
+
+Milestone 3 is the high-end pass, all of it cosmetic so sector times stay comparable:
+
+- `Shaders/Unlit.shader` takes up to eight of the game's own point lights as global arrays (`Fx/DynamicLights.cs`):
+  explosions and impacts flash, shots glow as they fly, the ship's engine and the ship token shine. A light brightens
+  a surface in its own colour, so the flat neon look survives.
+- `Fx/ShipView.cs` is the ship the web game never showed, a dart with glowing edges that bank into turns, an engine
+  flare that stretches under boost, edges that redden as the shield drains and sparks when it is nearly gone.
+  `Fx/CameraRig.cs` is a chase camera on a soft arm behind it, with spring-mounted kicks away from scraped walls.
+- `Fx/DebrisSim.cs` shatters gates, mines and the ship into chunks that tumble, fall and bounce off the real tunnel
+  box, in tunnel coordinates, with no colliders. `Fx/Shockwaves.cs` draws the rings. Mines nudged by a near miss
+  swing on a spring; the token wobbles.
+- `Fx/Ambience.cs` is the exit glow at the far end, the dust motes that give speed something to be measured
+  against, and the streaks that rush past the lens under boost. `Fx/PostFx.cs` drives bloom, the chromatic
+  aberration that creeps in under boost and spikes on a hit, and the vignette that closes in on a low shield.
+- `Core/Quality.cs` picks a tier from the device (iPhone generation from the model string, memory elsewhere) and
+  sizes bloom, the light count, the debris cap, the motes and the render scale to it. The tier is logged at start.
+
+## Settings, sound and what is saved
+
+The TUNE button on the title, pause, sector-clear and game-over screens opens CONTROLS AND FEEL: thumb stick or
+tilt steering (tilt re-centres to how the phone is held whenever a sector starts or the game resumes; the stick then
+aims the guns), the seven feel sliders from the web game, sound, play counting and reduced motion. Everything is kept
+in `PlayerPrefs` under these keys:
+
+| Key | What |
+| --- | --- |
+| `tune.steer` `tune.snap` `tune.speed` `tune.pull` `tune.twist` `tune.sway` `tune.tilt` | the sliders (floats) |
+| `ctl.mode` | 0 thumb stick, 1 tilt |
+| `ctl.invertY` | 1 to invert tilt up/down |
+| `sound` | 1 on (default), 0 muted |
+| `countPlays` | 1 on (default): anonymous daily play counts, once the app is online |
+| `reduceMotion` | 1 to turn off shake, banking, flashes and the tape effects |
+| `best` | best score on this device |
+| `pb.<sector>` | fastest time through that sector at the standard flight speed |
+
+There are no sound files: `Scripts/Audio/Synth.cs` renders the web game's WebAudio recipes (an oscillator sliding
+between two pitches with a fading gain, and filtered noise) into clips on first use, and the engine hum is a one-second
+loop whose pitch and volume follow the ship. The cut scenes play their static, jingles and stings through the same
+table.
 
 ## Git
 
@@ -98,8 +145,22 @@ git config merge.unityyamlmerge.driver \
 git config merge.unityyamlmerge.recursive binary
 ```
 
+## Online: the scoreboard and play counts
+
+The scoreboard server is `_doomsday-tunnels-api/`; the app talks to its `/v2/*` routes (`Scripts/Online/`). To
+switch it on, copy `Assets/_Project/Resources/OnlineConfig.example.json` to `OnlineConfig.json` next to it and put
+the Worker's `APP_KEY` secret in it. That file is not in git. Without it the game is simply offline: no SCORES
+button, no counts. With it:
+
+- starting a run tells the server "a run began" (plus "first play today / ever" for the anonymous player count,
+  and nothing at all when COUNT MY PLAYS is off in settings) and gets a signed token back;
+- the game-over screen offers POST SCORE, which sends the name typed, the score, the sector and the run's sector
+  times (at the standard flight speed only), and shows the rank that comes back;
+- SCORES on the title and game-over screens shows the app's own board: the top twenty and the fastest times per
+  sector. The web game's board is separate.
+
 ## Privacy
 
 The app follows the same rule as the web game: no accounts, no ads, no analytics service, nothing that
 identifies a player. Play counts are anonymous daily totals and can be switched off in settings; a score is
-sent only when the player chooses to post it. The scoreboard server is `_doomsday-tunnels-api/`.
+sent only when the player chooses to post it.

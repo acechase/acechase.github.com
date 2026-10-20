@@ -108,8 +108,13 @@ namespace DoomsdayTunnels.UI
                 Text("VEL " + Mathf.RoundToInt(sim.Speed * 12).ToString("000") + (sim.Boosting ? "  BOOST" : ""), W / 2, H - 22 * u, (sim.Boosting ? 14 : 12) * u, sim.Boosting ? Palette.Ink : Palette.Dim, TextAnchor.UpperCenter);
                 for (int i = 0; i < Popups.Count; i++) { var p = Popups[i]; var c = Palette.Pick; c.a = Mathf.Clamp01(1 - p.T / 1.2f); Text(p.Text, W / 2, H * 0.3f - p.T * 34 * u, 18 * u, c, TextAnchor.MiddleCenter); }
             }
+            if (state == GameState.Play && !g.Paused && input.TiltActive) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);
             DrawControls(sim, input, state);
+            if (state == GameState.Play && !g.Paused && input.TouchUI) DrawPauseButton();
             DrawOverlay(g, sim, input);
+            if (PanelOpen) DrawPanel(g.S, input);
+            else if (BoardOpen) DrawBoard();
+            else if (PostOpen) DrawPost((int)sim.Score, sim.Sector.N);
         }
 
         void DrawControls(FlightSim sim, InputReader input, GameState state)
@@ -133,6 +138,8 @@ namespace DoomsdayTunnels.UI
             float cx = W / 2, cy = H / 2, big = Mathf.Min(44 * u, W * 0.06f); bool blink = (sim.Now * 1.6f) % 1 < 0.65f;
             string go = input.TouchUI ? "TAP" : "PRESS SPACE";
             Box(0, 0, W, H, Palette.Void, state == GameState.Title ? 0.4f : 0.55f);
+            if (state != GameState.Respawn) DrawTuneButton();
+            if (g.Online && (state == GameState.Title || state == GameState.Over)) DrawScoresButton();
             if (state == GameState.Play) { Text("PAUSED", cx, cy - 10 * u, big * 0.8f, Palette.Ink, TextAnchor.MiddleCenter, true); Text(go + " TO RESUME", cx, cy + 34 * u, 15 * u, Palette.Dim, TextAnchor.MiddleCenter); return; }
             if (state == GameState.Respawn)
             {
@@ -147,16 +154,16 @@ namespace DoomsdayTunnels.UI
                 Text("TUNNELS 3D", cx, cy - 92 * u + big * 1.15f, big, sim.Sector.Hue, TextAnchor.MiddleCenter, true);
                 Text("Reach the end of each sector before the countdown hits zero.", cx, cy + 6 * u, Mathf.Min(15 * u, W * 0.026f), Palette.Ink, TextAnchor.MiddleCenter);
                 Text("RED WALLS: DODGE   YELLOW: SHOOT   WHITE CELLS: COLLECT", cx, cy + 36 * u, Mathf.Min(13 * u, W * 0.021f), Palette.Dim, TextAnchor.MiddleCenter);
-                Text(input.TouchUI ? "LEFT THUMB STEERS  /  RIGHT THUMB FIRES  /  BOOST FOR SPEED" : "ARROWS OR WASD STEER  /  SPACE FIRES  /  SHIFT BOOSTS", cx, cy + 62 * u, Mathf.Min(12 * u, W * 0.02f), Palette.Dim, TextAnchor.MiddleCenter);
+                Text(input.TouchUI && input.TiltActive ? "TILT STEERS  /  LEFT THUMB AIMS  /  RIGHT THUMB FIRES" : input.TouchUI ? "LEFT THUMB STEERS  /  RIGHT THUMB FIRES  /  BOOST FOR SPEED" : "ARROWS OR WASD STEER  /  SPACE FIRES  /  SHIFT BOOSTS", cx, cy + 62 * u, Mathf.Min(12 * u, W * 0.02f), Palette.Dim, TextAnchor.MiddleCenter);
                 if (blink) Text(go + " TO LAUNCH", cx, cy + 104 * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
                 if (g.Best > 0) Text("BEST " + g.Best.ToString("000000"), cx, cy + 136 * u, 13 * u, Palette.Dim, TextAnchor.MiddleCenter);
-                Text("MILESTONE 2 BUILD", W - 16 * u, H - 20 * u, 10 * u, Palette.Dim, TextAnchor.MiddleRight);
+                Text("MILESTONE 3 BUILD", W - 16 * u, H - 20 * u, 10 * u, Palette.Dim, TextAnchor.MiddleRight);
             }
             else if (state == GameState.Clear)
             {
                 var b = g.Bonus;
                 Text("SECTOR " + b.Sector.ToString("00") + " CLEAR", cx, cy - 84 * u, big * 0.75f, Palette.Ink, TextAnchor.MiddleCenter, true);
-                Text("SECTOR TIME " + b.SectorTime.ToString("0.0"), cx, cy - 48 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
+                Text("SECTOR TIME " + b.SectorTime.ToString("0.0") + (g.ClearPB ? "   PERSONAL BEST" : ""), cx, cy - 48 * u, 16 * u, g.ClearPB ? Palette.Gate : Palette.Ink, TextAnchor.MiddleCenter);
                 Text("TIME BONUS    +" + b.TimeBonus, cx, cy - 4 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 Text("SHIELD BONUS  +" + b.ShieldBonus, cx, cy + 18 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 Text(b.Ship ? "SHIP TOKEN: EXTRA SHIP  +1" : b.Token ? "SHIP TOKEN: SHIP BAY FULL" : "NO SHIP TOKEN, NO EXTRA SHIP", cx, cy + 40 * u, 16 * u, b.Ship ? Palette.Gate : Palette.Dim, TextAnchor.MiddleCenter);
@@ -170,7 +177,8 @@ namespace DoomsdayTunnels.UI
                 Text("SECTOR " + sim.Sector.N.ToString("00") + "   SCORE " + ((int)sim.Score).ToString("000000"), cx, cy - 8 * u, 17 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 if (g.OverBest) Text("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), Palette.Gate, TextAnchor.MiddleCenter, true);
                 else Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
-                if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + 74 * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
+                if (g.CanPost) DrawPostButton();
+                if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + (g.CanPost ? 92 : 74) * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
             }
         }
 

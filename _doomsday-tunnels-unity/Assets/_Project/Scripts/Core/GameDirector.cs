@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using DoomsdayTunnels.Audio;
 using DoomsdayTunnels.Core;
 using DoomsdayTunnels.Flight;
 using DoomsdayTunnels.Fx;
 using DoomsdayTunnels.Hazards;
 using DoomsdayTunnels.Input;
+using DoomsdayTunnels.Online;
 using DoomsdayTunnels.Story;
 using DoomsdayTunnels.Tunnel;
 using DoomsdayTunnels.UI;
@@ -15,7 +17,7 @@ namespace DoomsdayTunnels
 
     /// <summary>
     /// The game: one of these in the scene. Owns the simulation, builds the world for each sector, feeds input in,
-    /// turns sim events into sparks, flashes and popups, and runs the screens between runs.
+    /// turns sim events into sparks, flashes, sounds and popups, and runs the screens between runs.
     /// </summary>
     public sealed class GameDirector : MonoBehaviour
     {
@@ -25,21 +27,30 @@ namespace DoomsdayTunnels
         public GameState State = GameState.Title;
         public bool Paused;
         public float StateT;
-        public int Best;
         public ClearBonus Bonus;
+        public bool ClearPB;                        // the sector just cleared was a personal best time
         public string DeadWhy = "", DeadQuip = "";
         public SimEventKind RespawnWhy;
         public bool OverBest;                       // this run beat the best score on the device
         int bestWas; bool seenIntro;
         readonly ScenePlayer scene = new ScenePlayer();
         public ScenePlayer Scene => scene;
+        public Settings S { get; private set; }
+        public int Best => S.Best;
+        public Camera Cam => rig.Cam;
 
         readonly FlightSim sim = new FlightSim();
-        readonly Tune tune = new Tune();
         readonly List<HazardView> hazards = new List<HazardView>();
         readonly Hud hud = new Hud();
         readonly InputReader input = new InputReader();
-        TunnelView tunnel; BulletPool bullets; Sparks sparks; CameraRig rig; Transform hazardRoot;
+        TunnelView tunnel; BulletPool bullets; Sparks sparks; CameraRig rig; Transform hazardRoot; GameAudio audio;
+        ShipView ship; DebrisView debris; Shockwaves shocks; Ambience ambience; PostFx post;
+        readonly DynamicLights lights = new DynamicLights();
+        ApiClient api; readonly RunLog run = new RunLog();
+        public bool Online => api != null;
+        public bool CanPost => api != null && run.Token != null && !run.Posted && sim.Score > 0;
+        public Quality Quality { get; private set; }
+        Palette pal;                                // the palette of the tunnel the ship is in (a branch's after the fork)
         SimInput latest; int level = 1;
 
         void Awake()
@@ -47,21 +58,36 @@ namespace DoomsdayTunnels
             Debug.Log("[Doomsday] Awake");
             Application.targetFrameRate = 60; Time.fixedDeltaTime = 1f / 60f;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
-            Best = PlayerPrefs.GetInt("best", 0);
+            S = new Settings(); input.S = S;
             var cam = Camera.main;
             rig = cam.gameObject.AddComponent<CameraRig>(); rig.Cam = cam;
             tunnel = new GameObject("Tunnel").AddComponent<TunnelView>();
             hazardRoot = new GameObject("Hazards").transform;
             bullets = new GameObject("Shots").AddComponent<BulletPool>(); bullets.Init(Unlit, Additive, Color.white);
             sparks = new GameObject("Sparks").AddComponent<Sparks>(); sparks.Init(Additive, cam);
+            audio = new GameObject("Audio").AddComponent<GameAudio>(); audio.Muted = !S.Sound;
+            Quality = Quality.Detect(); lights.Budget = Quality.Lights; post = new PostFx(Quality);
+            Debug.Log("[Doomsday] Quality " + Quality.Tier + " on " + SystemInfo.deviceModel);
+            ship = new GameObject("Ship").AddComponent<ShipView>(); ship.Init(Unlit, Additive);
+            debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
+            shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
+            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, cam, Quality);
+            scene.Sound = n => audio.Play(n);
+            var cfg = OnlineConfig.Load();
+            if (cfg.Enabled) { api = new GameObject("Online").AddComponent<ApiClient>(); api.Config = cfg; }
+            Debug.Log("[Doomsday] Online: " + (api != null ? cfg.api : "off (no Resources/OnlineConfig.json)"));
+            hud.FetchBoard = () => api.FetchBoard(hud.BoardArrived);
+            hud.PostScore = name => api.PostScore(name, (int)sim.Score, run.Sector, run.Token, run.Times(), (r, err) => { if (r != null) { run.Posted = true; S.Name = r.name; S.Save(); } hud.PostDone(r, err); });
+            ApplySettings();
             Attract();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
-            // headless build can be checked by eye; "-shotz <metres>" starts that run part-way down sector 1 (say, just
-            // before the fork); "-shotscene" captures the opening cut scene instead, a line or two per frame. Used by the
-            // verification notes in the README.
+            // headless build can be checked by eye; "-shotz <metres>" starts that run part-way down the sector (say, just
+            // before the fork); "-shotsector <n>" flies that sector instead of sector 1; "-shotscene" captures the opening
+            // cut scene instead, a line or two per frame; "-shotpanel" captures the settings panel. Used by the README.
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
-            foreach (var a in args) if (a == "-shotscene") shotScene = true;
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -72,6 +98,18 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
             yield return new WaitForSeconds(0.5f);
+            if (shotBoard)
+            {
+                hud.OpenBoard(); yield return new WaitForSeconds(2f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-board.png"));
+                yield return new WaitForSeconds(0.5f); Application.Quit(); yield break;
+            }
+            if (shotPanel)
+            {
+                hud.PanelOpen = true; yield return new WaitForSeconds(0.5f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-panel.png"));
+                yield return new WaitForSeconds(0.5f); Application.Quit(); yield break;
+            }
             if (shotScene)
             {
                 NewGame();                                                   // the intro plays first
@@ -84,7 +122,10 @@ namespace DoomsdayTunnels
                 yield return new WaitForSeconds(0.5f);
                 Application.Quit(); yield break;
             }
-            seenIntro = true; NewGame(); if (shotZ > 0) sim.Pz = shotZ;
+            seenIntro = true; NewGame();
+            if (shotSector > 1) StartLevel(shotSector);
+            if (shotZ > 0) sim.Pz = shotZ;
+            Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");
             for (int i = 0; i < 4; i++)
             {
                 latestOverride = new SimInput { SteerX = (i % 2 == 0 ? 0.6f : -0.6f), SteerY = i == 1 ? 0.5f : 0f, Fire = true, Boost = i == 3 };
@@ -94,25 +135,41 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; bool shotScene;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard;
+
+        /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
+        void ApplySettings()
+        {
+            hud.ReduceMotion = S.ReduceMotion; if (rig) rig.ReduceMotion = S.ReduceMotion; if (post != null) post.ReduceMotion = S.ReduceMotion;
+            if (audio) audio.Muted = !S.Sound;
+            if (S.Steer == SteerMode.Tilt) { input.Tilt.Enable(); input.Tilt.NeedCal = true; }
+        }
 
         void LoadSector(int n)
         {
-            var lv = SectorGenerator.Make(n, tune);
-            sim.StartSector(lv, tune);
+            var lv = SectorGenerator.Make(n, S.Tune);
+            sim.StartSector(lv, S.Tune);
             tunnel.Build(lv, sim.Path, Unlit);
             foreach (var h in hazards) if (h) Destroy(h.gameObject);
             hazards.Clear();
             foreach (var o in lv.Objs) hazards.Add(HazardView.Create(o, sim.Path, Unlit, o.Branch >= 0 ? lv.Fork.Pal[o.Branch] : lv.Pal, hazardRoot));
             bullets.SetLineColor(lv.Pal.Line);
-            rig.Cam.backgroundColor = lv.Pal.Haze;
+            rig.Cam.backgroundColor = lv.Pal.Haze; pal = lv.Pal;
+            ambience.SetSector(lv.Pal, lv.Length); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
         }
 
         void Attract() { level = 1; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
-        void StartLevel(int n) { level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); }
+        void StartLevel(int n) { Debug.Log("[Doomsday] Sector " + n); level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true; }
         void NewGame()
         {
-            bestWas = Best; OverBest = false;
+            bestWas = S.Best; OverBest = false; audio.CancelQueued();
+            run.Begin(); hud.PostedAs = null; hud.PostStatus = "";
+            if (api != null)
+            {   // the anonymous play count: "first play today / ever" is all the server learns, and nothing when counting is off
+                string today = RunLog.Today(); RunLog.DayFlags(S.LastDay, today, out bool firstToday, out bool firstEver);
+                S.LastDay = today; S.Save();
+                api.StartRun(S.CountPlays, firstToday, firstEver, input.TouchUI, input.TiltActive, tok => run.Token = tok);
+            }
             sim.Score = 0; sim.Shield = 100; sim.Lives = G.StartSpares; sim.Invuln = 0;
             if (!seenIntro) { seenIntro = true; PlayScene(Script.Intro(), () => StartLevel(1)); } else StartLevel(1);
         }
@@ -128,9 +185,16 @@ namespace DoomsdayTunnels
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt; hud.Tick(dt);
+            input.Blocked = hud.Modal;
+            input.Reserved = input.TouchUI && State == GameState.Play && !Paused ? hud.PauseScreenRect : Rect.zero;
             latest = input.Read();
             if (latestOverride.HasValue) latest = latestOverride.Value;
-            if (State == GameState.Scene)
+            if (hud.Modal)
+            {
+                if (input.PauseKey) { hud.PanelOpen = false; hud.BoardOpen = false; hud.PostOpen = false; }
+            }
+            else if (panelWas) { if (hud.PanelChanged) { S.Save(); hud.PanelChanged = false; } ApplySettings(); }     // just closed
+            else if (State == GameState.Scene)
             {
                 scene.Update(dt);
                 if (input.PauseKey) scene.End();                                                  // escape skips the scene
@@ -138,15 +202,40 @@ namespace DoomsdayTunnels
             }
             else
             {
-                if (input.PauseKey && State == GameState.Play) Paused = !Paused;
-                if (input.Advance) { if (State == GameState.Play) { if (Paused) Paused = false; } else Advance(); }
+                bool tuneable = State == GameState.Title || State == GameState.Clear || State == GameState.Over || (State == GameState.Play && Paused);
+                if (input.PauseKey && State == GameState.Play) SetPaused(!Paused);
+                if (input.Advance)
+                {
+                    if (tuneable && hud.TuneHit(input.TapPos)) { hud.PanelOpen = true; }
+                    else if (api != null && (State == GameState.Title || State == GameState.Over) && hud.ScoresHit(input.TapPos)) hud.OpenBoard();
+                    else if (State == GameState.Over && CanPost && hud.PostHit(input.TapPos)) hud.OpenPost(S.Name);
+                    else if (State == GameState.Play) { if (Paused) SetPaused(false); else if (input.TouchUI && hud.PauseHit(input.TapPos)) SetPaused(true); }
+                    else Advance();
+                }
             }
+            panelWas = hud.PanelOpen;
             if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
+            if (State == GameState.Play && !Paused) run.Seconds += dt;
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
-            foreach (var h in hazards) h.Tick(sim.Now, sim.Pz);
+            foreach (var h in hazards) h.Tick(sim.Now, sim.Pz, sim.Rx, sim.Ry);
             bullets.Sync(sim, sim.Path);
-            rig.Place(sim, sim.Path, tune.Sway, dt);
+            rig.Place(sim, sim.Path, S.Tune.Sway, dt);
+            ship.Place(sim, sim.Path, pal.Line, pal.Haze, dt, sparks);
+            audio.Engine(State == GameState.Play && !Paused, sim.Speed, sim.BoostEase, dt);
+            // the game's lights: the engine, the shots in flight, the ship token, and whatever is flashing
+            lights.BeginFrame();
+            if (ship.gameObject.activeSelf) lights.Hold(ship.EnginePos, pal.Line, 2.6f, 0.25f + 0.5f * sim.BoostEase);
+            for (int i = 0; i < sim.Bullets.Count && i < 4; i++) { var b = sim.Bullets[i]; lights.Hold(sim.Path.World(b.X, b.Y, b.Z + 1.3f, b.Branch), pal.Line, 1.8f, 0.22f); }
+            foreach (var h in hazards) if (h.Obj.Kind == ObjKind.Ship && !h.Obj.Taken && !h.Dropped && h.gameObject.activeSelf) lights.Hold(h.transform.position, Palette.Pick, 4f, 0.7f + 0.25f * Mathf.Sin(sim.Now * 5));
+            lights.Tick(dt); lights.Apply(rig.transform.position);
+            debris.Sim.Tick(dt, (z, br) => br >= 0 ? G.HW : sim.Path.BuiltHalfWidth(z)); debris.Sync(sim.Path);
+            shocks.Tick(dt);
+            ambience.Tick(sim, sim.Path, dt, S.ReduceMotion);
+            post.Tick(sim.BoostEase, State == GameState.Play ? sim.Shield : 100, dt);
         }
+        bool panelWas;
+
+        void SetPaused(bool p) { Paused = p; if (!p) input.Tilt.NeedCal = true; }     // resuming re-centres the tilt to how the phone is held now
 
         void FixedUpdate()
         {
@@ -157,6 +246,13 @@ namespace DoomsdayTunnels
         void OnApplicationPause(bool paused) { if (paused && State == GameState.Play) Paused = true; }
         void OnApplicationFocus(bool focus) { if (!focus && State == GameState.Play) Paused = true; }
 
+        static readonly Dictionary<SimEventKind, string> Sounds = new Dictionary<SimEventKind, string>
+        {
+            { SimEventKind.Laser, "laser" }, { SimEventKind.Tink, "tink" }, { SimEventKind.Boom, "boom" },
+            { SimEventKind.Pick, "pick" }, { SimEventKind.Refuel, "refuel" }, { SimEventKind.Clear, "clear" }, { SimEventKind.Beep, "beep" },
+            { SimEventKind.BoostOn, "boostOn" }, { SimEventKind.BoostOff, "boostOff" }, { SimEventKind.BoostDry, "boostDry" },
+        };
+
         void Drain()
         {
             foreach (var e in sim.Events)
@@ -164,14 +260,23 @@ namespace DoomsdayTunnels
                 switch (e.Kind)
                 {
                     case SimEventKind.Popup: hud.Popups.Add(new Hud.Popup { Text = e.Text }); break;
-                    case SimEventKind.Burst: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); sparks.Burst(at, e.Color, e.Count, 3f); if (e.Count >= 12) sparks.Burst(at, Palette.Ink, e.Count / 2, 4f); break; }
+                    case SimEventKind.Burst:
+                        {
+                            var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); sparks.Burst(at, e.Color, e.Count, 3f);
+                            if (e.Count >= 12) { sparks.Burst(at, Palette.Ink, e.Count / 2, 4f); debris.Sim.Burst(e.X, e.Y, e.Z, e.Branch, e.Count / 2, e.Color, 0.16f, 7f); }
+                            else if (e.Count >= 4) lights.Flash(at, e.Color, 2.5f, 0.8f, 0.15f);
+                            break;
+                        }
+                    case SimEventKind.Shock: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); shocks.Add(at, e.Color); lights.Flash(at, e.Color, 7f, 2f, 0.4f); break; }
+                    case SimEventKind.Hit: audio.Play("hit"); post.Hit(1f); rig.Impulse(new Vector2(Random.value - 0.5f, Random.value - 0.5f).normalized, 0.9f); break;
+                    case SimEventKind.Scrape: audio.Play("scrape"); rig.Impulse(new Vector2(-sim.ScrapeX, sim.ScrapeY), 0.35f); post.Hit(0.3f); break;
                     case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
                     case SimEventKind.Shake: rig.Shake = 1; break;
                     case SimEventKind.SectorClear: OnSectorClear(); break;
                     case SimEventKind.ShipLost: case SimEventKind.TimeOut: LoseShip(e.Kind); break;
-                    default: break;   // sounds arrive in milestone 2
+                    default: if (Sounds.TryGetValue(e.Kind, out var snd)) audio.Play(snd); break;
                 }
             }
             sim.Events.Clear();
@@ -181,13 +286,16 @@ namespace DoomsdayTunnels
         void OnFork(int side)
         {
             var P = sim.Sector.Fork.Pal[side];
-            rig.Cam.backgroundColor = P.Haze; bullets.SetLineColor(P.Line);
+            rig.Cam.backgroundColor = P.Haze; bullets.SetLineColor(P.Line); pal = P;
+            ambience.SetPalette(P); debris.Sim.DropBranch(side); debris.SetHaze(P.Haze);
             foreach (var h in hazards) if (h.Obj.Branch >= 0 && h.Obj.Branch != side) h.Dropped = true;
         }
 
         void OnSectorClear()
         {
             Bonus = sim.SectorClear(); SaveBest();
+            ClearPB = S.RecordTime(level, Bonus.SectorTime, S.Tune.FairSpeed); run.SectorCleared(level, Bonus.SectorTime, S.Tune.FairSpeed);
+            audio.Play("clear"); if (ClearPB) audio.Play("cheerSmall", 0.5f);
             hud.Flash = 1; hud.FlashColor = Palette.Ink;
             level++; State = GameState.Clear; StateT = 0;
         }
@@ -195,15 +303,21 @@ namespace DoomsdayTunnels
         // Losing a ship: with a spare in hand the run carries on, otherwise it is game over.
         void LoseShip(SimEventKind why)
         {
-            hud.Flash = 1; hud.FlashColor = Palette.Warn; rig.Shake = 1;
+            hud.Flash = 1; hud.FlashColor = Palette.Warn; rig.Shake = 1; audio.Play("boom"); post.Hit(1.5f);
             sparks.ScreenBurst(0, 0, Palette.Warn, 40); sparks.ScreenBurst(0, 0, Palette.Ink, 20);
+            if (why == SimEventKind.ShipLost)
+            {   // the ship comes apart: hull chunks, a shockwave and a flash where it was
+                var at = sim.Path.World(sim.Rx, sim.Ry, sim.Pz); sparks.Burst(at, Palette.Warn, 30, 5f); sparks.Burst(at, Palette.Ink, 20, 6f);
+                debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 18, Palette.Ink, 0.14f, 3f); debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 8, Palette.Warn, 0.1f, 3f);
+                shocks.Add(at, Palette.Warn, 4f, 0.6f); lights.Flash(at, Palette.Warn, 10f, 4f, 0.6f);
+            }
             if (sim.Lives <= 0) { GameOver(why); return; }
             sim.Lives--; RespawnWhy = why; State = GameState.Respawn; StateT = 0;
             DeadQuip = Quips.Pick(why == SimEventKind.ShipLost ? Quips.SpareShip : Quips.SpareTime);
         }
         void FinishRespawn()
         {
-            if (RespawnWhy == SimEventKind.ShipLost) { sim.Respawn(); State = GameState.Play; StateT = 0; hud.Popups.Add(new Hud.Popup { Text = "NEW SHIP" }); }
+            if (RespawnWhy == SimEventKind.ShipLost) { sim.Respawn(); State = GameState.Play; StateT = 0; input.Tilt.NeedCal = true; hud.Popups.Add(new Hud.Popup { Text = "NEW SHIP" }); }
             else { StartLevel(level); sim.Invuln = 1.5f; hud.Popups.Add(new Hud.Popup { Text = "CLOCK RESET" }); }   // out of time: the sector starts over with a fresh clock
         }
         void GameOver(SimEventKind why)
@@ -211,8 +325,11 @@ namespace DoomsdayTunnels
             OverBest = bestWas > 0 && (int)sim.Score > bestWas;                                 // a first ever run has nothing to beat
             DeadQuip = Quips.Pick(OverBest ? Quips.BestScore : why == SimEventKind.ShipLost ? Quips.Ship : Quips.Time);
             DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest();
+            if (OverBest) audio.Play("cheerBig", 0.9f);
+            run.Sector = level; run.Ended = true;
+            if (api != null) api.EndRun(run.Token, level, run.Cleared, Mathf.RoundToInt(run.Seconds), S.CountPlays);
         }
-        void SaveBest() { if (sim.Score > Best) { Best = (int)sim.Score; PlayerPrefs.SetInt("best", Best); PlayerPrefs.Save(); } }
+        void SaveBest() { if (sim.Score > S.Best) { S.Best = (int)sim.Score; S.Save(); } }
 
         void OnGUI() { hud.Draw(this, sim, input); }
     }

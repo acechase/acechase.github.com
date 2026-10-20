@@ -19,7 +19,8 @@ h1{font-size:18px;letter-spacing:.12em;margin:0;text-wrap:balance}
 h2{font-size:13px;letter-spacing:.12em;color:var(--dim);margin:0 0 10px;font-weight:400}
 p{margin:0;color:var(--dim);max-width:70ch}
 header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
-button,input{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--dim);padding:8px 12px;min-height:38px}
+button,input,select{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--dim);padding:8px 12px;min-height:38px}
+select option{background:var(--panel)}
 button{cursor:pointer}button:hover{border-color:var(--ink)}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #gate{display:flex;flex-wrap:wrap;gap:8px;align-items:center}#gate input{flex:1 1 220px;min-width:0}
@@ -44,7 +45,9 @@ svg{display:block;width:100%;height:auto}
 </head>
 <body>
 <main>
-  <header><h1>DOOMSDAY TUNNELS / MISSION CONTROL</h1><button type="button" id="signout" hidden>Forget key on this device</button></header>
+  <header><h1>DOOMSDAY TUNNELS / MISSION CONTROL</h1>
+    <span><label for="game" hidden>Board</label><select id="game" hidden><option value="">Web game</option><option value="app3d">Doomsday Tunnels 3D (app)</option></select>
+    <button type="button" id="signout" hidden>Forget key on this device</button></span></header>
   <form id="gate" autocomplete="off">
     <label for="key">Admin key</label>
     <input id="key" type="password" autocomplete="off" required>
@@ -68,7 +71,9 @@ svg{display:block;width:100%;height:auto}
   let key = ''; try { key = localStorage.getItem('doomsday-admin-key') || ''; } catch (_) {}
   const el = (tag, text, attrs) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
   const n = v => Number(v || 0).toLocaleString('en-US');
-  const call = (path, method) => fetch(path, { method: method || 'GET', headers: { Authorization: 'Bearer ' + key } });
+  const game = () => $('game').value;                     // which board is shown: the web game's, or an app's
+  const withGame = path => game() ? path + (path.includes('?') ? '&' : '?') + 'game=' + encodeURIComponent(game()) : path;
+  const call = (path, method) => fetch(withGame(path), { method: method || 'GET', headers: { Authorization: 'Bearer ' + key } });
 
   function tile(value, label) { const t = el('div'); t.className = 'tile'; t.append(el('b', value), el('span', label)); return t; }
   function table(node, heads, rows) {
@@ -113,7 +118,7 @@ svg{display:block;width:100%;height:auto}
       });
       return [s.name, n(s.score), s.sector, s.day, b];
     }));
-    $('out').hidden = false; $('gate').hidden = true; $('signout').hidden = false; msg.textContent = '';
+    $('out').hidden = false; $('gate').hidden = true; $('signout').hidden = false; $('game').hidden = false; msg.textContent = '';
   }
   async function load() {
     msg.textContent = 'Loading...';
@@ -128,6 +133,7 @@ svg{display:block;width:100%;height:auto}
   }
   $('gate').addEventListener('submit', e => { e.preventDefault(); key = $('key').value.trim(); if (key) load(); });
   $('signout').addEventListener('click', () => { try { localStorage.removeItem('doomsday-admin-key'); } catch (_) {} location.reload(); });
+  $('game').addEventListener('change', load);
   if (key) load();
 })();
 </script>

@@ -70,3 +70,7 @@ crashlytics-build.properties
 
 # Per-developer Apple team (read by ProjectBootstrap)
 .apple-team-id
+
+# The scoreboard server address and app key: copy Assets/_Project/Resources/OnlineConfig.example.json to OnlineConfig.json
+/Assets/_Project/Resources/OnlineConfig.json
+/Assets/_Project/Resources/OnlineConfig.json.meta

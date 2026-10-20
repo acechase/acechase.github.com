@@ -9,6 +9,7 @@ This folder starts with an underscore so GitHub Pages does not publish it with t
 
 | Table | Holds |
 | --- | --- |
+| `scores2`, `times2`, `daily2`, `reached2` | The same four tables for the native apps, with a `game` column (`app3d` is Doomsday Tunnels 3D), so each app has its own board and the web game's is untouched. |
 | `scores` | The name a player typed, that name's best score, the sector reached, and the date. Shown publicly in the game. |
 | `times` | That name's fastest time through each sector, and the date. Shown publicly in the game. Only sent along with a posted score. |
 | `daily` | One row of counters per day: runs started, players, new players, seconds played, sectors cleared, and so on. |
@@ -34,6 +35,7 @@ cd _doomsday-tunnels-api
 npm install
 npx wrangler deploy               # signs you in to Cloudflare and creates the database on first run
 npx wrangler secret put ADMIN_KEY # choose a password for the stats page
+npx wrangler secret put APP_KEY   # any long random string; the native app sends it back (see "The apps" below)
 ```
 
 `wrangler deploy` prints the server's address, which looks like
@@ -54,7 +56,16 @@ Connected this way, Cloudflare redeploys whenever this folder changes on `master
 ## The stats page
 
 Open `/admin` on the server's address and enter the admin key. It shows players and runs per day, where runs
-end, time played, and the scoreboard names with a Remove button for cleaning up.
+end, time played, and the scoreboard names with a Remove button for cleaning up. A selector at the top switches
+between the web game's board and each app's.
+
+## The apps
+
+Doomsday Tunnels 3D (the Unity app in `_doomsday-tunnels-unity/`) uses the `/v2/*` routes. A native app has no page
+origin to check, so instead it sends the `APP_KEY` secret in an `X-App-Key` header. That key is the same in every
+copy of the app, so it is a spam brake rather than a secret: the signed run token and the plausibility checks do the
+real work, exactly as for the web game. Every `/v2` call names its board with `?game=app3d`. The app's copy of the
+key lives in `Assets/_Project/Resources/OnlineConfig.json`, which is not in git.
 
 ## How scores are checked
 
@@ -80,8 +91,10 @@ A determined person can still fake a score. The Remove button on the stats page 
 | `GET /times` | The three fastest names for each sector. |
 | `POST /scores` | Post a score: `{ name, score, sector, token, times }`. `times` is optional: the run's time for each sector cleared, in tenths of a second. |
 | `POST /event` | `{ t: "start", ... }` returns a run token; `{ t: "end", token, sector, cleared, secs }` closes a run. |
+| `GET /v2/board?game=app3d` | An app's top 20 and fastest times in one call (also `/v2/scores` and `/v2/times` separately). |
+| `POST /v2/event?game=app3d`, `POST /v2/scores?game=app3d` | As the web routes, with the `X-App-Key` header instead of a page origin. The start event also takes `count: false` when the player has switched play counting off. |
 | `GET /admin` | The stats page. |
-| `GET /admin/data`, `DELETE /admin/scores?name=` | Used by the stats page; need the admin key. |
+| `GET /admin/data[?game=]`, `DELETE /admin/scores?name=[&game=]` | Used by the stats page; need the admin key. Without `game` they refer to the web game's board. |
 
 Only pages on `https://acechase.github.io` may post. To allow another address, add it to `ALLOWED_ORIGINS` in
 `src/index.js`.

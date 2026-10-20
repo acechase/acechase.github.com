@@ -14,6 +14,7 @@ namespace DoomsdayTunnels.Hazards
         public bool Dropped;                 // in the branch the ship did not take: never shown again this sector
         TunnelPath path; Material baseMat; int seen = -1;
         Renderer[] parts; Transform spin;
+        float kick, kickVel; bool passed;    // a mine nudged by a near miss swings on a spring
         static readonly Color WallFill = Color.Lerp(Palette.Warn, Palette.Void, 0.48f), WallHit = Color.Lerp(Palette.Warn, Palette.Void, 0.82f);
 
         public static HazardView Create(SectorObject o, TunnelPath path, Material unlit, Palette pal, Transform parent)
@@ -119,23 +120,28 @@ namespace DoomsdayTunnels.Hazards
             r.material = new Material(baseMat); r.material.SetColor("_Tint", col); r.material.SetFloat("_Intensity", 1.8f);
         }
 
-        public void Tick(float now, float camZ)
+        public void Tick(float now, float camZ, float shipX, float shipY)
         {
-            // Nothing far behind the camera or far beyond the haze needs to move or draw.
-            bool near = !Dropped && Obj.Z - camZ > -4 && Obj.Z - camZ < G.Depth + 6;
+            // Nothing the ship has passed (the camera rides behind it) or far beyond the haze needs to move or draw.
+            bool near = !Dropped && Obj.Z - camZ > -0.7f && Obj.Z - camZ < G.Depth + 6;
             if (gameObject.activeSelf != near) gameObject.SetActive(near);
             if (!near) return;
             if (Obj.Version != seen) Refresh();
             switch (Obj.Kind)
             {
                 case ObjKind.Mine:
-                    transform.position = path.World(Obj.MineX(now), Obj.Y, Obj.Z, Obj.Branch);
-                    spin.localRotation = Quaternion.Euler(0, 0, (now * 2 + Obj.Phase) * Mathf.Rad2Deg);
-                    break;
+                    {
+                        float mx = Obj.MineX(now), dz = Obj.Z - camZ;
+                        if (!passed && dz < 0.6f && Obj.Alive) { passed = true; float dx = mx - shipX; if (Mathf.Abs(dx) < 1.1f && Mathf.Abs(Obj.Y - shipY) < 0.9f) kickVel += Mathf.Sign(dx == 0 ? 1 : dx) * 3.5f; }   // a near miss sets it swinging
+                        float dt = Time.deltaTime; kickVel += (-kick * 50f - kickVel * 4f) * dt; kick += kickVel * dt;
+                        transform.position = path.World(mx + kick * 0.3f, Obj.Y, Obj.Z, Obj.Branch);
+                        spin.localRotation = Quaternion.Euler(kick * 40f, 0, (now * 2 + Obj.Phase) * Mathf.Rad2Deg);
+                        break;
+                    }
                 case ObjKind.Wall: case ObjKind.Gate: break;
                 default:
                     transform.position = path.World(Obj.X, Obj.Y + Mathf.Sin(now * 3 + Obj.Z) * 0.04f, Obj.Z, Obj.Branch);
-                    spin.localRotation = Quaternion.Euler(0, now * 90f, 0);
+                    spin.localRotation = Obj.Kind == ObjKind.Ship ? Quaternion.Euler(Mathf.Sin(now * 2.3f) * 14f, now * 90f, Mathf.Sin(now * 1.7f) * 8f) : Quaternion.Euler(0, now * 90f, 0);   // the token wobbles on its mount
                     break;
             }
         }
