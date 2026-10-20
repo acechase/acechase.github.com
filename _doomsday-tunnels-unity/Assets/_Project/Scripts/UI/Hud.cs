@@ -113,6 +113,8 @@ namespace DoomsdayTunnels.UI
             if (state == GameState.Play && !g.Paused && input.TouchUI) DrawPauseButton();
             DrawOverlay(g, sim, input);
             if (PanelOpen) DrawPanel(g.S, input);
+            else if (BoardOpen) DrawBoard();
+            else if (PostOpen) DrawPost((int)sim.Score, sim.Sector.N);
         }
 
         void DrawControls(FlightSim sim, InputReader input, GameState state)
@@ -137,6 +139,7 @@ namespace DoomsdayTunnels.UI
             string go = input.TouchUI ? "TAP" : "PRESS SPACE";
             Box(0, 0, W, H, Palette.Void, state == GameState.Title ? 0.4f : 0.55f);
             if (state != GameState.Respawn) DrawTuneButton();
+            if (g.Online && (state == GameState.Title || state == GameState.Over)) DrawScoresButton();
             if (state == GameState.Play) { Text("PAUSED", cx, cy - 10 * u, big * 0.8f, Palette.Ink, TextAnchor.MiddleCenter, true); Text(go + " TO RESUME", cx, cy + 34 * u, 15 * u, Palette.Dim, TextAnchor.MiddleCenter); return; }
             if (state == GameState.Respawn)
             {
@@ -174,7 +177,8 @@ namespace DoomsdayTunnels.UI
                 Text("SECTOR " + sim.Sector.N.ToString("00") + "   SCORE " + ((int)sim.Score).ToString("000000"), cx, cy - 8 * u, 17 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 if (g.OverBest) Text("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), Palette.Gate, TextAnchor.MiddleCenter, true);
                 else Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
-                if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + 74 * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
+                if (g.CanPost) DrawPostButton();
+                if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + (g.CanPost ? 92 : 74) * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
             }
         }
 

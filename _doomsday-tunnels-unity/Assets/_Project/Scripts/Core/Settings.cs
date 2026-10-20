@@ -35,6 +35,7 @@ namespace DoomsdayTunnels.Core
         {
             float GetFloat(string key, float def); void SetFloat(string key, float v);
             int GetInt(string key, int def); void SetInt(string key, int v);
+            string GetString(string key, string def); void SetString(string key, string v);
             bool Has(string key); void Save();
         }
 
@@ -44,6 +45,8 @@ namespace DoomsdayTunnels.Core
             public void SetFloat(string k, float v) => PlayerPrefs.SetFloat(k, v);
             public int GetInt(string k, int d) => PlayerPrefs.GetInt(k, d);
             public void SetInt(string k, int v) => PlayerPrefs.SetInt(k, v);
+            public string GetString(string k, string d) => PlayerPrefs.GetString(k, d);
+            public void SetString(string k, string v) => PlayerPrefs.SetString(k, v);
             public bool Has(string k) => PlayerPrefs.HasKey(k);
             public void Save() => PlayerPrefs.Save();
         }
@@ -53,6 +56,7 @@ namespace DoomsdayTunnels.Core
         public SteerMode Steer = SteerMode.Stick;
         public bool InvertTilt, Sound = true, CountPlays = true, ReduceMotion;
         public int Best;
+        public string Name = "", LastDay = "";    // the name last posted with; the last day a run was started, for the anonymous player count
 
         public Settings() : this(new PrefsStore()) { }
         public Settings(IStore store) { this.store = store; Load(); }
@@ -66,6 +70,7 @@ namespace DoomsdayTunnels.Core
             CountPlays = store.GetInt("countPlays", 1) == 1;
             ReduceMotion = store.GetInt("reduceMotion", 0) == 1;
             Best = store.GetInt("best", 0);
+            Name = store.GetString("name", ""); LastDay = store.GetString("day", "");
         }
 
         public void Save()
@@ -77,6 +82,7 @@ namespace DoomsdayTunnels.Core
             store.SetInt("countPlays", CountPlays ? 1 : 0);
             store.SetInt("reduceMotion", ReduceMotion ? 1 : 0);
             store.SetInt("best", Best);
+            store.SetString("name", Name ?? ""); store.SetString("day", LastDay ?? "");
             store.Save();
         }
 

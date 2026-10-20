@@ -18,7 +18,10 @@ namespace DoomsdayTunnels.Tests
             public void SetFloat(string k, float v) => F[k] = v;
             public int GetInt(string k, int d) => I.TryGetValue(k, out var v) ? v : d;
             public void SetInt(string k, int v) => I[k] = v;
-            public bool Has(string k) => F.ContainsKey(k) || I.ContainsKey(k);
+            public readonly Dictionary<string, string> S = new Dictionary<string, string>();
+            public string GetString(string k, string d) => S.TryGetValue(k, out var v) ? v : d;
+            public void SetString(string k, string v) => S[k] = v;
+            public bool Has(string k) => F.ContainsKey(k) || I.ContainsKey(k) || S.ContainsKey(k);
             public void Save() => Saves++;
         }
 
@@ -37,11 +40,11 @@ namespace DoomsdayTunnels.Tests
         {
             var store = new MemoryStore();
             var a = new Settings(store);
-            a.Tune.Steer = 3.3f; a.Tune.Speed = 1.2f; a.Steer = SteerMode.Tilt; a.InvertTilt = true; a.Sound = false; a.CountPlays = false; a.ReduceMotion = true; a.Best = 4242;
+            a.Tune.Steer = 3.3f; a.Tune.Speed = 1.2f; a.Steer = SteerMode.Tilt; a.InvertTilt = true; a.Sound = false; a.CountPlays = false; a.ReduceMotion = true; a.Best = 4242; a.Name = "ACE"; a.LastDay = "2026-10-19";
             a.Save();
             var b = new Settings(store);
             Assert.AreEqual(3.3f, b.Tune.Steer, 1e-5f); Assert.AreEqual(1.2f, b.Tune.Speed, 1e-5f); Assert.IsFalse(b.Tune.FairSpeed);
-            Assert.AreEqual(SteerMode.Tilt, b.Steer); Assert.IsTrue(b.InvertTilt); Assert.IsFalse(b.Sound); Assert.IsFalse(b.CountPlays); Assert.IsTrue(b.ReduceMotion); Assert.AreEqual(4242, b.Best);
+            Assert.AreEqual(SteerMode.Tilt, b.Steer); Assert.IsTrue(b.InvertTilt); Assert.IsFalse(b.Sound); Assert.IsFalse(b.CountPlays); Assert.IsTrue(b.ReduceMotion); Assert.AreEqual(4242, b.Best); Assert.AreEqual("ACE", b.Name); Assert.AreEqual("2026-10-19", b.LastDay);
             Assert.AreEqual(1, store.Saves);
             b.ResetTune(); Assert.AreEqual(2.6f, b.Tune.Steer, 1e-5f); Assert.AreEqual(1f, b.Tune.Speed, 1e-5f);
         }

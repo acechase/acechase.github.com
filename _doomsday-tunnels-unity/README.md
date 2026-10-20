@@ -76,10 +76,13 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
 ```
 
 - Screenshots without a phone: build **Doomsday > Build > macOS (debug)** and run it with a folder to write to.
+  The first macOS build after an iOS export has twice come out rendering black with "Render Graph Execution
+  error" in its log (the target switch rewrites the pipeline settings asset); building a second time fixes it.
   It plays a few seconds of sector 1 on its own and saves frames there. Add `-shotz <metres>` to start that
   run part-way down the sector: sector 1's fork is at 420 m, so `-shotz 370` shows the widening and the split.
   `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
-  captures the opening cut scene, advancing a line or two between frames, and `-shotpanel` captures the settings panel.
+  captures the opening cut scene, advancing a line or two between frames, `-shotpanel` captures the settings panel and
+  `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one).
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
@@ -142,8 +145,22 @@ git config merge.unityyamlmerge.driver \
 git config merge.unityyamlmerge.recursive binary
 ```
 
+## Online: the scoreboard and play counts
+
+The scoreboard server is `_doomsday-tunnels-api/`; the app talks to its `/v2/*` routes (`Scripts/Online/`). To
+switch it on, copy `Assets/_Project/Resources/OnlineConfig.example.json` to `OnlineConfig.json` next to it and put
+the Worker's `APP_KEY` secret in it. That file is not in git. Without it the game is simply offline: no SCORES
+button, no counts. With it:
+
+- starting a run tells the server "a run began" (plus "first play today / ever" for the anonymous player count,
+  and nothing at all when COUNT MY PLAYS is off in settings) and gets a signed token back;
+- the game-over screen offers POST SCORE, which sends the name typed, the score, the sector and the run's sector
+  times (at the standard flight speed only), and shows the rank that comes back;
+- SCORES on the title and game-over screens shows the app's own board: the top twenty and the fastest times per
+  sector. The web game's board is separate.
+
 ## Privacy
 
 The app follows the same rule as the web game: no accounts, no ads, no analytics service, nothing that
 identifies a player. Play counts are anonymous daily totals and can be switched off in settings; a score is
-sent only when the player chooses to post it. The scoreboard server is `_doomsday-tunnels-api/`.
+sent only when the player chooses to post it.

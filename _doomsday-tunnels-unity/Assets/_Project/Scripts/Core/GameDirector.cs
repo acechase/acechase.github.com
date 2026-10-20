@@ -5,6 +5,7 @@ using DoomsdayTunnels.Flight;
 using DoomsdayTunnels.Fx;
 using DoomsdayTunnels.Hazards;
 using DoomsdayTunnels.Input;
+using DoomsdayTunnels.Online;
 using DoomsdayTunnels.Story;
 using DoomsdayTunnels.Tunnel;
 using DoomsdayTunnels.UI;
@@ -45,6 +46,9 @@ namespace DoomsdayTunnels
         TunnelView tunnel; BulletPool bullets; Sparks sparks; CameraRig rig; Transform hazardRoot; GameAudio audio;
         ShipView ship; DebrisView debris; Shockwaves shocks; Ambience ambience; PostFx post;
         readonly DynamicLights lights = new DynamicLights();
+        ApiClient api; readonly RunLog run = new RunLog();
+        public bool Online => api != null;
+        public bool CanPost => api != null && run.Token != null && !run.Posted && sim.Score > 0;
         public Quality Quality { get; private set; }
         Palette pal;                                // the palette of the tunnel the ship is in (a branch's after the fork)
         SimInput latest; int level = 1;
@@ -69,6 +73,11 @@ namespace DoomsdayTunnels
             shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
             ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, cam, Quality);
             scene.Sound = n => audio.Play(n);
+            var cfg = OnlineConfig.Load();
+            if (cfg.Enabled) { api = new GameObject("Online").AddComponent<ApiClient>(); api.Config = cfg; }
+            Debug.Log("[Doomsday] Online: " + (api != null ? cfg.api : "off (no Resources/OnlineConfig.json)"));
+            hud.FetchBoard = () => api.FetchBoard(hud.BoardArrived);
+            hud.PostScore = name => api.PostScore(name, (int)sim.Score, run.Sector, run.Token, run.Times(), (r, err) => { if (r != null) { run.Posted = true; S.Name = r.name; S.Save(); } hud.PostDone(r, err); });
             ApplySettings();
             Attract();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
@@ -78,7 +87,7 @@ namespace DoomsdayTunnels
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -89,6 +98,12 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
             yield return new WaitForSeconds(0.5f);
+            if (shotBoard)
+            {
+                hud.OpenBoard(); yield return new WaitForSeconds(2f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-board.png"));
+                yield return new WaitForSeconds(0.5f); Application.Quit(); yield break;
+            }
             if (shotPanel)
             {
                 hud.PanelOpen = true; yield return new WaitForSeconds(0.5f);
@@ -120,7 +135,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -148,6 +163,13 @@ namespace DoomsdayTunnels
         void NewGame()
         {
             bestWas = S.Best; OverBest = false; audio.CancelQueued();
+            run.Begin(); hud.PostedAs = null; hud.PostStatus = "";
+            if (api != null)
+            {   // the anonymous play count: "first play today / ever" is all the server learns, and nothing when counting is off
+                string today = RunLog.Today(); RunLog.DayFlags(S.LastDay, today, out bool firstToday, out bool firstEver);
+                S.LastDay = today; S.Save();
+                api.StartRun(S.CountPlays, firstToday, firstEver, input.TouchUI, input.TiltActive, tok => run.Token = tok);
+            }
             sim.Score = 0; sim.Shield = 100; sim.Lives = G.StartSpares; sim.Invuln = 0;
             if (!seenIntro) { seenIntro = true; PlayScene(Script.Intro(), () => StartLevel(1)); } else StartLevel(1);
         }
@@ -163,13 +185,13 @@ namespace DoomsdayTunnels
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt; hud.Tick(dt);
-            input.Blocked = hud.PanelOpen;
+            input.Blocked = hud.Modal;
             input.Reserved = input.TouchUI && State == GameState.Play && !Paused ? hud.PauseScreenRect : Rect.zero;
             latest = input.Read();
             if (latestOverride.HasValue) latest = latestOverride.Value;
-            if (hud.PanelOpen)
+            if (hud.Modal)
             {
-                if (input.PauseKey) hud.PanelOpen = false;
+                if (input.PauseKey) { hud.PanelOpen = false; hud.BoardOpen = false; hud.PostOpen = false; }
             }
             else if (panelWas) { if (hud.PanelChanged) { S.Save(); hud.PanelChanged = false; } ApplySettings(); }     // just closed
             else if (State == GameState.Scene)
@@ -185,12 +207,15 @@ namespace DoomsdayTunnels
                 if (input.Advance)
                 {
                     if (tuneable && hud.TuneHit(input.TapPos)) { hud.PanelOpen = true; }
+                    else if (api != null && (State == GameState.Title || State == GameState.Over) && hud.ScoresHit(input.TapPos)) hud.OpenBoard();
+                    else if (State == GameState.Over && CanPost && hud.PostHit(input.TapPos)) hud.OpenPost(S.Name);
                     else if (State == GameState.Play) { if (Paused) SetPaused(false); else if (input.TouchUI && hud.PauseHit(input.TapPos)) SetPaused(true); }
                     else Advance();
                 }
             }
             panelWas = hud.PanelOpen;
             if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
+            if (State == GameState.Play && !Paused) run.Seconds += dt;
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
             foreach (var h in hazards) h.Tick(sim.Now, sim.Pz, sim.Rx, sim.Ry);
             bullets.Sync(sim, sim.Path);
@@ -269,7 +294,7 @@ namespace DoomsdayTunnels
         void OnSectorClear()
         {
             Bonus = sim.SectorClear(); SaveBest();
-            ClearPB = S.RecordTime(level, Bonus.SectorTime, S.Tune.FairSpeed);
+            ClearPB = S.RecordTime(level, Bonus.SectorTime, S.Tune.FairSpeed); run.SectorCleared(level, Bonus.SectorTime, S.Tune.FairSpeed);
             audio.Play("clear"); if (ClearPB) audio.Play("cheerSmall", 0.5f);
             hud.Flash = 1; hud.FlashColor = Palette.Ink;
             level++; State = GameState.Clear; StateT = 0;
@@ -301,6 +326,8 @@ namespace DoomsdayTunnels
             DeadQuip = Quips.Pick(OverBest ? Quips.BestScore : why == SimEventKind.ShipLost ? Quips.Ship : Quips.Time);
             DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest();
             if (OverBest) audio.Play("cheerBig", 0.9f);
+            run.Sector = level; run.Ended = true;
+            if (api != null) api.EndRun(run.Token, level, run.Cleared, Mathf.RoundToInt(run.Seconds), S.CountPlays);
         }
         void SaveBest() { if (sim.Score > S.Best) { S.Best = (int)sim.Score; S.Save(); } }
 
