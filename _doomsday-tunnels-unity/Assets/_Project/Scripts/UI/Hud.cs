@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DoomsdayTunnels.Core;
 using DoomsdayTunnels.Flight;
 using DoomsdayTunnels.Input;
+using DoomsdayTunnels.Story;
 using UnityEngine;
 
 namespace DoomsdayTunnels.UI
@@ -11,7 +12,7 @@ namespace DoomsdayTunnels.UI
     /// measured in the web game's unit u (screen height / 400), so the layout matches the original on any phone.
     /// Coordinates here are GUI coordinates: origin top-left, y down, the same as the web game's canvas.
     /// </summary>
-    public sealed class Hud
+    public sealed partial class Hud
     {
         public struct Popup { public string Text; public float T; }
         public readonly List<Popup> Popups = new List<Popup>();
@@ -67,6 +68,7 @@ namespace DoomsdayTunnels.UI
             Prepare();
             float m = 14 * u, x0 = m;
             var state = g.State;
+            if (state == GameState.Scene && g.Scene.Active) { DrawScene(g.Scene, input, Time.time); return; }
             if (Flash > 0 && !ReduceMotion) Box(0, 0, W, H, FlashColor, Flash * 0.35f);
             if (sim.Invuln > 0 && state == GameState.Play)
             {
@@ -136,6 +138,7 @@ namespace DoomsdayTunnels.UI
             {
                 Text(g.RespawnWhy == SimEventKind.ShipLost ? "SHIP LOST" : "OUT OF TIME", cx, cy - 44 * u, big * 0.75f, Palette.Warn, TextAnchor.MiddleCenter, true);
                 Text(sim.Lives == 0 ? "LAST SHIP" : sim.Lives + (sim.Lives == 1 ? " SPARE SHIP LEFT" : " SPARE SHIPS LEFT"), cx, cy, 18 * u, Palette.Ink, TextAnchor.MiddleCenter);
+                Text(g.DeadQuip, cx, cy + 30 * u, Mathf.Min(13 * u, W * 0.021f), Palette.Dim, TextAnchor.MiddleCenter);
                 return;
             }
             if (state == GameState.Title)
@@ -163,8 +166,10 @@ namespace DoomsdayTunnels.UI
             else
             {
                 Text(g.DeadWhy, cx, cy - 70 * u, big * 0.8f, Palette.Warn, TextAnchor.MiddleCenter, true);
+                Text(g.DeadQuip, cx, cy - 34 * u, Mathf.Min(13 * u, W * 0.021f), Palette.Ink, TextAnchor.MiddleCenter);
                 Text("SECTOR " + sim.Sector.N.ToString("00") + "   SCORE " + ((int)sim.Score).ToString("000000"), cx, cy - 8 * u, 17 * u, Palette.Ink, TextAnchor.MiddleCenter);
-                Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
+                if (g.OverBest) Text("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), Palette.Gate, TextAnchor.MiddleCenter, true);
+                else Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
                 if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + 74 * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
             }
         }
