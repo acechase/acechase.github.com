@@ -18,6 +18,10 @@ namespace DoomsdayTunnels.Fx
         Material gateBright, gateHue, portalMat; readonly System.Collections.Generic.List<Transform> portals = new System.Collections.Generic.List<Transform>();
         static readonly int IntensityId = Shader.PropertyToID("_Intensity"), OpenId = Shader.PropertyToID("_Open"), SpinId = Shader.PropertyToID("_Spin"), FlowId = Shader.PropertyToID("_Flow"), ColorId = Shader.PropertyToID("_Color"), BrightId = Shader.PropertyToID("_Bright");
         public float Open { get; private set; }     // how far the exit's iris has opened, 0..1
+        public static int Style;                     // which look the exit has: 0-3 the shader's styles, 4 a runway of arches with the iris, 5 a spinning ring with hyperspace
+        readonly System.Collections.Generic.List<(Renderer r, MaterialPropertyBlock b, int i)> arches = new System.Collections.Generic.List<(Renderer, MaterialPropertyBlock, int)>();
+        readonly System.Collections.Generic.List<Transform> rings = new System.Collections.Generic.List<Transform>();
+        static readonly int StyleId = Shader.PropertyToID("_Style");
         public const float OpenFrom = 70f, OpenAt = 18f;   // metres from the exit where it starts to open, and is fully open
         const float GateRun = 44f;                     // the lit strips lead in over the last stretch
         int moteBudget = 200; bool streaksOn = true; float moteCd;
@@ -61,8 +65,8 @@ namespace DoomsdayTunnels.Fx
         /// </summary>
         public void BuildGate(Palette P, float len, TunnelPath path, bool forked)
         {
-            foreach (var g in gate) if (g) Destroy(g); gate.Clear(); strips.Clear(); portals.Clear();
-            if (portalMat) { portalMat.SetColor(ColorId, P.Line); portalMat.SetColor(BrightId, Palette.Ink); portalMat.SetFloat(OpenId, 0); }
+            foreach (var g in gate) if (g) Destroy(g); gate.Clear(); strips.Clear(); portals.Clear(); arches.Clear(); rings.Clear();
+            if (portalMat) { portalMat.SetColor(ColorId, P.Line); portalMat.SetColor(BrightId, Palette.Ink); portalMat.SetFloat(OpenId, 0); portalMat.SetFloat(StyleId, Style == 4 ? 0 : Style == 5 ? 3 : Style); }
             Open = 0;
             if (gateBright) Destroy(gateBright); if (gateHue) Destroy(gateHue);
             gateBright = new Material(unlitBase); gateBright.SetColor(TintId, Palette.Ink); gateBright.SetFloat(IntensityId, 2.2f); gateBright.SetFloat("_FogAmount", 0f); gateBright.SetFloat("_Lit", 0f);
@@ -81,9 +85,32 @@ namespace DoomsdayTunnels.Fx
                     portals.Add(q.transform);
                 }
                 Frame(root, G.HW + 0.1f, G.HH + 0.1f, 0.14f, gateBright);
-                Frame(root, G.HW + 0.42f, G.HH + 0.42f, 0.1f, gateHue);
-                Frame(root, G.HW + 0.75f, G.HH + 0.75f, 0.07f, gateHue);
+                if (Style != 5) { Frame(root, G.HW + 0.42f, G.HH + 0.42f, 0.1f, gateHue); Frame(root, G.HW + 0.75f, G.HH + 0.75f, 0.07f, gateHue); }
                 gate.Add(root.gameObject);
+                if (Style == 4)
+                {   // a runway of glowing arches over the last stretch, each lit in turn toward the exit
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float z = len - 42 + i * 6;
+                        var ar = new GameObject("Arch" + i).transform; ar.SetParent(transform, false); ar.position = path.World(0, 0, z, br); ar.rotation = path.Rotation(z);
+                        var m = new Material(gateHue); FrameLit(ar, G.HW - 0.02f, G.HH - 0.02f, 0.06f, m, out var rend);
+                        var pb = new MaterialPropertyBlock(); foreach (var rr in rend) arches.Add((rr, pb, i));
+                        gate.Add(ar.gameObject);
+                    }
+                }
+                if (Style == 5)
+                {   // a ring gate: a thick octagonal hoop in the sector's colour with chevrons, turning slowly
+                    var ring = new GameObject("Ring").transform; ring.SetParent(root, false); ring.localPosition = new Vector3(0, 0, -0.3f);
+                    int n = 16; float R = G.HH + 0.55f, t = 0.22f;
+                    for (int k = 0; k < n; k++)
+                    {
+                        float a0 = k * Mathf.PI * 2 / n, a1 = (k + 1) * Mathf.PI * 2 / n, am = (a0 + a1) / 2, seg = 2 * R * Mathf.Sin(Mathf.PI / n) + 0.02f;
+                        var bar = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(bar.GetComponent<Collider>()); bar.transform.SetParent(ring, false);
+                        bar.transform.localPosition = new Vector3(Mathf.Cos(am) * R * 1.3f, Mathf.Sin(am) * R, 0); bar.transform.localRotation = Quaternion.Euler(0, 0, am * Mathf.Rad2Deg + 90); bar.transform.localScale = new Vector3(t, seg * 1.15f, t);
+                        var rr = bar.GetComponent<Renderer>(); rr.sharedMaterial = k % 4 == 0 ? gateBright : gateHue; rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    }
+                    rings.Add(ring);
+                }
                 for (int i = 0; i < 9; i++)
                 {   // strips on the floor and ceiling, every few metres, each lit in turn
                     float z = len - GateRun + i * (GateRun / 9);
@@ -95,6 +122,16 @@ namespace DoomsdayTunnels.Fx
                         var pb = new MaterialPropertyBlock(); strips.Add((r, pb, i)); gate.Add(s);
                     }
                 }
+            }
+        }
+        void FrameLit(Transform root, float hw, float hh, float t, Material m, out System.Collections.Generic.List<Renderer> rend)
+        {
+            rend = new System.Collections.Generic.List<Renderer>();
+            foreach (var (pos, scale) in new[] { (new Vector3(0, -hh, 0), new Vector3(2 * hw + t, t, t)), (new Vector3(0, hh, 0), new Vector3(2 * hw + t, t, t)), (new Vector3(-hw, 0, 0), new Vector3(t, 2 * hh + t, t)), (new Vector3(hw, 0, 0), new Vector3(t, 2 * hh + t, t)) })
+            {
+                var bar = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(bar.GetComponent<Collider>()); bar.transform.SetParent(root, false);
+                bar.transform.localPosition = pos; bar.transform.localScale = scale;
+                var r = bar.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rend.Add(r);
             }
         }
         void Frame(Transform root, float hw, float hh, float t, Material m)
@@ -122,6 +159,8 @@ namespace DoomsdayTunnels.Fx
             glowMat.SetFloat(IntensityId, 1.6f * (1 - 0.85f * Open));          // the far glow gives way to the iris as it opens
             // the gate's strips chase toward the exit; the gate itself breathes
             foreach (var (r, b, i) in strips) { float k = reduceMotion ? 0.5f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(sim.Now * 6f - i * 0.7f), 3); b.SetFloat(IntensityId, 0.8f + 2.2f * k); r.SetPropertyBlock(b); }
+            foreach (var (r, b, i) in arches) { float k = reduceMotion ? 0.5f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(sim.Now * 7f - i * 0.9f), 2); b.SetFloat(IntensityId, 0.9f + 2.6f * k); r.SetPropertyBlock(b); }
+            foreach (var rg in rings) rg.localRotation = Quaternion.Euler(0, 0, (reduceMotion ? 0 : sim.Now * 25f) + Open * 90f);
             if (gateHue) gateHue.SetFloat(IntensityId, reduceMotion ? 2.6f : 2.2f + 1.0f * (0.5f + 0.5f * Mathf.Sin(sim.Now * 3f)));
             // motes ahead of the ship, in the tunnel it is in, drifting down a little
             if (moteBudget > 0)
