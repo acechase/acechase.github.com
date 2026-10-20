@@ -107,7 +107,7 @@ namespace DoomsdayTunnels.Flight
             Roll += (-Vx * 0.045f * Tune.Sway - Roll) * Math.Min(1, dt * 4);
 
             // Forward.
-            float pz0 = Pz; Pz += Speed * dt; Time -= dt; SectorT += dt; Score += Speed * dt * 0.5f;
+            float pz0 = Pz; Pz = Math.Max(0, Pz + Speed * dt); Time -= dt; SectorT += dt; Score += Math.Max(0, Speed) * dt * 0.5f;
             foreach (var o in Sector.Objs) { if (o.Z <= pz0) continue; if (o.Z > Pz) break; if (o.Branch >= 0 && o.Branch != Path.Chosen) continue; Collide(o); }
             ForkCheck();
 
@@ -164,6 +164,29 @@ namespace DoomsdayTunnels.Flight
             Events.Add(SimEvent.Say(side == f.Dark ? "DARK TUNNEL" : "LIGHT TUNNEL: NO SHIP TOKEN THIS WAY")); Events.Add(SimEvent.Of(SimEventKind.Tink));
         }
 
+        /// <summary>
+        /// A red wall is solid: the ship is thrown back off it and shoved toward the nearest gap, and has to pick its
+        /// speed up again (boost helps). The first hit on a wall costs shield; bouncing off the same wall again does not.
+        /// </summary>
+        void Bounce(SectorObject o, Rect4 r)
+        {
+            bool first = !o.Hit;
+            if (first) { o.Hit = true; o.Version++; if (Invuln > 0) { Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Ink, 10)); } else { Shield -= G.WallHit; Events.Add(SimEvent.Of(SimEventKind.Hit)); Events.Add(SimEvent.At(SimEventKind.Flash, 0, 0, 0, Palette.Warn, 0)); Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Warn, 30)); } }
+            else Events.Add(SimEvent.Of(SimEventKind.Tink));
+            Events.Add(SimEvent.Of(SimEventKind.Shake)); Events.Add(SimEvent.At(SimEventKind.Shock, Rx, Ry, o.Z - 0.1f, Palette.Warn, 0, Path.Chosen));
+            Events.Add(SimEvent.At(SimEventKind.Burst, Rx, Ry, o.Z - 0.1f, Palette.Warn, first ? 14 : 6, Path.Chosen));
+            Pz = o.Z - G.BounceBack;
+            Speed = -Math.Max(G.BounceRecoil, Speed * 0.3f);
+            // shove toward the nearest open edge of the slab (never toward the tunnel wall behind it)
+            float best = float.MaxValue; float px = 0, py = 0;
+            void Try(float dist, float vx, float vy) { if (dist < best) { best = dist; px = vx; py = vy; } }
+            if (r.X0 > -G.HW + 0.02f) Try(Rx - r.X0, -1, 0);
+            if (r.X1 < G.HW - 0.02f) Try(r.X1 - Rx, 1, 0);
+            if (r.Y0 > -G.HH + 0.02f) Try(Ry - r.Y0, 0, -1);
+            if (r.Y1 < G.HH - 0.02f) Try(r.Y1 - Ry, 0, 1);
+            if (best < float.MaxValue) { Vx = px * G.BounceShove; Vy = py * G.BounceShove; }
+        }
+
         void Crash(float d)
         {
             if (Invuln > 0) { Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Ink, 10)); Events.Add(SimEvent.Of(SimEventKind.Tink)); return; }   // a fresh ship shrugs it off
@@ -178,7 +201,7 @@ namespace DoomsdayTunnels.Flight
             switch (o.Kind)
             {
                 case ObjKind.Wall:
-                    foreach (var r in o.Rects) if (r.Contains(Rx, Ry, 0.05f)) { o.Hit = true; o.Version++; Crash(G.WallHit); break; }
+                    foreach (var r in o.Rects) if (r.Contains(Rx, Ry, 0.05f)) { Bounce(o, r); break; }
                     break;
                 case ObjKind.Gate:
                     foreach (var b in o.Blocks) if (b.Hp > 0 && b.R.Contains(Rx, Ry, 0.04f)) { b.Hp = 0; o.Version++; Crash(G.GateHit); break; }

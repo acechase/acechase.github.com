@@ -50,11 +50,12 @@ namespace DoomsdayTunnels.Tests
             Assert.AreEqual(G.HW * 2, path.HalfWidth(f.Z1 + 5)); path.Chosen = 0; Assert.AreEqual(G.HW, path.HalfWidth(f.Z1 + 5));
         }
 
-        // Flies sector 1 (ignoring walls) until depth z, steering as `steer` says each step. The tunnel's bends pull the
-        // ship about, so a test that wants a particular line has to hold it: `Hold` keeps the ship on the centreline.
+        // Flies sector 1 until depth z, steering as `steer` says each step, with the red walls taken out (they are solid,
+        // and a ship steered into one would bounce there for ever). The tunnel's bends pull the ship about, so a test
+        // that wants a particular line has to hold it: `Hold` keeps the ship on the centreline.
         static FlightSim FlyTo(float z, System.Func<FlightSim, float> steer, FlightSim sim = null)
         {
-            if (sim == null) { sim = new FlightSim(); var tune = new Tune(); sim.StartSector(SectorGenerator.Make(1, tune), tune); sim.Invuln = 1e9f; }
+            if (sim == null) { sim = new FlightSim(); var tune = new Tune(); var lv = SectorGenerator.Make(1, tune); lv.Objs.RemoveAll(o => o.Kind == ObjKind.Wall); sim.StartSector(lv, tune); sim.Invuln = 1e9f; }
             int steps = 0;
             while (sim.Playing && sim.Pz < z && steps++ < 60 * 120) sim.Step(1f / 60f, new SimInput { SteerX = steer(sim) });
             return sim;
