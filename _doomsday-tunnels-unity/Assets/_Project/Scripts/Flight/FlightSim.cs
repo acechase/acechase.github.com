@@ -109,7 +109,12 @@ namespace DoomsdayTunnels.Flight
 
             // Forward.
             float pz0 = Pz; Pz = Math.Max(0, Pz + Speed * dt); Time -= dt; SectorT += dt; Score += Math.Max(0, Speed) * dt * 0.5f;
-            foreach (var o in Sector.Objs) { if (o.Z <= pz0) continue; if (o.Z > Pz) break; if (o.Branch >= 0 && o.Branch != Path.Chosen) continue; Collide(o); }
+            foreach (var o in Sector.Objs)
+            {   // a red slab is met by the nose, everything else by the ship's centre
+                float oz = o.Kind == ObjKind.Wall ? o.Z - G.ShipNose : o.Z;
+                if (oz <= pz0 || oz > Pz) { if (o.Z - G.ShipNose > Pz) break; continue; }
+                if (o.Branch >= 0 && o.Branch != Path.Chosen) continue; Collide(o);
+            }
             ForkCheck();
 
             // Guns: heat up while firing, cool when released, lock when overheated.
@@ -176,7 +181,7 @@ namespace DoomsdayTunnels.Flight
             else { Events.Add(SimEvent.Of(SimEventKind.Tink)); Events.Add(SimEvent.At(SimEventKind.Flash, 0, 0, 0, Palette.Warn, 0)); Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Warn, 16)); }
             Events.Add(SimEvent.Of(SimEventKind.Shake)); Events.Add(SimEvent.At(SimEventKind.Shock, Rx, Ry, o.Z - 0.1f, Palette.Warn, 0, Path.Chosen));
             Events.Add(SimEvent.At(SimEventKind.Burst, Rx, Ry, o.Z - 0.1f, Palette.Warn, first ? 18 : 12, Path.Chosen));
-            Pz = o.Z - G.BounceBack;
+            Pz = o.Z - G.ShipNose - G.BounceBack;
             Speed = -Math.Max(G.BounceRecoil, Speed * 0.3f);
             // shove toward the nearest open edge of the slab (never toward the tunnel wall behind it)
             float best = float.MaxValue; float px = 0, py = 0;

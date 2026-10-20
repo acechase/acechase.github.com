@@ -32,8 +32,12 @@ namespace DoomsdayTunnels.Core
         public const float WallHit = 20f, GateHit = 18f, MineHit = 16f, ScrapePerSec = 11f;
         // Red walls are solid: the ship is held BounceBack metres short of one, thrown back at BounceRecoil m/s at least,
         // and shoved sideways toward the nearest gap at BounceShove m/s.
-        public const float BounceBack = 0.22f, BounceRecoil = 5f, BounceShove = 3.2f;    // BounceBack: the ship's nose just touches the slab
-        public const float WallMargin = 0.14f;  // how close the ship's centre gets to a red slab before it counts (the web used 0.05; the ship is visible now)
+        public const float BounceRecoil = 5f, BounceShove = 3.2f;
+        // The ship as drawn: its nose reaches ShipNose metres ahead of its centre and its wings ShipSpan to each side. A red
+        // slab (ShipNose includes the slab's half thickness) is met when the nose reaches it, not the centre, and counts
+        // when a wing would clip it. The web game used a 5 cm margin with no ship to see.
+        public const float ShipNose = 0.42f, ShipSpan = 0.24f, BounceBack = 0.02f;
+        public const float WallMargin = ShipSpan;
         public const float MineShotRadius = 0.45f;
 
         // Aiming (tilt mode): how far the stick can swing the guns, and the depth the aim point is drawn at

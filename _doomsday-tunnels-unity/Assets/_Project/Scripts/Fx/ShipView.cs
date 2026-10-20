@@ -59,7 +59,7 @@ namespace DoomsdayTunnels.Fx
             bool show = Visible && (sim.Playing || sim.Shield > 0);
             if (gameObject.activeSelf != show) gameObject.SetActive(show);
             if (!show) return;
-            joltVel += (-jolt * 120f - joltVel * 10f) * dt; jolt += joltVel * dt; tumbleVel += (-tumble * 60f - tumbleVel * 6f) * dt; tumble += tumbleVel * dt;
+            joltVel += (-jolt * 120f - joltVel * 10f) * dt; jolt += joltVel * dt; tumbleVel += (-tumble * 60f - tumbleVel * 6f) * dt; tumble += tumbleVel * dt; tumble = Mathf.Clamp(tumble, -0.5f, 0.5f);   // a nod, never a somersault
             transform.position = path.World(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen);
             body.localPosition = jolt; body.localRotation = Quaternion.Euler(tumble * Mathf.Rad2Deg, 0, 0);
             var fwd = path.Tangent(sim.Pz + 1.5f); var upv = path.Up(sim.Pz + 1.5f);

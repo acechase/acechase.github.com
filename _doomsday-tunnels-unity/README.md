@@ -114,9 +114,9 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   spring, and the slab flashes white and settles to its dented shade, on every bounce.
 - The HUD lays itself out inside the phone's safe area (`UI/SafeArea.cs`): nothing sits under the Dynamic Island or the
   home bar. `-shotsafe` fakes those insets on a Mac, and `-shotdpr 2.9` a phone's pixel density. The exit of every sector is a lit gate, a white frame inside two in
-  the sector's colour with strips chasing toward it, and clearing it sets off a ring and a blaze of light. The ship is
-  drawn small enough that its wings stay inside the collision margins, and a red slab counts from 14 cm rather than
-  the web's 5 cm, so a visible wing never passes through a wall before the hit lands. The aiming reticle shows in every
+  the sector's colour with strips chasing toward it, and clearing it sets off a ring and a blaze of light. A red slab
+  is met by the ship's nose (42 cm ahead of its centre) and counts when a wing (24 cm to each side) would clip it, so
+  the drawn ship never passes into a wall before the hit lands. The aiming reticle shows in every
   mode now, since the chase camera sits off the gun line. Cut-scene letters blip at the speaker's pitch, as on the web.
 - What the web game's changelog added, checked item by item: the title plays itself after six idle seconds (a bot
   flies a random sector behind the menu, `Flight/Bot.cs`; nothing counts, no sound, any input ends it, and after
