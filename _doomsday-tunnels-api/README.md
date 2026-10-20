@@ -61,7 +61,7 @@ between the web game's board and each app's.
 
 ## The apps
 
-Doomsday Tunnels 3D (the Unity app in `_doomsday-tunnels-unity/`) uses the `/v2/*` routes. A native app has no page
+Doomsday Tunnels 3D (the Unity app, in its own repository `acechase/doomsday-tunnels-3d`) uses the `/v2/*` routes. A native app has no page
 origin to check, so instead it sends the `APP_KEY` secret in an `X-App-Key` header. That key is the same in every
 copy of the app, so it is a spam brake rather than a secret: the signed run token and the plausibility checks do the
 real work, exactly as for the web game. Every `/v2` call names its board with `?game=app3d`. The app's copy of the
