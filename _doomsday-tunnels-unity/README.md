@@ -83,7 +83,8 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
   `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
   captures the opening cut scene, advancing a line or two between frames, `-shotpanel` captures the settings panel and
   `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one), and
-  `-shotghost` records a few seconds as sector 1's ghost and flies beside it.
+  `-shotghost` records a few seconds as sector 1's ghost and flies beside it; `-shotdaily` skips to the end of the daily
+  sector for its clear screen and today's board.
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
@@ -96,6 +97,11 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- The daily sector (`Tunnel/Daily.cs`): DAILY on the title flies one sector a day that everyone gets, built from the
+  date alone (difficulty 4 to 7 and the seed both come from the days since 2026-01-01; the Worker uses the same
+  formulas to judge posted times). No spares, one go per attempt; the clear screen shows the time and the device's best
+  today and offers POST TIME and TODAY'S TIMES, the ten fastest, when online. The run token and the usual plausibility
+  checks apply; a new sector arrives at midnight UTC.
 - Ghosts. Every run through a sector is recorded as its inputs (`Flight/InputLog.cs`, five bytes a step); the best
   fair-speed run is kept on the device (`ghost.<sector>`) and flies alongside next time as a dim outline
   (`Flight/GhostRunner.cs` replays it in a sim of its own). The flight model is deterministic, so the replay is

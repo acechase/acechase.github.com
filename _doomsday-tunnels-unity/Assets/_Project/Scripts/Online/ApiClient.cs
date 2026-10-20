@@ -32,6 +32,19 @@ namespace DoomsdayTunnels.Online
             StartCoroutine(Post("/v2/event", body, null));
         }
 
+        public void FetchDaily(string day, Action<DailyBoard, string> done) => StartCoroutine(Get("/v2/daily?day=" + day, (ok, text) => { var b = ok ? DailyBoard.Parse(text) : null; done?.Invoke(b, b == null ? Friendly(text) : null); }));
+
+        public void PostDaily(string name, string day, int tenths, string token, Action<DailyBoard, string> done)
+        {
+            string body = "{\"name\":" + Quote(name) + ",\"day\":" + Quote(day) + ",\"t\":" + tenths + ",\"token\":" + Quote(token) + "}";
+            StartCoroutine(Post("/v2/daily", body, (ok, text) =>
+            {
+                var r = DailyBoard.Parse(text);
+                if (r != null && r.ok) done?.Invoke(r, null);
+                else done?.Invoke(null, r != null && !string.IsNullOrEmpty(r.message) ? r.message : r != null && r.error == "name" ? "That name was not accepted." : r != null && (r.error == "time" || r.error == "day") ? "That time was not accepted." : Friendly(text));
+            }));
+        }
+
         public void FetchBoard(Action<BoardData, string> done) => StartCoroutine(Get("/v2/board", (ok, text) => { var b = ok ? BoardData.Parse(text) : null; done?.Invoke(b, b == null ? Friendly(text) : null); }));
 
         public void PostScore(string name, int score, int sector, string token, int[] times, Action<PostResult, string> done)

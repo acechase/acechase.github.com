@@ -35,9 +35,10 @@ namespace DoomsdayTunnels.Tunnel
         public const float Margin = 100f;             // no feature in the first stretch, nor near the fork, nor at the end
         public const float LoopShift = 26f;           // a loop exits this far to the side of its entry: clear of both branches of a fork, even just before it closes
 
-        public static Course For(Sector lv)
+        public static Course For(Sector lv) => For(lv, lv.N * 31337 + 7);
+        public static Course For(Sector lv, int seed)
         {
-            var R = new SectorRng(lv.N * 31337 + 7);
+            var R = new SectorRng(seed);
             var c = new Course(); int n = lv.N;
             int want = Math.Min(2 + n / 2, 6);
             // the stretches that may hold a feature: before the fork's widening and after the branches have parted

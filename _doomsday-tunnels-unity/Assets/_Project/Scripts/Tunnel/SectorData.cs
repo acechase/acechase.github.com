@@ -58,7 +58,8 @@ namespace DoomsdayTunnels.Tunnel
         public float Limit;                // seconds on the clock
         public float[] Px = new float[6], Py = new float[6];   // the two-sine centreline recipe per axis
         public Fork Fork;
-        public Course Course;              // the 3D course: climbs, dives, bends, loops, corkscrews (cosmetic; the flight model never sees it)
+        public Course Course;
+        public string Daily;               // the date this is the daily sector for, or null              // the 3D course: climbs, dives, bends, loops, corkscrews (cosmetic; the flight model never sees it)
         public List<SectorObject> Objs = new List<SectorObject>();
         public SectorObject ShipToken;     // null once the ship has taken the other branch
     }

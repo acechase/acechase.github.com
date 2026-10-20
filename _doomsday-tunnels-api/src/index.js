@@ -22,6 +22,13 @@ const TIME_TOP = 3;           // fastest times shown per sector
 // The native apps post through /v2/* with a game name instead of a page origin, and keep their own boards: the web
 // game and the apps never compete on the same table. Each game's sectors can have their own plausibility formulas.
 const GAMES = { app3d: { title: 'Doomsday Tunnels 3D' } };
+// The daily sector: everyone flies the same sector on a given day. Its difficulty and seed come from the date alone,
+// by the same formulas as in the app (Tunnel/Daily.cs): keep them in step. Its times live in times2 under a sector
+// number no real sector reaches, one per day.
+const DAILY_EPOCH = Date.UTC(2026, 0, 1), DAILY_BASE = 100000, DAILY_TOP = 10;
+const dayIndex = day => /^\d{4}-\d{2}-\d{2}$/.test(day) ? Math.round((Date.parse(day + 'T00:00:00Z') - DAILY_EPOCH) / 864e5) : NaN;
+const dailyDifficulty = idx => 4 + ((idx % 4) + 4) % 4;
+const dailyOk = day => { const idx = dayIndex(day); if (!Number.isFinite(idx)) return false; const t = dayIndex(today()); return idx === t || idx === t - 1; };   // today, or yesterday for late posts
 
 // The fastest a sector can possibly be flown, in tenths of a second: its length divided by top speed with boost held
 // the whole way. These two formulas mirror the game's own (makeLevel): keep them in step if the game changes.
@@ -233,8 +240,8 @@ const topScores2 = async (env, game) =>
   (await env.DB.prepare(`SELECT name, score, sector, day FROM scores2 WHERE game = ?1 ORDER BY score DESC, day ASC LIMIT ?2`).bind(game, TOP_N).all()).results;
 async function topTimes2(env, game) {
   const rows = (await env.DB.prepare(
-    `SELECT sector, name, t, day FROM (SELECT sector, name, t, day, ROW_NUMBER() OVER (PARTITION BY sector ORDER BY t ASC, day ASC) AS place FROM times2 WHERE game = ?1)
-     WHERE place <= ?2 ORDER BY sector ASC, place ASC`).bind(game, TIME_TOP).all()).results;
+    `SELECT sector, name, t, day FROM (SELECT sector, name, t, day, ROW_NUMBER() OVER (PARTITION BY sector ORDER BY t ASC, day ASC) AS place FROM times2 WHERE game = ?1 AND sector < ?3)
+     WHERE place <= ?2 ORDER BY sector ASC, place ASC`).bind(game, TIME_TOP, DAILY_BASE).all()).results;     // the daily sectors keep their own board
   const out = [];
   for (const r of rows) { let s = out[out.length - 1]; if (!s || s.sector !== r.sector) out.push(s = { sector: r.sector, top: [] }); s.top.push({ name: r.name, t: r.t, day: r.day }); }
   return out;
@@ -301,6 +308,33 @@ async function postScore2(request, env, game) {
   const rank = (await env.DB.prepare(`SELECT COUNT(*) + 1 AS r FROM scores2 WHERE game = ?1 AND score > ?2`).bind(game, best).first()).r;
   return json({ ok: true, name, best, rank, top: await topScores2(env, game), times: await topTimes2(env, game) });
 }
+async function topDaily(env, game, day) {
+  const rows = (await env.DB.prepare(`SELECT name, t, day FROM times2 WHERE game = ?1 AND sector = ?2 ORDER BY t ASC, day ASC LIMIT ?3`).bind(game, DAILY_BASE + dayIndex(day), DAILY_TOP).all()).results;
+  return { game, day, difficulty: dailyDifficulty(dayIndex(day)), top: rows.map(r => ({ name: r.name, t: r.t })) };
+}
+async function postDaily(request, env, game) {
+  const b = await readJson(request);
+  if (!b) return json({ error: 'bad request' }, 400);
+  if (await limited(env.SCORE_LIMIT, request)) return json({ error: 'slow down' }, 429);
+  const day = typeof b.day === 'string' ? b.day : '';
+  if (!dailyOk(day)) return json({ error: 'day' }, 422);
+  const name = cleanName(b.name);
+  if (!name) return json({ error: 'name', message: 'Use up to ' + MAX_NAME + ' letters or numbers.' }, 422);
+  if (isRude(name)) return json({ error: 'name', message: 'Please pick a different name.' }, 422);
+  const t = Math.floor(Number(b.t)), n = dailyDifficulty(dayIndex(day));
+  if (!(t >= fastestPossible(n) && t <= 6000)) return json({ error: 'time' }, 422);
+  const t0 = await tokenTime(env, b.token);
+  if (!t0) return json({ error: 'token' }, 422);
+  if ((Date.now() - t0) / 1000 < t / 10 - 2) return json({ error: 'time' }, 422);       // the run cannot have taken longer than the time since it began
+  const key = name.toLowerCase(), sector = DAILY_BASE + dayIndex(day);
+  await env.DB.prepare(
+    `INSERT INTO times2 (game, sector, name_key, name, t, day) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(game, sector, name_key) DO UPDATE SET name = excluded.name, t = excluded.t, day = excluded.day WHERE excluded.t < times2.t`
+  ).bind(game, sector, key, name, t, day).run();
+  const best = (await env.DB.prepare(`SELECT t FROM times2 WHERE game = ?1 AND sector = ?2 AND name_key = ?3`).bind(game, sector, key).first()).t;
+  const rank = (await env.DB.prepare(`SELECT COUNT(*) + 1 AS r FROM times2 WHERE game = ?1 AND sector = ?2 AND t < ?3`).bind(game, sector, best).first()).r;
+  return json({ ok: true, name, best, rank, ...(await topDaily(env, game, day)) });
+}
 async function v2(request, env, url, path, method) {
   const game = gameOf(url.searchParams.get('game'));
   if (method === 'GET') {
@@ -308,13 +342,14 @@ async function v2(request, env, url, path, method) {
     if (path === '/v2/scores') return json({ game, title: GAMES[game].title, top: await topScores2(env, game) }, 200, null, 15);
     if (path === '/v2/times') return json({ game, sectors: await topTimes2(env, game) }, 200, null, 15);
     if (path === '/v2/board') return json({ game, title: GAMES[game].title, top: await topScores2(env, game), times: await topTimes2(env, game) }, 200, null, 15);
+    if (path === '/v2/daily') { const day = url.searchParams.get('day') || today(); if (!Number.isFinite(dayIndex(day))) return json({ error: 'day' }, 400); return json(await topDaily(env, game, day), 200, null, 15); }
     return json({ error: 'not found' }, 404);
   }
-  if (method === 'POST' && (path === '/v2/event' || path === '/v2/scores')) {
+  if (method === 'POST' && (path === '/v2/event' || path === '/v2/scores' || path === '/v2/daily')) {
     if (!env.APP_KEY && !devMode(env)) return json({ error: 'APP_KEY is not set on this Worker yet.' }, 503);
     if (!appKeyOk(request, env)) return json({ error: 'forbidden' }, 403);
     if (!game) return json({ error: 'game' }, 400);
-    return path === '/v2/scores' ? await postScore2(request, env, game) : await postEvent2(request, env, game);
+    return path === '/v2/scores' ? await postScore2(request, env, game) : path === '/v2/daily' ? await postDaily(request, env, game) : await postEvent2(request, env, game);
   }
   return json({ error: 'not found' }, 404);
 }

@@ -50,7 +50,11 @@ namespace DoomsdayTunnels
         InputLog log; GhostRunner ghost; ShipView ghostShip; bool respawned;
         public float GhostTime => ghost != null ? ghost.Seconds : 0;
         public bool Online => api != null;
-        public bool CanPost => api != null && run.Token != null && !run.Posted && sim.Score > 0;
+        public bool CanPost => api != null && run.Token != null && !run.Posted && sim.Score > 0 && !DailyMode;
+        // The daily sector: one sector a day from the date, with its own board of times.
+        public bool DailyMode, DailyPB; public string DailyDay; public float DailyBestT; bool dailyPosted;
+        public bool FairRun => S.Tune.FairSpeed;
+        public bool CanPostDaily => api != null && DailyMode && State == GameState.Clear && run.Token != null && !dailyPosted && FairRun;
         public Quality Quality { get; private set; }
         Palette pal;                                // the palette of the tunnel the ship is in (a branch's after the fork)
         SimInput latest; int level = 1;
@@ -81,6 +85,8 @@ namespace DoomsdayTunnels
             Debug.Log("[Doomsday] Online: " + (api != null ? cfg.api : "off (no Resources/OnlineConfig.json)"));
             hud.FetchBoard = () => api.FetchBoard(hud.BoardArrived);
             hud.PostScore = name => api.PostScore(name, (int)sim.Score, run.Sector, run.Token, run.Times(), (r, err) => { if (r != null) { run.Posted = true; S.Name = r.name; S.Save(); } hud.PostDone(r, err); });
+            hud.FetchDaily = () => api.FetchDaily(DailyDay ?? Daily.Today(), hud.DailyArrived);
+            hud.PostDaily = name => api.PostDaily(name, DailyDay, Mathf.RoundToInt(Bonus.SectorTime * 10), run.Token, (r, err) => { if (r != null) { dailyPosted = true; S.Name = r.name; S.Save(); } hud.DailyPostDone(r, err); });
             ApplySettings();
             Attract();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
@@ -90,7 +96,7 @@ namespace DoomsdayTunnels
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -125,6 +131,13 @@ namespace DoomsdayTunnels
                 yield return new WaitForSeconds(0.5f);
                 Application.Quit(); yield break;
             }
+            if (shotDaily)
+            {   // the daily sector, skipped to its last stretch so the clear screen and today's board can be seen
+                StartDaily(); sim.Pz = sim.Sector.Length - 40; latestOverride = new SimInput { SteerX = 0.2f };
+                yield return new WaitForSeconds(3.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-dailyclear.png"));
+                yield return new WaitForSeconds(0.5f); hud.OpenDaily(); yield return new WaitForSeconds(2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "03-dailyboard.png"));
+                yield return new WaitForSeconds(0.5f); Application.Quit(); yield break;
+            }
             seenIntro = true; NewGame();
             if (shotGhost)
             {   // fly a few seconds, keep that as the sector's ghost, then fly again on another line beside it
@@ -146,7 +159,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -156,9 +169,10 @@ namespace DoomsdayTunnels
             if (S.Steer == SteerMode.Tilt) { input.Tilt.Enable(); input.Tilt.NeedCal = true; }
         }
 
-        void LoadSector(int n)
+        void LoadSector(int n) => LoadSector(SectorGenerator.Make(n, S.Tune));
+        void LoadSector(Sector lv)
         {
-            var lv = SectorGenerator.Make(n, S.Tune);
+            int n = lv.N;
             { var sb = new System.Text.StringBuilder("[Doomsday] Sector " + n + " course:"); foreach (var f in lv.Course.Features) sb.Append(' ').Append(f.Kind).Append(' ').Append((int)f.S0).Append('-').Append((int)f.S1); Debug.Log(sb.ToString()); }
             sim.StartSector(lv, S.Tune);
             tunnel.Build(lv, sim.Path, Unlit);
@@ -170,13 +184,22 @@ namespace DoomsdayTunnels
             ambience.SetSector(lv.Pal, lv.Length); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
         }
 
-        void Attract() { level = 1; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
+        void Attract() { level = 1; DailyMode = false; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
         void StartLevel(int n)
         {
             Debug.Log("[Doomsday] Sector " + n); level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true;
             // every run is recorded; the best one through this sector flies alongside as a ghost
             log = new InputLog(sim, S.Tune); respawned = false;
-            var saved = S.ShowGhost ? S.Ghost(n) : null; ghost = saved != null ? GhostRunner.From(saved, n) : null;
+            var saved = S.ShowGhost && !DailyMode ? S.Ghost(n) : null; ghost = saved != null ? GhostRunner.From(saved, n) : null;
+        }
+        void StartDaily()
+        {
+            DailyMode = true; DailyDay = Daily.Today(); DailyPB = false; dailyPosted = false; DailyBestT = S.DailyBest(DailyDay);
+            bestWas = S.Best; OverBest = false; audio.CancelQueued(); run.Begin(); hud.PostedAs = null; hud.DailyPostedAs = null; hud.PostStatus = ""; hud.DailyData = null;
+            sim.Score = 0; sim.Shield = 100; sim.Lives = 0; sim.Invuln = 0;
+            if (api != null) { string today = RunLog.Today(); RunLog.DayFlags(S.LastDay, today, out bool firstToday, out bool firstEver); S.LastDay = today; S.Save(); api.StartRun(S.CountPlays, firstToday, firstEver, input.TouchUI, input.TiltActive, tok => run.Token = tok); }
+            var lv = Daily.Make(DailyDay, S.Tune); level = lv.N; Debug.Log("[Doomsday] Daily sector " + DailyDay + ": difficulty " + lv.N);
+            LoadSector(lv); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true; log = null; ghost = null;
         }
         void NewGame()
         {
@@ -196,7 +219,9 @@ namespace DoomsdayTunnels
         void Advance()
         {
             if (StateT < 0.6f) return;
-            if (State == GameState.Title || State == GameState.Over) NewGame();
+            if (State == GameState.Over && DailyMode) StartDaily();
+            else if (State == GameState.Title || State == GameState.Over) NewGame();
+            else if (State == GameState.Clear && DailyMode) Attract();
             else if (State == GameState.Clear) { int n = level; var sc = Script.For(n); if (sc != null) PlayScene(sc, () => StartLevel(n)); else StartLevel(n); }
         }
 
@@ -226,6 +251,9 @@ namespace DoomsdayTunnels
                 {
                     if (tuneable && hud.TuneHit(input.TapPos)) { hud.PanelOpen = true; }
                     else if (api != null && (State == GameState.Title || State == GameState.Over) && hud.ScoresHit(input.TapPos)) hud.OpenBoard();
+                    else if (State == GameState.Title && hud.DailyHit(input.TapPos)) StartDaily();
+                    else if (CanPostDaily && hud.DailyPostHit(input.TapPos)) hud.OpenDailyPost(S.Name);
+                    else if (api != null && DailyMode && State == GameState.Clear && hud.DailyTimesHit(input.TapPos)) hud.OpenDaily();
                     else if (State == GameState.Over && CanPost && hud.PostHit(input.TapPos)) hud.OpenPost(S.Name);
                     else if (State == GameState.Play) { if (Paused) SetPaused(false); else if (input.TouchUI && hud.PauseHit(input.TapPos)) SetPaused(true); }
                     else Advance();
@@ -316,7 +344,16 @@ namespace DoomsdayTunnels
 
         void OnSectorClear()
         {
-            Bonus = sim.SectorClear(); SaveBest();
+            Bonus = sim.SectorClear();
+            if (DailyMode)
+            {   // the daily sector: a time, a best for today, and the screen that offers to post it
+                DailyPB = S.RecordDaily(DailyDay, Bonus.SectorTime); DailyBestT = S.DailyBest(DailyDay);
+                audio.Play("clear"); if (DailyPB) audio.Play("cheerSmall", 0.5f);
+                hud.Flash = 1; hud.FlashColor = Palette.Ink; State = GameState.Clear; StateT = 0; ghost = null;
+                if (api != null) api.EndRun(run.Token, level, 1, Mathf.RoundToInt(run.Seconds), S.CountPlays);
+                return;
+            }
+            SaveBest();
             bool fair = S.Tune.FairSpeed, best = fair && (S.BestTime(level) <= 0 || Bonus.SectorTime < S.BestTime(level));
             if (best && log != null) S.SaveGhost(level, log.Serialize());        // the ghost is the best run so far, from its very first time through
             ClearPB = S.RecordTime(level, Bonus.SectorTime, fair); run.SectorCleared(level, Bonus.SectorTime, fair);
@@ -351,7 +388,7 @@ namespace DoomsdayTunnels
             OverBest = bestWas > 0 && (int)sim.Score > bestWas;                                 // a first ever run has nothing to beat
             DeadQuip = Quips.Pick(OverBest ? Quips.BestScore : why == SimEventKind.ShipLost ? Quips.Ship : Quips.Time);
             DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest();
-            if (OverBest) audio.Play("cheerBig", 0.9f);
+            if (DailyMode) OverBest = false; else if (OverBest) audio.Play("cheerBig", 0.9f);
             run.Sector = level; run.Ended = true;
             if (api != null) api.EndRun(run.Token, level, run.Cleared, Mathf.RoundToInt(run.Seconds), S.CountPlays);
         }

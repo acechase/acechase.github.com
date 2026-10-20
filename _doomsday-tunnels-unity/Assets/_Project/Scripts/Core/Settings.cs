@@ -91,6 +91,14 @@ namespace DoomsdayTunnels.Core
         /// <summary>A slider's value snapped to its step and kept in range.</summary>
         public static float Snap(TuneDef d, float v) => Mathf.Clamp(Mathf.Round((v - d.Min) / d.Step) * d.Step + d.Min, d.Min, d.Max);
 
+        /// <summary>The best time through a day's daily sector on this device, or 0. Only the latest day is kept.</summary>
+        public float DailyBest(string day) => store.GetString("daily.day", "") == day ? store.GetFloat("daily.t", 0f) : 0f;
+        public bool RecordDaily(string day, float t)
+        {
+            float was = DailyBest(day); if (was > 0 && t >= was) return false;
+            store.SetString("daily.day", day); store.SetFloat("daily.t", t); store.Save(); return was > 0;
+        }
+
         /// <summary>The recorded best run through a sector (an InputLog, serialised), or null.</summary>
         public string Ghost(int sector) { var s = store.GetString("ghost." + sector, ""); return s.Length > 0 ? s : null; }
         public void SaveGhost(int sector, string log) { store.SetString("ghost." + sector, log); store.Save(); }

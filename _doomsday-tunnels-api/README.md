@@ -93,6 +93,8 @@ A determined person can still fake a score. The Remove button on the stats page 
 | `POST /event` | `{ t: "start", ... }` returns a run token; `{ t: "end", token, sector, cleared, secs }` closes a run. |
 | `GET /v2/board?game=app3d` | An app's top 20 and fastest times in one call (also `/v2/scores` and `/v2/times` separately). |
 | `POST /v2/event?game=app3d`, `POST /v2/scores?game=app3d` | As the web routes, with the `X-App-Key` header instead of a page origin. The start event also takes `count: false` when the player has switched play counting off. |
+| `GET /v2/daily?game=app3d&day=YYYY-MM-DD` | The ten fastest times through that day's daily sector (today's without `day`). |
+| `POST /v2/daily?game=app3d` | `{ name, day, t, token }`: a time through the daily sector, in tenths. Today's or yesterday's only; the run token must be old enough for the time claimed. |
 | `GET /admin` | The stats page. |
 | `GET /admin/data[?game=]`, `DELETE /admin/scores?name=[&game=]` | Used by the stats page; need the admin key. Without `game` they refer to the web game's board. |
 

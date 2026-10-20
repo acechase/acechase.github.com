@@ -12,7 +12,7 @@ namespace DoomsdayTunnels.UI
     public sealed partial class Hud
     {
         public bool BoardOpen, PostOpen;
-        public bool Modal => PanelOpen || BoardOpen || PostOpen;
+        public bool Modal => PanelOpen || BoardOpen || PostOpen || DailyOpen;
         public BoardData Board; public string BoardError; public bool BoardLoading;
         public string PostName = "", PostStatus = ""; public bool Posting; public string PostedAs;
         public Action FetchBoard; public Action<string> PostScore;          // wired by the game
@@ -28,7 +28,7 @@ namespace DoomsdayTunnels.UI
 
         public void OpenBoard() { BoardOpen = true; PostOpen = false; if (Board == null && !BoardLoading) { BoardLoading = true; BoardError = null; FetchBoard?.Invoke(); } }
         public void BoardArrived(BoardData b, string err) { BoardLoading = false; if (b != null) { Board = b; BoardError = null; } else BoardError = err ?? "Could not reach the scoreboard."; }
-        public void OpenPost(string lastName) { PostOpen = true; BoardOpen = false; PostStatus = ""; if (string.IsNullOrEmpty(PostName)) PostName = lastName ?? ""; }
+        public void OpenPost(string lastName) { PostOpen = true; PostIsDaily = false; BoardOpen = false; PostStatus = ""; if (string.IsNullOrEmpty(PostName)) PostName = lastName ?? ""; }
         public void PostDone(PostResult r, string err)
         {
             Posting = false;
@@ -84,14 +84,14 @@ namespace DoomsdayTunnels.UI
             Text("Times count at the standard flight speed only.", x, cy0 + ch - 22 * u, 9 * u, Palette.Dim);
         }
 
-        public void DrawPost(int score, int sector)
+        public void DrawPost(int score, int sector, string dailyDay = null, float dailyTime = 0)
         {
             if (field == null) { field = new GUIStyle(GUI.skin.textField) { alignment = TextAnchor.MiddleLeft }; field.normal.background = Texture2D.whiteTexture; field.focused.background = Texture2D.whiteTexture; field.normal.textColor = Palette.Void; field.focused.textColor = Palette.Void; }
             Card(out float cx0, out float cy0, out float cw, out float ch);
             float x = cx0 + 14 * u, y = cy0 + 12 * u, right = cx0 + cw - 14 * u;
-            Text("POST YOUR SCORE", x, y + 13 * u, 14 * u, Palette.Ink, TextAnchor.MiddleLeft, true);
+            Text(PostIsDaily ? "POST YOUR TIME" : "POST YOUR SCORE", x, y + 13 * u, 14 * u, Palette.Ink, TextAnchor.MiddleLeft, true);
             if (Button(new Rect(right - 70 * u, y, 70 * u, 26 * u), "CANCEL")) { PostOpen = false; }
-            Text("SCORE " + score.ToString("000000") + "   SECTOR " + sector.ToString("00"), x, y + 44 * u, 13 * u, Palette.Ink);
+            Text(PostIsDaily ? "TIME " + dailyTime.ToString("0.0") + "   DAILY SECTOR " + dailyDay : "SCORE " + score.ToString("000000") + "   SECTOR " + sector.ToString("00"), x, y + 44 * u, 13 * u, Palette.Ink);
             Text("YOUR NAME (UP TO 12 LETTERS). Only the name you type is sent: nothing identifies you.", x, y + 66 * u, 9.5f * u, Palette.Dim);
             field.fontSize = Mathf.RoundToInt(14 * u);
             GUI.SetNextControlName("postname");
@@ -102,8 +102,8 @@ namespace DoomsdayTunnels.UI
             bool enter = Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
             bool can = !Posting && PostName.Trim().Length > 0;
             if ((Button(new Rect(x + 232 * u, y + 84 * u, 90 * u, 30 * u), Posting ? "POSTING..." : "POST", can) || (enter && can)) && can)
-            { Posting = true; PostStatus = ""; PostScore?.Invoke(PostName.Trim()); }
-            if (!string.IsNullOrEmpty(PostStatus)) Text(PostStatus, x, y + 126 * u, 11 * u, PostedAs != null ? Palette.Gate : Palette.Warn);
+            { Posting = true; PostStatus = ""; if (PostIsDaily) PostDaily?.Invoke(PostName.Trim()); else PostScore?.Invoke(PostName.Trim()); }
+            if (!string.IsNullOrEmpty(PostStatus)) Text(PostStatus, x, y + 126 * u, 11 * u, Palette.Warn);
             Text("Posting is public and cannot be undone from the app. One best score per name.", x, cy0 + ch - 22 * u, 9 * u, Palette.Dim);
         }
     }
