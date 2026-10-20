@@ -139,7 +139,8 @@ namespace DoomsdayTunnels.UI
         void DrawReticle(Camera cam, Vector3 world, bool hot)
         {
             var p = cam.WorldToScreenPoint(world); if (p.z <= 0) return;
-            float gx = p.x, gy = H - p.y, r = 9 * u; var col = hot ? Palette.Warn : Palette.Ink;
+            var g = SafeArea.ToGui(new Vector2(p.x, p.y));                    // screen pixels to the HUD's safe-area coordinates
+            float gx = g.x, gy = g.y, r = 9 * u; var col = hot ? Palette.Warn : Palette.Ink;
             Box(gx - r, gy - u * 0.5f, r * 0.6f, u, col); Box(gx + r * 0.4f, gy - u * 0.5f, r * 0.6f, u, col);
             Box(gx - u * 0.5f, gy - r, u, r * 0.6f, col); Box(gx - u * 0.5f, gy + r * 0.4f, u, r * 0.6f, col);
         }

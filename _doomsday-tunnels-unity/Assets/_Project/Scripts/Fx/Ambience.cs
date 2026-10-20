@@ -16,7 +16,7 @@ namespace DoomsdayTunnels.Fx
         readonly System.Collections.Generic.List<GameObject> gate = new System.Collections.Generic.List<GameObject>();
         readonly System.Collections.Generic.List<(Renderer r, MaterialPropertyBlock b, int i)> strips = new System.Collections.Generic.List<(Renderer, MaterialPropertyBlock, int)>();
         Material gateBright, gateHue, portalMat; readonly System.Collections.Generic.List<Transform> portals = new System.Collections.Generic.List<Transform>();
-        static readonly int IntensityId = Shader.PropertyToID("_Intensity"), OpenId = Shader.PropertyToID("_Open"), SpinId = Shader.PropertyToID("_Spin"), ColorId = Shader.PropertyToID("_Color"), BrightId = Shader.PropertyToID("_Bright");
+        static readonly int IntensityId = Shader.PropertyToID("_Intensity"), OpenId = Shader.PropertyToID("_Open"), SpinId = Shader.PropertyToID("_Spin"), FlowId = Shader.PropertyToID("_Flow"), ColorId = Shader.PropertyToID("_Color"), BrightId = Shader.PropertyToID("_Bright");
         public float Open { get; private set; }     // how far the exit's iris has opened, 0..1
         public const float OpenFrom = 70f, OpenAt = 18f;   // metres from the exit where it starts to open, and is fully open
         const float GateRun = 44f;                     // the lit strips lead in over the last stretch
@@ -118,7 +118,7 @@ namespace DoomsdayTunnels.Fx
             glow.localScale = Vector3.one * Mathf.Lerp(3.4f, 6f, Mathf.Clamp01(1 - left / 120f)) * pulse;
             // the iris opens as the ship closes in, and spins faster as it does
             Open = Mathf.Clamp01((OpenFrom - left) / (OpenFrom - OpenAt));
-            if (portalMat) { portalMat.SetFloat(OpenId, Open); portalMat.SetFloat(SpinId, sim.Now * (0.4f + 1.2f * Open)); }
+            if (portalMat) { portalMat.SetFloat(OpenId, Open); portalMat.SetFloat(SpinId, Open * 1.1f); portalMat.SetFloat(FlowId, sim.Pz * 0.45f); }   // the blades turn only as they open; the rings move with the ribs
             glowMat.SetFloat(IntensityId, 1.6f * (1 - 0.85f * Open));          // the far glow gives way to the iris as it opens
             // the gate's strips chase toward the exit; the gate itself breathes
             foreach (var (r, b, i) in strips) { float k = reduceMotion ? 0.5f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(sim.Now * 6f - i * 0.7f), 3); b.SetFloat(IntensityId, 0.8f + 2.2f * k); r.SetPropertyBlock(b); }

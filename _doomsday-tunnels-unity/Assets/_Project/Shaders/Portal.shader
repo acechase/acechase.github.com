@@ -8,6 +8,7 @@ Shader "Doomsday/Portal"
         _Bright ("Bright colour", Color) = (1,1,1,1)
         _Open ("Open", Range(0,1)) = 0
         _Spin ("Spin", Float) = 0
+        _Flow ("Flow", Float) = 0
         _Blades ("Blades", Float) = 8
     }
     SubShader
@@ -27,22 +28,23 @@ Shader "Doomsday/Portal"
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; };
             CBUFFER_START(UnityPerMaterial)
-                float4 _Color; float4 _Bright; float _Open; float _Spin; float _Blades;
+                float4 _Color; float4 _Bright; float _Open; float _Spin; float _Blades; float _Flow;
             CBUFFER_END
             Varyings vert(Attributes v) { Varyings o; o.positionCS = TransformObjectToHClip(v.positionOS.xyz); o.uv = v.uv; return o; }
             half4 frag(Varyings i) : SV_Target
             {
                 float2 p = (i.uv - 0.5) * 2.0;                 // -1..1 across the quad; the tunnel's opening is the unit disc
                 float r = length(p), a = atan2(p.y, p.x);
-                float t = _Time.y;
                 // the iris: N blades, their inner edge a scalloped circle that grows with _Open and turns as it goes
                 float open = smoothstep(0.0, 1.0, _Open);
                 float edge = open * 1.6 * (1.0 + 0.07 * sin(_Blades * a - _Spin * 3.0));
                 float inside = smoothstep(edge, edge - 0.03, r);
                 // the vortex: rings rushing inward and spokes turning, on a dark field that glows toward the centre
                 float lr = log(max(r, 0.02));
-                float rings = smoothstep(0.40, 0.47, abs(frac(lr * 2.2 - t * 1.4) - 0.5));          // thin lines where the sawtooth wraps
-                float spokes = smoothstep(0.43, 0.49, abs(frac(a / 6.2831853 * 12.0 + t * 0.25 + lr * 0.6) - 0.5));
+                // the rings stream outward in step with the tunnel's own ribs (_Flow is distance flown); the spokes stand still,
+                // like the tunnel's rails, so the whole thing reads as the tunnel going on beyond the gate
+                float rings = smoothstep(0.40, 0.47, abs(frac(lr * 2.2 - _Flow) - 0.5));
+                float spokes = smoothstep(0.43, 0.49, abs(frac(a / 6.2831853 * 12.0) - 0.5));
                 float grid = max(rings, spokes) * smoothstep(0.0, 0.25, r);
                 float core = smoothstep(0.3, 0.0, r);
                 float3 vortex = _Color.rgb * (0.12 + grid * 1.5) + _Bright.rgb * core * 0.7;

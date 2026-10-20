@@ -64,7 +64,7 @@ namespace DoomsdayTunnels.UI
             if (t <= 0) return;
             float pop = ReduceMotion || t > 0.3f ? 1 : 1 + 0.8f * Mathf.Pow(1 - t / 0.3f, 2);
             float fs = size * pop; display.fontSize = Mathf.RoundToInt(fs); display.alignment = TextAnchor.MiddleCenter;
-            float w = display.CalcSize(new GUIContent(s)).x, h = fs * 1.6f, x0 = cx - w / 2, off = ReduceMotion ? 0 : (now * 0.3f) % 1;
+            float w = display.CalcSize(new GUIContent(s)).x + fs * 0.4f, h = fs * 1.8f, x0 = cx - w / 2, off = ReduceMotion ? 0 : (now * 0.3f) % 1;   // a little room round the letters so no band clips a glyph
             var prev = GUI.color; GUI.color = new Color(1, 1, 1, ReduceMotion ? 1 : Mathf.Min(1, t / 0.12f));
             // dark edge first, then the letters, one colour band at a time
             foreach (var (dx, dy) in new[] { (1f, 0f), (-1f, 0f), (0f, 1f), (0f, -1f), (1f, 1f), (-1f, -1f) }) { display.normal.textColor = Palette.Void; GUI.Label(new Rect(x0 + dx * 2 * u, cy - h / 2 + dy * 2 * u, w, h), s, display); }
