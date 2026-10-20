@@ -18,7 +18,7 @@ namespace DoomsdayTunnels.Fx
         Material gateBright, gateHue, portalMat; readonly System.Collections.Generic.List<Transform> portals = new System.Collections.Generic.List<Transform>();
         static readonly int IntensityId = Shader.PropertyToID("_Intensity"), OpenId = Shader.PropertyToID("_Open"), SpinId = Shader.PropertyToID("_Spin"), FlowId = Shader.PropertyToID("_Flow"), ColorId = Shader.PropertyToID("_Color"), BrightId = Shader.PropertyToID("_Bright");
         public float Open { get; private set; }     // how far the exit's iris has opened, 0..1
-        public static int Style;                     // which look the exit has: 0-3 the shader's styles, 4 a runway of arches with the iris, 5 a spinning ring with hyperspace
+        public static int Style = 4;                 // which look the exit has: 0-3 the shader's styles alone, 4 (the default) a runway of chaser arches into the hyperspace field, 5 a spinning ring round it
         readonly System.Collections.Generic.List<(Renderer r, MaterialPropertyBlock b, int i)> arches = new System.Collections.Generic.List<(Renderer, MaterialPropertyBlock, int)>();
         readonly System.Collections.Generic.List<Transform> rings = new System.Collections.Generic.List<Transform>();
         static readonly int StyleId = Shader.PropertyToID("_Style");
@@ -66,7 +66,7 @@ namespace DoomsdayTunnels.Fx
         public void BuildGate(Palette P, float len, TunnelPath path, bool forked)
         {
             foreach (var g in gate) if (g) Destroy(g); gate.Clear(); strips.Clear(); portals.Clear(); arches.Clear(); rings.Clear();
-            if (portalMat) { portalMat.SetColor(ColorId, P.Line); portalMat.SetColor(BrightId, Palette.Ink); portalMat.SetFloat(OpenId, 0); portalMat.SetFloat(StyleId, Style == 4 ? 0 : Style == 5 ? 3 : Style); }
+            if (portalMat) { portalMat.SetColor(ColorId, P.Line); portalMat.SetColor(BrightId, Palette.Ink); portalMat.SetFloat(OpenId, 0); portalMat.SetFloat(StyleId, Style >= 4 ? 3 : Style); }
             Open = 0;
             if (gateBright) Destroy(gateBright); if (gateHue) Destroy(gateHue);
             gateBright = new Material(unlitBase); gateBright.SetColor(TintId, Palette.Ink); gateBright.SetFloat(IntensityId, 2.2f); gateBright.SetFloat("_FogAmount", 0f); gateBright.SetFloat("_Lit", 0f);
@@ -85,7 +85,8 @@ namespace DoomsdayTunnels.Fx
                     portals.Add(q.transform);
                 }
                 Frame(root, G.HW + 0.1f, G.HH + 0.1f, 0.14f, gateBright);
-                if (Style != 5) { Frame(root, G.HW + 0.42f, G.HH + 0.42f, 0.1f, gateHue); Frame(root, G.HW + 0.75f, G.HH + 0.75f, 0.07f, gateHue); }
+                if (Style < 4) { Frame(root, G.HW + 0.42f, G.HH + 0.42f, 0.1f, gateHue); Frame(root, G.HW + 0.75f, G.HH + 0.75f, 0.07f, gateHue); }
+                else Frame(root, G.HW + 0.4f, G.HH + 0.4f, 0.1f, gateHue);
                 gate.Add(root.gameObject);
                 if (Style == 4)
                 {   // a runway of glowing arches over the last stretch, each lit in turn toward the exit

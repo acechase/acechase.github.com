@@ -103,9 +103,10 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
 - The ship (`Fx/ShipMesh.cs`) is built from code: a lofted fuselage with a canopy, swept wings with tip fins, a tail
   fin and twin engine nacelles with nozzle rings, each with a flare and a hot core that stretch under boost; its edges
   are a separate line mesh, the neon outline that is all a ghost shows. `-shotship` frames it from several angles.
-- The exit is a portal (`Shaders/Portal.shader`): an iris of eight blades across the end of the tunnel that kaleidoscopes
-  open over the last 70 m, revealing a vortex of grid rings and spokes rushing inward in the sector's colour, with a
-  rising sound as it starts to open. A wall hit freezes the world for a beat, knocks the hull back, flashes the screen
+- The exit (`Shaders/Portal.shader`, `Fx/Ambience.BuildGate`): a runway of seven glowing arches over the last 42 m, each
+  lit in turn toward the gate, ending in a hyperspace field, a dark panel with streaks of light racing out of its
+  centre that lengthen and multiply as the ship closes in, with a rising sound. Other looks (an iris and vortex, an
+  energy membrane, hangar doors, a spinning ring) are kept behind the `-gate N` flag. A wall hit freezes the world for a beat, knocks the hull back, flashes the screen
   and the slab, and throws sparks and chunks, on every bounce. A TITLE button on the pause, clear and over screens goes
   back to the menu (and the daily sector).
 - Discs, rings, arcs and capped strokes in the HUD go through IMGUI's anti-aliased rounded-rectangle path
