@@ -154,7 +154,7 @@ namespace DoomsdayTunnels.UI
                 Text(input.TouchUI && input.TiltActive ? "TILT STEERS  /  LEFT THUMB AIMS  /  RIGHT THUMB FIRES" : input.TouchUI ? "LEFT THUMB STEERS  /  RIGHT THUMB FIRES  /  BOOST FOR SPEED" : "ARROWS OR WASD STEER  /  SPACE FIRES  /  SHIFT BOOSTS", cx, cy + 62 * u, Mathf.Min(12 * u, W * 0.02f), Palette.Dim, TextAnchor.MiddleCenter);
                 if (blink) Text(go + " TO LAUNCH", cx, cy + 104 * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
                 if (g.Best > 0) Text("BEST " + g.Best.ToString("000000"), cx, cy + 136 * u, 13 * u, Palette.Dim, TextAnchor.MiddleCenter);
-                Text("MILESTONE 2 BUILD", W - 16 * u, H - 20 * u, 10 * u, Palette.Dim, TextAnchor.MiddleRight);
+                Text("MILESTONE 3 BUILD", W - 16 * u, H - 20 * u, 10 * u, Palette.Dim, TextAnchor.MiddleRight);
             }
             else if (state == GameState.Clear)
             {

@@ -85,6 +85,25 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
 ```
 
+## The look
+
+Milestone 3 is the high-end pass, all of it cosmetic so sector times stay comparable:
+
+- `Shaders/Unlit.shader` takes up to eight of the game's own point lights as global arrays (`Fx/DynamicLights.cs`):
+  explosions and impacts flash, shots glow as they fly, the ship's engine and the ship token shine. A light brightens
+  a surface in its own colour, so the flat neon look survives.
+- `Fx/ShipView.cs` is the ship the web game never showed, a dart with glowing edges that bank into turns, an engine
+  flare that stretches under boost, edges that redden as the shield drains and sparks when it is nearly gone.
+  `Fx/CameraRig.cs` is a chase camera on a soft arm behind it, with spring-mounted kicks away from scraped walls.
+- `Fx/DebrisSim.cs` shatters gates, mines and the ship into chunks that tumble, fall and bounce off the real tunnel
+  box, in tunnel coordinates, with no colliders. `Fx/Shockwaves.cs` draws the rings. Mines nudged by a near miss
+  swing on a spring; the token wobbles.
+- `Fx/Ambience.cs` is the exit glow at the far end, the dust motes that give speed something to be measured
+  against, and the streaks that rush past the lens under boost. `Fx/PostFx.cs` drives bloom, the chromatic
+  aberration that creeps in under boost and spikes on a hit, and the vignette that closes in on a low shield.
+- `Core/Quality.cs` picks a tier from the device (iPhone generation from the model string, memory elsewhere) and
+  sizes bloom, the light count, the debris cap, the motes and the render scale to it. The tier is logged at start.
+
 ## Settings, sound and what is saved
 
 The TUNE button on the title, pause, sector-clear and game-over screens opens CONTROLS AND FEEL: thumb stick or

@@ -43,6 +43,10 @@ namespace DoomsdayTunnels
         readonly Hud hud = new Hud();
         readonly InputReader input = new InputReader();
         TunnelView tunnel; BulletPool bullets; Sparks sparks; CameraRig rig; Transform hazardRoot; GameAudio audio;
+        ShipView ship; DebrisView debris; Shockwaves shocks; Ambience ambience; PostFx post;
+        readonly DynamicLights lights = new DynamicLights();
+        public Quality Quality { get; private set; }
+        Palette pal;                                // the palette of the tunnel the ship is in (a branch's after the fork)
         SimInput latest; int level = 1;
 
         void Awake()
@@ -58,6 +62,12 @@ namespace DoomsdayTunnels
             bullets = new GameObject("Shots").AddComponent<BulletPool>(); bullets.Init(Unlit, Additive, Color.white);
             sparks = new GameObject("Sparks").AddComponent<Sparks>(); sparks.Init(Additive, cam);
             audio = new GameObject("Audio").AddComponent<GameAudio>(); audio.Muted = !S.Sound;
+            Quality = Quality.Detect(); lights.Budget = Quality.Lights; post = new PostFx(Quality);
+            Debug.Log("[Doomsday] Quality " + Quality.Tier + " on " + SystemInfo.deviceModel);
+            ship = new GameObject("Ship").AddComponent<ShipView>(); ship.Init(Unlit, Additive);
+            debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
+            shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
+            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, cam, Quality);
             scene.Sound = n => audio.Play(n);
             ApplySettings();
             Attract();
@@ -115,7 +125,7 @@ namespace DoomsdayTunnels
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
         {
-            hud.ReduceMotion = S.ReduceMotion; if (rig) rig.ReduceMotion = S.ReduceMotion;
+            hud.ReduceMotion = S.ReduceMotion; if (rig) rig.ReduceMotion = S.ReduceMotion; if (post != null) post.ReduceMotion = S.ReduceMotion;
             if (audio) audio.Muted = !S.Sound;
             if (S.Steer == SteerMode.Tilt) { input.Tilt.Enable(); input.Tilt.NeedCal = true; }
         }
@@ -129,7 +139,8 @@ namespace DoomsdayTunnels
             hazards.Clear();
             foreach (var o in lv.Objs) hazards.Add(HazardView.Create(o, sim.Path, Unlit, o.Branch >= 0 ? lv.Fork.Pal[o.Branch] : lv.Pal, hazardRoot));
             bullets.SetLineColor(lv.Pal.Line);
-            rig.Cam.backgroundColor = lv.Pal.Haze;
+            rig.Cam.backgroundColor = lv.Pal.Haze; pal = lv.Pal;
+            ambience.SetSector(lv.Pal, lv.Length); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
         }
 
         void Attract() { level = 1; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
@@ -181,10 +192,21 @@ namespace DoomsdayTunnels
             panelWas = hud.PanelOpen;
             if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
-            foreach (var h in hazards) h.Tick(sim.Now, sim.Pz);
+            foreach (var h in hazards) h.Tick(sim.Now, sim.Pz, sim.Rx, sim.Ry);
             bullets.Sync(sim, sim.Path);
             rig.Place(sim, sim.Path, S.Tune.Sway, dt);
+            ship.Place(sim, sim.Path, pal.Line, pal.Haze, dt, sparks);
             audio.Engine(State == GameState.Play && !Paused, sim.Speed, sim.BoostEase, dt);
+            // the game's lights: the engine, the shots in flight, the ship token, and whatever is flashing
+            lights.BeginFrame();
+            if (ship.gameObject.activeSelf) lights.Hold(ship.EnginePos, pal.Line, 2.6f, 0.25f + 0.5f * sim.BoostEase);
+            for (int i = 0; i < sim.Bullets.Count && i < 4; i++) { var b = sim.Bullets[i]; lights.Hold(sim.Path.World(b.X, b.Y, b.Z + 1.3f, b.Branch), pal.Line, 1.8f, 0.22f); }
+            foreach (var h in hazards) if (h.Obj.Kind == ObjKind.Ship && !h.Obj.Taken && !h.Dropped && h.gameObject.activeSelf) lights.Hold(h.transform.position, Palette.Pick, 4f, 0.7f + 0.25f * Mathf.Sin(sim.Now * 5));
+            lights.Tick(dt); lights.Apply(rig.transform.position);
+            debris.Sim.Tick(dt, (z, br) => br >= 0 ? G.HW : sim.Path.BuiltHalfWidth(z)); debris.Sync(sim.Path);
+            shocks.Tick(dt);
+            ambience.Tick(sim, sim.Path, dt, S.ReduceMotion);
+            post.Tick(sim.BoostEase, State == GameState.Play ? sim.Shield : 100, dt);
         }
         bool panelWas;
 
@@ -201,9 +223,9 @@ namespace DoomsdayTunnels
 
         static readonly Dictionary<SimEventKind, string> Sounds = new Dictionary<SimEventKind, string>
         {
-            { SimEventKind.Laser, "laser" }, { SimEventKind.Tink, "tink" }, { SimEventKind.Boom, "boom" }, { SimEventKind.Hit, "hit" },
+            { SimEventKind.Laser, "laser" }, { SimEventKind.Tink, "tink" }, { SimEventKind.Boom, "boom" },
             { SimEventKind.Pick, "pick" }, { SimEventKind.Refuel, "refuel" }, { SimEventKind.Clear, "clear" }, { SimEventKind.Beep, "beep" },
-            { SimEventKind.Scrape, "scrape" }, { SimEventKind.BoostOn, "boostOn" }, { SimEventKind.BoostOff, "boostOff" }, { SimEventKind.BoostDry, "boostDry" },
+            { SimEventKind.BoostOn, "boostOn" }, { SimEventKind.BoostOff, "boostOff" }, { SimEventKind.BoostDry, "boostDry" },
         };
 
         void Drain()
@@ -213,7 +235,16 @@ namespace DoomsdayTunnels
                 switch (e.Kind)
                 {
                     case SimEventKind.Popup: hud.Popups.Add(new Hud.Popup { Text = e.Text }); break;
-                    case SimEventKind.Burst: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); sparks.Burst(at, e.Color, e.Count, 3f); if (e.Count >= 12) sparks.Burst(at, Palette.Ink, e.Count / 2, 4f); break; }
+                    case SimEventKind.Burst:
+                        {
+                            var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); sparks.Burst(at, e.Color, e.Count, 3f);
+                            if (e.Count >= 12) { sparks.Burst(at, Palette.Ink, e.Count / 2, 4f); debris.Sim.Burst(e.X, e.Y, e.Z, e.Branch, e.Count / 2, e.Color, 0.16f, 7f); }
+                            else if (e.Count >= 4) lights.Flash(at, e.Color, 2.5f, 0.8f, 0.15f);
+                            break;
+                        }
+                    case SimEventKind.Shock: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); shocks.Add(at, e.Color); lights.Flash(at, e.Color, 7f, 2f, 0.4f); break; }
+                    case SimEventKind.Hit: audio.Play("hit"); post.Hit(1f); rig.Impulse(new Vector2(Random.value - 0.5f, Random.value - 0.5f).normalized, 0.9f); break;
+                    case SimEventKind.Scrape: audio.Play("scrape"); rig.Impulse(new Vector2(-sim.ScrapeX, sim.ScrapeY), 0.35f); post.Hit(0.3f); break;
                     case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
@@ -230,7 +261,8 @@ namespace DoomsdayTunnels
         void OnFork(int side)
         {
             var P = sim.Sector.Fork.Pal[side];
-            rig.Cam.backgroundColor = P.Haze; bullets.SetLineColor(P.Line);
+            rig.Cam.backgroundColor = P.Haze; bullets.SetLineColor(P.Line); pal = P;
+            ambience.SetPalette(P); debris.Sim.DropBranch(side); debris.SetHaze(P.Haze);
             foreach (var h in hazards) if (h.Obj.Branch >= 0 && h.Obj.Branch != side) h.Dropped = true;
         }
 
@@ -246,8 +278,14 @@ namespace DoomsdayTunnels
         // Losing a ship: with a spare in hand the run carries on, otherwise it is game over.
         void LoseShip(SimEventKind why)
         {
-            hud.Flash = 1; hud.FlashColor = Palette.Warn; rig.Shake = 1; audio.Play("boom");
+            hud.Flash = 1; hud.FlashColor = Palette.Warn; rig.Shake = 1; audio.Play("boom"); post.Hit(1.5f);
             sparks.ScreenBurst(0, 0, Palette.Warn, 40); sparks.ScreenBurst(0, 0, Palette.Ink, 20);
+            if (why == SimEventKind.ShipLost)
+            {   // the ship comes apart: hull chunks, a shockwave and a flash where it was
+                var at = sim.Path.World(sim.Rx, sim.Ry, sim.Pz); sparks.Burst(at, Palette.Warn, 30, 5f); sparks.Burst(at, Palette.Ink, 20, 6f);
+                debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 18, Palette.Ink, 0.14f, 3f); debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 8, Palette.Warn, 0.1f, 3f);
+                shocks.Add(at, Palette.Warn, 4f, 0.6f); lights.Flash(at, Palette.Warn, 10f, 4f, 0.6f);
+            }
             if (sim.Lives <= 0) { GameOver(why); return; }
             sim.Lives--; RespawnWhy = why; State = GameState.Respawn; StateT = 0;
             DeadQuip = Quips.Pick(why == SimEventKind.ShipLost ? Quips.SpareShip : Quips.SpareTime);
