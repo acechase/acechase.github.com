@@ -173,9 +173,9 @@ namespace DoomsdayTunnels.Flight
         {
             bool first = !o.Hit; o.Bounces++; o.Version++;
             if (first) { o.Hit = true; if (Invuln > 0) { Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Ink, 10)); } else { Shield -= G.WallHit; Events.Add(SimEvent.Of(SimEventKind.Hit)); Events.Add(SimEvent.At(SimEventKind.Flash, 0, 0, 0, Palette.Warn, 0)); Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Warn, 30)); } }
-            else Events.Add(SimEvent.Of(SimEventKind.Tink));
+            else { Events.Add(SimEvent.Of(SimEventKind.Tink)); Events.Add(SimEvent.At(SimEventKind.Flash, 0, 0, 0, Palette.Warn, 0)); Events.Add(SimEvent.At(SimEventKind.ScreenBurst, 0, 0, 0, Palette.Warn, 16)); }
             Events.Add(SimEvent.Of(SimEventKind.Shake)); Events.Add(SimEvent.At(SimEventKind.Shock, Rx, Ry, o.Z - 0.1f, Palette.Warn, 0, Path.Chosen));
-            Events.Add(SimEvent.At(SimEventKind.Burst, Rx, Ry, o.Z - 0.1f, Palette.Warn, first ? 14 : 6, Path.Chosen));
+            Events.Add(SimEvent.At(SimEventKind.Burst, Rx, Ry, o.Z - 0.1f, Palette.Warn, first ? 18 : 12, Path.Chosen));
             Pz = o.Z - G.BounceBack;
             Speed = -Math.Max(G.BounceRecoil, Speed * 0.3f);
             // shove toward the nearest open edge of the slab (never toward the tunnel wall behind it)

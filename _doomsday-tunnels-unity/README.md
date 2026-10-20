@@ -100,6 +100,14 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
 - Everything on screen is sized in the web game's unit, the screen height in points over 400 (`UI/SafeArea.U`), scaled
   back to device pixels through `Screen.dpi`, so text on a 3x phone is the size the web game draws it, not a third.
+- The ship (`Fx/ShipMesh.cs`) is built from code: a lofted fuselage with a canopy, swept wings with tip fins, a tail
+  fin and twin engine nacelles with nozzle rings, each with a flare and a hot core that stretch under boost; its edges
+  are a separate line mesh, the neon outline that is all a ghost shows. `-shotship` frames it from several angles.
+- The exit is a portal (`Shaders/Portal.shader`): an iris of eight blades across the end of the tunnel that kaleidoscopes
+  open over the last 70 m, revealing a vortex of grid rings and spokes rushing inward in the sector's colour, with a
+  rising sound as it starts to open. A wall hit freezes the world for a beat, knocks the hull back, flashes the screen
+  and the slab, and throws sparks and chunks, on every bounce. A TITLE button on the pause, clear and over screens goes
+  back to the menu (and the daily sector).
 - Discs, rings, arcs and capped strokes in the HUD go through IMGUI's anti-aliased rounded-rectangle path
   (`Disc`, `Circle`, `RoundBox` in `UI/Hud.cs`), not pixel boxes, so the thumb gauges have clean edges.
 - A wall hit is unmistakable: the ship's nose is held touching the slab, the hull is knocked back and tumbles on a

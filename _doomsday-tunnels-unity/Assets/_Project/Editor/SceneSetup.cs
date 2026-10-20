@@ -17,6 +17,7 @@ namespace DoomsdayTunnels.EditorTools
         {
             var unlit = Material("Assets/_Project/Materials/Unlit.mat", "Doomsday/Unlit");
             var additive = Material("Assets/_Project/Materials/UnlitAdd.mat", "Doomsday/UnlitAdd");
+            var portal = Material("Assets/_Project/Materials/Portal.mat", "Doomsday/Portal");
             var profile = Profile("Assets/_Project/Settings/MainVolume.asset");
             foreach (var guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset", new[] { "Assets/_Project/Settings" }))
             {
@@ -39,7 +40,7 @@ namespace DoomsdayTunnels.EditorTools
 
             var game = new GameObject("Game");
             var director = game.AddComponent<GameDirector>();
-            director.Unlit = unlit; director.Additive = additive;
+            director.Unlit = unlit; director.Additive = additive; director.Portal = portal;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

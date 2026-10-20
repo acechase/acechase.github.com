@@ -51,6 +51,7 @@ namespace DoomsdayTunnels.Audio
                 case "boostDry": return P().T(Wave.Square, 150, 110, 0.07f, 0.1f).T(Wave.Square, 150, 110, 0.07f, 0.1f, 0.11f);
                 case "refuel": return Seq(Wave.Triangle, new float[] { 440, 660, 880, 1320 }, 0.09f, 0.14f, 0.06f);
                 // cut scenes
+                case "portal": return P().N(1.4f, 0.22f, 1200).T(Wave.Sawtooth, 60, 420, 1.3f, 0.09f).T(Wave.Sine, 220, 880, 1.3f, 0.06f, 0.2f);   // the iris opening
                 case "static": return P().N(0.12f, 0.1f, 4000);
                 case "thunder": return P().N(0.7f, 0.5f, 260).T(Wave.Sawtooth, 70, 40, 0.5f, 0.15f);
                 case "sting": return P().T(Wave.Sawtooth, 196, 196, 0.16f, 0.1f).T(Wave.Sawtooth, 185, 185, 0.16f, 0.1f, 0.2f).T(Wave.Sawtooth, 147, 140, 0.7f, 0.13f, 0.4f);

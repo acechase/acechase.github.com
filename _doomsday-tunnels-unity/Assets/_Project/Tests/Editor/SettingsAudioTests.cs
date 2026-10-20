@@ -115,7 +115,7 @@ namespace DoomsdayTunnels.Tests
         static readonly string[] AllSounds =
         {
             "laser", "boom", "hit", "tink", "pick", "scrape", "clear", "beep", "boostOn", "boostOff", "boostDry", "refuel",
-            "static", "thunder", "sting", "fanfare", "villain", "hero", "morse", "phone", "mother", "laugh", "snip", "cheerSmall", "cheerBig", "cheerGrand",
+            "portal", "static", "thunder", "sting", "fanfare", "villain", "hero", "morse", "phone", "mother", "laugh", "snip", "cheerSmall", "cheerBig", "cheerGrand",
         };
 
         [Test]
