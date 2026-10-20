@@ -88,6 +88,11 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
 ```
 
+## What differs from the web game
+
+- Red walls are solid. The web game lets the ship punch through for a shield hit; here it bounces off, is shoved
+  toward the nearest gap, and has to pick its speed back up (boost helps). Only the first hit on a wall costs shield.
+
 ## The look
 
 Milestone 3 is the high-end pass, all of it cosmetic so sector times stay comparable:
