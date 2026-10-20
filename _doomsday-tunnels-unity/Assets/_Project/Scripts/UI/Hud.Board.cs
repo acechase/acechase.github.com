@@ -18,7 +18,7 @@ namespace DoomsdayTunnels.UI
         public Action FetchBoard; public Action<string> PostScore;          // wired by the game
         GUIStyle field;
 
-        static Rect ScoresRect(float w, float h, float u) => new Rect(110 * u, h - 46 * u, 96 * u, 30 * u);
+        static Rect ScoresRect(float w, float h, float u) => new Rect(64 * u, h - 46 * u, 96 * u, 30 * u);
         static Rect PostRect(float w, float h, float u) => new Rect(w / 2 - 70 * u, h / 2 + 40 * u, 140 * u, 30 * u);
         public bool ScoresHit(Vector2 screenPos) => Hit(screenPos, ScoresRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
         public bool PostHit(Vector2 screenPos) => Hit(screenPos, PostRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);

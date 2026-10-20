@@ -17,7 +17,7 @@ namespace DoomsdayTunnels.Input
         public readonly TiltReader Tilt = new TiltReader();
         public bool TouchUI;                    // a touch has been seen: draw the thumb controls
         public bool StickDown; public Vector2 StickAnchor, StickPos; public Vector2 Stick;    // stick in -1..1
-        public bool FireDown, BoostDown;
+        public bool FireDown, BoostDown;                        // set by the touch code; the screenshot run sets them too
         int stickId = -1, fireId = -1, boostId = -1;
         public float U => Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);     // the web game's size unit
         public float StickRadius => 74f * U;

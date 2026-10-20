@@ -15,7 +15,7 @@ namespace DoomsdayTunnels.UI
         public Action FetchDaily; public Action<string> PostDaily;          // wired by the game
         public bool PostIsDaily;                                            // the post card is posting a daily time, not a score
 
-        static Rect DailyRect(float w, float h, float u) => new Rect(214 * u, h - 46 * u, 96 * u, 30 * u);
+        static Rect DailyRect(float w, float h, float u) => new Rect(168 * u, h - 46 * u, 96 * u, 30 * u);
         static Rect DailyPostRect(float w, float h, float u) => new Rect(w / 2 - 150 * u, h / 2 + 62 * u, 140 * u, 30 * u);
         static Rect DailyTimesRect(float w, float h, float u) => new Rect(w / 2 + 10 * u, h / 2 + 62 * u, 140 * u, 30 * u);
         static float U() => Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);

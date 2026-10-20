@@ -103,6 +103,9 @@ namespace DoomsdayTunnels.Core
         public string Ghost(int sector) { var s = store.GetString("ghost." + sector, ""); return s.Length > 0 ? s : null; }
         public void SaveGhost(int sector, string log) { store.SetString("ghost." + sector, log); store.Save(); }
 
+        /// <summary>Forgets a sector's time (used by the screenshot runs to stage a personal best).</summary>
+        public void ForgetTime(int sector) { store.SetFloat("pb." + sector, 0f); store.Save(); }
+
         /// <summary>The fastest fair time flown through a sector on this device, or 0.</summary>
         public float BestTime(int sector) => store.GetFloat("pb." + sector, 0f);
         /// <summary>Records a sector time; true when it is a new personal best. Only fair-speed runs count.</summary>

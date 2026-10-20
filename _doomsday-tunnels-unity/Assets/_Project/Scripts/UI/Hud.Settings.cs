@@ -15,7 +15,9 @@ namespace DoomsdayTunnels.UI
         public bool PanelChanged;                       // something was set while the panel was up: save on close
         GUIStyle thumb, track;
 
-        static Rect TuneRect(float w, float h, float u) => new Rect(16 * u, h - 46 * u, 84 * u, 30 * u);
+        static Rect TuneRect(float w, float h, float u) => new Rect(16 * u, h - 50 * u, 38 * u, 38 * u);
+        static Rect MuteRect(float w, float h, float u) => new Rect(w - 54 * u, 12 * u, 38 * u, 38 * u);
+        public bool MuteHit(Vector2 screenPos) => Hit(screenPos, MuteRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
         static Rect PauseRect(float w, float u) => new Rect(w - 48 * u, 10 * u, 38 * u, 38 * u);
 
         /// <summary>The pause button in Unity screen coordinates (y up), for the input reader to keep clear of.</summary>
@@ -34,9 +36,18 @@ namespace DoomsdayTunnels.UI
 
         void DrawTuneButton()
         {
-            var r = TuneRect(W, H, u);
-            Box(r.x, r.y, r.width, r.height, Palette.Void, 0.5f); Outline(r, Palette.Ink, u);
-            Text("TUNE", r.center.x, r.center.y, 12 * u, Palette.Ink, TextAnchor.MiddleCenter);
+            var r = TuneRect(W, H, u); float rad = r.width / 2;
+            Ring(r.center, rad, Palette.Void, 0.5f); DashedRing(r.center, rad, Palette.Ink, 0.9f, 0); GearIcon(r.center, rad * 0.75f);
+        }
+        void DrawMuteButton(bool sound)
+        {
+            var r = MuteRect(W, H, u); float rad = r.width / 2;
+            Ring(r.center, rad, sound ? Palette.Ink : Palette.Void, 0.5f); DashedRing(r.center, rad, Palette.Ink, 0.9f, 0); SpeakerIcon(r.center, rad * 0.8f, !sound);
+        }
+        void BrokenBar(float x, float y, float w, float h, float t)
+        {
+            Text("SHIELD", x, y - 13 * u, 11 * u, Palette.Warn);
+            for (int i = 0; i < 5; i++) { float f = i / 5f, drop = Mathf.Min(t, 1.5f) * (8 + 14 * ((i * 7) % 5) / 5f) * u, dx = (i - 2) * Mathf.Min(t, 1.5f) * 3 * u; Box(x + w * f + dx + u, y + drop, w / 5 - 2 * u, h, Palette.Warn, Mathf.Clamp01(1 - t / 2.5f)); }
         }
 
         void DrawPauseButton()

@@ -28,7 +28,9 @@ namespace DoomsdayTunnels.UI
             {
                 mono = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.UpperLeft, richText = false };
                 mono.normal.textColor = Palette.Ink;
+                var monoFont = Resources.Load<Font>("Fonts/ShareTechMono-Regular"); if (monoFont) mono.font = monoFont;     // the web game's two faces
                 display = new GUIStyle(mono) { fontStyle = FontStyle.Bold };
+                var dispFont = Resources.Load<Font>("Fonts/Syncopate-Bold"); if (dispFont) { display.font = dispFont; display.fontStyle = FontStyle.Normal; }
                 small = new GUIStyle(mono);
                 circle = new Texture2D(64, 64, TextureFormat.RGBA32, false);
                 for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
@@ -69,6 +71,8 @@ namespace DoomsdayTunnels.UI
             float m = 14 * u, x0 = m;
             var state = g.State;
             if (state == GameState.Scene && g.Scene.Active) { DrawScene(g.Scene, input, Time.time); return; }
+            float now = Time.time;
+            if (g.Attract) { DrawControls(sim, input, state, now); DrawOverlay(g, sim, input); if (PanelOpen) DrawPanel(g.S, input); return; }   // the demo: the title over a sector being flown
             if (Flash > 0 && !ReduceMotion) Box(0, 0, W, H, FlashColor, Flash * 0.35f);
             if (sim.Invuln > 0 && state == GameState.Play)
             {
@@ -84,6 +88,7 @@ namespace DoomsdayTunnels.UI
 
             if (state != GameState.Title && state != GameState.Clear)
             {
+                bool bars = !input.TouchUI;                                   // on a touch screen the buttons are the gauges
                 Text("SECTOR " + sim.Sector.N.ToString("00"), x0, m, 12 * u, Palette.Dim);
                 if (g.GhostTime > 0 && state == GameState.Play) Text("GHOST " + g.GhostTime.ToString("0.0") + (sim.SectorT > g.GhostTime ? "  BEHIND" : ""), x0 + 78 * u + (sim.GainN > 0 && sim.Now - sim.GainT < 1.7f ? 46 * u : 0), m, 10 * u, Palette.Dim);
                 float ga = sim.Now - sim.GainT; bool gaining = sim.GainN > 0 && ga < 1.7f;
@@ -95,11 +100,12 @@ namespace DoomsdayTunnels.UI
                     Box(x0 + 92 * u + i * 15 * u, m + 19 * u, 10 * u, 12 * u, Palette.Ink);
                 }
                 bool low = sim.Shield < 30, crit = sim.Shield > 0 && sim.Shield <= G.LowShield;
-                Bar(x0, m + 58 * u, 112 * u, 7 * u, sim.Shield / 100f, low ? Palette.Warn : sim.Sector.Hue, low ? Palette.Warn : Palette.Ink, crit ? "SHIELD LOW" : "SHIELD", crit ? Palette.Warn : Palette.Dim);
+                if (sim.Shield <= 0) BrokenBar(x0, m + 58 * u, 112 * u, 7 * u, g.StateT);     // the shield gave out: the bar breaks into pieces
+                else Bar(x0, m + 58 * u, 112 * u, 7 * u, sim.Shield / 100f, low ? Palette.Warn : sim.Sector.Hue, low ? Palette.Warn : Palette.Ink, crit ? "SHIELD LOW" : "SHIELD", crit ? Palette.Warn : Palette.Dim);
                 bool dry = sim.BoostFuel <= 0;
-                Bar(x0, m + 87 * u, 112 * u, 7 * u, sim.BoostFuel, Palette.Ink, dry ? Palette.Dim : Palette.Ink, dry ? "BOOST EMPTY" : sim.Boosting ? "BOOST ON" : "BOOST", sim.Boosting ? Palette.Ink : Palette.Dim);
+                if (bars) Bar(x0, m + 87 * u, 112 * u, 7 * u, sim.BoostFuel, Palette.Ink, dry ? Palette.Dim : Palette.Ink, dry ? "BOOST EMPTY" : sim.Boosting ? "BOOST ON" : "BOOST", sim.Boosting ? Palette.Ink : Palette.Dim);
                 bool warm = sim.GunHeat > 0.7f;
-                Bar(x0, m + 116 * u, 112 * u, 7 * u, sim.GunHeat, sim.GunHot || warm ? Palette.Warn : Palette.Ink, sim.GunHot || warm ? Palette.Warn : Palette.Ink, sim.GunHot ? "GUNS OVERHEATED" : "GUNS", sim.GunHot ? Palette.Warn : Palette.Dim);
+                if (bars) Bar(x0, m + 116 * u, 112 * u, 7 * u, sim.GunHeat, sim.GunHot || warm ? Palette.Warn : Palette.Ink, sim.GunHot || warm ? Palette.Warn : Palette.Ink, sim.GunHot ? "GUNS OVERHEATED" : "GUNS", sim.GunHot ? Palette.Warn : Palette.Dim);
 
                 bool urgent = sim.Time < 10, blink = urgent && (sim.Now * 4) % 1 < 0.5f;
                 Text("DETONATION IN", W / 2, m, 11 * u, urgent ? Palette.Warn : Palette.Dim, TextAnchor.UpperCenter);
@@ -110,9 +116,10 @@ namespace DoomsdayTunnels.UI
                 for (int i = 0; i < Popups.Count; i++) { var p = Popups[i]; var c = Palette.Pick; c.a = Mathf.Clamp01(1 - p.T / 1.2f); Text(p.Text, W / 2, H * 0.3f - p.T * 34 * u, 18 * u, c, TextAnchor.MiddleCenter); }
             }
             if (state == GameState.Play && !g.Paused && input.TiltActive) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);
-            DrawControls(sim, input, state);
+            DrawControls(sim, input, state, now);
             if (state == GameState.Play && !g.Paused && input.TouchUI) DrawPauseButton();
             DrawOverlay(g, sim, input);
+            if (state != GameState.Play) DrawConfetti(now);
             if (PanelOpen) DrawPanel(g.S, input);
             else if (BoardOpen) DrawBoard();
             else if (PostOpen) DrawPost((int)sim.Score, sim.Sector.N, g.DailyDay, g.Bonus.SectorTime);
@@ -136,11 +143,12 @@ namespace DoomsdayTunnels.UI
 
         void DrawOverlay(GameDirector g, FlightSim sim, InputReader input)
         {
-            var state = g.State; if (state == GameState.Play && !g.Paused) return;
-            float cx = W / 2, cy = H / 2, big = Mathf.Min(44 * u, W * 0.06f); bool blink = (sim.Now * 1.6f) % 1 < 0.65f;
+            var state = g.State; if (state == GameState.Play && !g.Paused && !g.Attract) return;
+            float cx = W / 2, cy = H / 2, big = Mathf.Min(44 * u, W * 0.06f); bool blink = (sim.Now * 1.6f) % 1 < 0.65f; float now = Time.time;
             string go = input.TouchUI ? "TAP" : "PRESS SPACE";
-            Box(0, 0, W, H, Palette.Void, state == GameState.Title ? 0.4f : 0.55f);
-            if (state != GameState.Respawn) DrawTuneButton();
+            Box(0, 0, W, H, Palette.Void, g.Attract ? 0.65f : state == GameState.Title ? 0.4f : 0.55f);
+            if (g.Attract) { state = GameState.Title; }
+            if (state != GameState.Respawn) { DrawTuneButton(); DrawMuteButton(g.S.Sound); }
             if (g.Online && (state == GameState.Title || state == GameState.Over)) DrawScoresButton();
             if (state == GameState.Title) DrawDailyButton();
             if (state == GameState.Play) { Text("PAUSED", cx, cy - 10 * u, big * 0.8f, Palette.Ink, TextAnchor.MiddleCenter, true); Text(go + " TO RESUME", cx, cy + 34 * u, 15 * u, Palette.Dim, TextAnchor.MiddleCenter); return; }
@@ -167,7 +175,10 @@ namespace DoomsdayTunnels.UI
             {
                 var b = g.Bonus;
                 Text("SECTOR " + b.Sector.ToString("00") + " CLEAR", cx, cy - 84 * u, big * 0.75f, Palette.Ink, TextAnchor.MiddleCenter, true);
-                Text("SECTOR TIME " + b.SectorTime.ToString("0.0") + (g.ClearPB ? "   PERSONAL BEST" : ""), cx, cy - 48 * u, 16 * u, g.ClearPB ? Palette.Gate : Palette.Ink, TextAnchor.MiddleCenter);
+                if (g.ClearTier >= 2) { Cheer(g.ClearPlace + " ON RECORD", cx, cy - 50 * u, Mathf.Min(17 * u, W * 0.028f), g.StateT - 0.1f, now); Text("SECTOR TIME " + b.SectorTime.ToString("0.0"), cx, cy - 28 * u, 13 * u, Palette.Ink, TextAnchor.MiddleCenter); }
+                else if (g.ClearTier == 1) Cheer("PERSONAL BEST  " + b.SectorTime.ToString("0.0"), cx, cy - 50 * u, Mathf.Min(17 * u, W * 0.028f), g.StateT - 0.5f, now);
+                else Text("SECTOR TIME " + b.SectorTime.ToString("0.0") + (g.ClearPB ? "   YOUR FIRST TIME, SAVED" : g.ClearBestWas > 0 ? "   BEST " + g.ClearBestWas.ToString("0.0") : ""), cx, cy - 48 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
+                if (g.ClearQuip != "" && g.StateT > 0.6f) Text(g.ClearQuip, cx, cy - 26 * u, Mathf.Min(11 * u, W * 0.019f), Palette.Dim, TextAnchor.MiddleCenter);
                 Text("TIME BONUS    +" + b.TimeBonus, cx, cy - 4 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 Text("SHIELD BONUS  +" + b.ShieldBonus, cx, cy + 18 * u, 16 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 Text(b.Ship ? "SHIP TOKEN: EXTRA SHIP  +1" : b.Token ? "SHIP TOKEN: SHIP BAY FULL" : "NO SHIP TOKEN, NO EXTRA SHIP", cx, cy + 40 * u, 16 * u, b.Ship ? Palette.Gate : Palette.Dim, TextAnchor.MiddleCenter);
@@ -180,7 +191,7 @@ namespace DoomsdayTunnels.UI
                 if (g.DailyMode) Text("DAILY SECTOR " + g.DailyDay, cx, cy - 100 * u, 12 * u, Palette.Gate, TextAnchor.MiddleCenter);
                 Text(g.DeadQuip, cx, cy - 34 * u, Mathf.Min(13 * u, W * 0.021f), Palette.Ink, TextAnchor.MiddleCenter);
                 Text("SECTOR " + sim.Sector.N.ToString("00") + "   SCORE " + ((int)sim.Score).ToString("000000"), cx, cy - 8 * u, 17 * u, Palette.Ink, TextAnchor.MiddleCenter);
-                if (g.OverBest) Text("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), Palette.Gate, TextAnchor.MiddleCenter, true);
+                if (g.OverBest) Cheer("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), g.StateT - 0.9f, now);
                 else Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
                 if (g.CanPost) DrawPostButton();
                 if (blink && g.StateT > 0.6f) Text(go + (g.DailyMode ? " TO FLY IT AGAIN" : " TO RETRY"), cx, cy + (g.CanPost ? 92 : 74) * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
