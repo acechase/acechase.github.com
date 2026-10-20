@@ -115,7 +115,8 @@ namespace DoomsdayTunnels.UI
             DrawOverlay(g, sim, input);
             if (PanelOpen) DrawPanel(g.S, input);
             else if (BoardOpen) DrawBoard();
-            else if (PostOpen) DrawPost((int)sim.Score, sim.Sector.N);
+            else if (PostOpen) DrawPost((int)sim.Score, sim.Sector.N, g.DailyDay, g.Bonus.SectorTime);
+            else if (DailyOpen) DrawDailyBoard(g.DailyDay ?? Tunnel.Daily.Today());
         }
 
         void DrawControls(FlightSim sim, InputReader input, GameState state)
@@ -141,6 +142,7 @@ namespace DoomsdayTunnels.UI
             Box(0, 0, W, H, Palette.Void, state == GameState.Title ? 0.4f : 0.55f);
             if (state != GameState.Respawn) DrawTuneButton();
             if (g.Online && (state == GameState.Title || state == GameState.Over)) DrawScoresButton();
+            if (state == GameState.Title) DrawDailyButton();
             if (state == GameState.Play) { Text("PAUSED", cx, cy - 10 * u, big * 0.8f, Palette.Ink, TextAnchor.MiddleCenter, true); Text(go + " TO RESUME", cx, cy + 34 * u, 15 * u, Palette.Dim, TextAnchor.MiddleCenter); return; }
             if (state == GameState.Respawn)
             {
@@ -160,6 +162,7 @@ namespace DoomsdayTunnels.UI
                 if (g.Best > 0) Text("BEST " + g.Best.ToString("000000"), cx, cy + 136 * u, 13 * u, Palette.Dim, TextAnchor.MiddleCenter);
                 Text("MILESTONE 3 BUILD", W - 16 * u, H - 20 * u, 10 * u, Palette.Dim, TextAnchor.MiddleRight);
             }
+            else if (state == GameState.Clear && g.DailyMode) DrawDailyClear(g, cx, cy, big, blink, go);
             else if (state == GameState.Clear)
             {
                 var b = g.Bonus;
@@ -174,12 +177,13 @@ namespace DoomsdayTunnels.UI
             else
             {
                 Text(g.DeadWhy, cx, cy - 70 * u, big * 0.8f, Palette.Warn, TextAnchor.MiddleCenter, true);
+                if (g.DailyMode) Text("DAILY SECTOR " + g.DailyDay, cx, cy - 100 * u, 12 * u, Palette.Gate, TextAnchor.MiddleCenter);
                 Text(g.DeadQuip, cx, cy - 34 * u, Mathf.Min(13 * u, W * 0.021f), Palette.Ink, TextAnchor.MiddleCenter);
                 Text("SECTOR " + sim.Sector.N.ToString("00") + "   SCORE " + ((int)sim.Score).ToString("000000"), cx, cy - 8 * u, 17 * u, Palette.Ink, TextAnchor.MiddleCenter);
                 if (g.OverBest) Text("NEW PERSONAL BEST", cx, cy + 18 * u, Mathf.Min(14 * u, W * 0.023f), Palette.Gate, TextAnchor.MiddleCenter, true);
                 else Text("BEST " + g.Best.ToString("000000"), cx, cy + 18 * u, 14 * u, Palette.Dim, TextAnchor.MiddleCenter);
                 if (g.CanPost) DrawPostButton();
-                if (blink && g.StateT > 0.6f) Text(go + " TO RETRY", cx, cy + (g.CanPost ? 92 : 74) * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
+                if (blink && g.StateT > 0.6f) Text(go + (g.DailyMode ? " TO FLY IT AGAIN" : " TO RETRY"), cx, cy + (g.CanPost ? 92 : 74) * u, 15 * u, Palette.Ink, TextAnchor.MiddleCenter, true);
             }
         }
 

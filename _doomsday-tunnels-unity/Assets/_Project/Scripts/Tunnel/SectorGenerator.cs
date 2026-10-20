@@ -13,9 +13,12 @@ namespace DoomsdayTunnels.Tunnel
     {
         const float TAU = (float)(Math.PI * 2);
 
-        public static Sector Make(int n, Tune tune)
+        public static Sector Make(int n, Tune tune) => Make(n, tune, n * 7919 + 13, n * 31337 + 7);
+
+        /// <summary>A sector of difficulty n from explicit seeds: the daily sector uses the date's.</summary>
+        public static Sector Make(int n, Tune tune, int seed, int courseSeed)
         {
-            var R = new SectorRng(n * 7919 + 13);
+            var R = new SectorRng(seed);
             var lv = new Sector { N = n, Hue = Palette.HueFor(n), V0 = Math.Min(20 + 2 * n, 38), Length = 900 + 150 * Math.Min(n, 8) };
             lv.Px = new[] { Math.Min(1.2f + 0.35f * n, 3f), TAU / (135 + R.NextF() * 35), R.NextF() * TAU, Math.Min(0.4f + 0.1f * n, 0.9f), TAU / (64 + R.NextF() * 18), R.NextF() * TAU };
             lv.Py = new[] { Math.Min(0.6f + 0.25f * n, 2f), TAU / (150 + R.NextF() * 40), R.NextF() * TAU, Math.Min(0.25f + 0.08f * n, 0.7f), TAU / (72 + R.NextF() * 16), R.NextF() * TAU };
@@ -34,7 +37,7 @@ namespace DoomsdayTunnels.Tunnel
             lv.ShipToken = new SectorObject { Z = z1 + 22, Kind = ObjKind.Ship, X = 0, Y = 0, Branch = dark };   // in sight from the split
             lv.Objs.Add(lv.ShipToken);
             lv.Objs = lv.Objs.OrderBy(o => o.Z).ToList();     // a stable sort, as the web game's is: ties keep their order
-            lv.Course = Course.For(lv);                        // its own random stream: the layout above is untouched
+            lv.Course = Course.For(lv, courseSeed);            // its own random stream: the layout above is untouched
             return lv;
         }
 

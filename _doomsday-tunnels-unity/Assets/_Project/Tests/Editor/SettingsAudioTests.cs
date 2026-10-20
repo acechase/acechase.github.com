@@ -72,6 +72,17 @@ namespace DoomsdayTunnels.Tests
         }
 
         [Test]
+        public void DailyBestKeepsOnlyTheLatestDay()
+        {
+            var s = new Settings(new MemoryStore());
+            Assert.AreEqual(0f, s.DailyBest("2026-10-20"));
+            Assert.IsFalse(s.RecordDaily("2026-10-20", 50f), "a first time is kept but is not a best");
+            Assert.IsFalse(s.RecordDaily("2026-10-20", 55f)); Assert.AreEqual(50f, s.DailyBest("2026-10-20"));
+            Assert.IsTrue(s.RecordDaily("2026-10-20", 48f)); Assert.AreEqual(48f, s.DailyBest("2026-10-20"));
+            Assert.IsFalse(s.RecordDaily("2026-10-21", 60f)); Assert.AreEqual(60f, s.DailyBest("2026-10-21")); Assert.AreEqual(0f, s.DailyBest("2026-10-20"), "yesterday is gone");
+        }
+
+        [Test]
         public void TiltAnglesComeFromTheUpVector()
         {
             TiltReader.Measure(new Vector3(0, 1, 0), out var roll, out var pitch);              // held upright, square on

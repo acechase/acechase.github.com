@@ -31,6 +31,15 @@ namespace DoomsdayTunnels.Online
         public BoardData AsBoard() => new BoardData { game = OnlineConfig.Game, top = top, times = times };
     }
 
+    /// <summary>GET or POST /v2/daily: the fastest times through a day's sector, and after a post, the rank.</summary>
+    [Serializable]
+    public sealed class DailyBoard
+    {
+        public bool ok; public string game, day, name, error, message; public int difficulty, best, rank;
+        public TimeRow[] top;
+        public static DailyBoard Parse(string json) { try { var b = JsonUtility.FromJson<DailyBoard>(json); if (b != null) b.top = b.top ?? new TimeRow[0]; return b; } catch { return null; } }
+    }
+
     [Serializable] public sealed class TokenResult { public string token; public static TokenResult Parse(string json) { try { return JsonUtility.FromJson<TokenResult>(json); } catch { return null; } } }
 
     /// <summary>A sector time the way the board shows it: tenths of a second as "12.3".</summary>
