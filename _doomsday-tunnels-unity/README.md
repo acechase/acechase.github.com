@@ -66,7 +66,8 @@ while; later ones are quick.
 ## Checking it works
 
 - Edit-mode tests (sector generator determinism, the RNG and the fork layout against the web game, the flight model,
-  the fork and the ship token, the story script, the scene player and every cut-scene set). With
+  the fork and the ship token, the story script, the scene player and every cut-scene set, the settings store, the
+  tilt maths, every synthesised sound and the Part Two palette). With
   `DT3D_SCENE_SHOTS` set to a folder, the cut-scene test also writes one PNG per set there, to be looked at:
 
 ```sh
@@ -77,11 +78,35 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
 - Screenshots without a phone: build **Doomsday > Build > macOS (debug)** and run it with a folder to write to.
   It plays a few seconds of sector 1 on its own and saves frames there. Add `-shotz <metres>` to start that
   run part-way down the sector: sector 1's fork is at 420 m, so `-shotz 370` shows the widening and the split.
-  `-shotscene` instead captures the opening cut scene, advancing a line or two between frames.
+  `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
+  captures the opening cut scene, advancing a line or two between frames, and `-shotpanel` captures the settings panel.
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
 ```
+
+## Settings, sound and what is saved
+
+The TUNE button on the title, pause, sector-clear and game-over screens opens CONTROLS AND FEEL: thumb stick or
+tilt steering (tilt re-centres to how the phone is held whenever a sector starts or the game resumes; the stick then
+aims the guns), the seven feel sliders from the web game, sound, play counting and reduced motion. Everything is kept
+in `PlayerPrefs` under these keys:
+
+| Key | What |
+| --- | --- |
+| `tune.steer` `tune.snap` `tune.speed` `tune.pull` `tune.twist` `tune.sway` `tune.tilt` | the sliders (floats) |
+| `ctl.mode` | 0 thumb stick, 1 tilt |
+| `ctl.invertY` | 1 to invert tilt up/down |
+| `sound` | 1 on (default), 0 muted |
+| `countPlays` | 1 on (default): anonymous daily play counts, once the app is online |
+| `reduceMotion` | 1 to turn off shake, banking, flashes and the tape effects |
+| `best` | best score on this device |
+| `pb.<sector>` | fastest time through that sector at the standard flight speed |
+
+There are no sound files: `Scripts/Audio/Synth.cs` renders the web game's WebAudio recipes (an oscillator sliding
+between two pitches with a fading gain, and filtered noise) into clips on first use, and the engine hum is a one-second
+loop whose pitch and volume follow the ship. The cut scenes play their static, jingles and stings through the same
+table.
 
 ## Git
 
