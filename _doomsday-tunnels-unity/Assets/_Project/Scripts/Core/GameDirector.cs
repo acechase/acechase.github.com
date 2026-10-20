@@ -165,7 +165,7 @@ namespace DoomsdayTunnels
         void ApplySettings()
         {
             hud.ReduceMotion = S.ReduceMotion; if (rig) rig.ReduceMotion = S.ReduceMotion; if (post != null) post.ReduceMotion = S.ReduceMotion;
-            if (audio) audio.Muted = !S.Sound;
+            if (audio) audio.Muted = !S.Sound; Haptics.Enabled = S.Haptics;
             if (S.Steer == SteerMode.Tilt) { input.Tilt.Enable(); input.Tilt.NeedCal = true; }
         }
 
@@ -262,6 +262,7 @@ namespace DoomsdayTunnels
             panelWas = hud.PanelOpen;
             if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
             if (State == GameState.Play && !Paused) run.Seconds += dt;
+            if (sim.GunHot != gunWasHot) { gunWasHot = sim.GunHot; if (sim.GunHot) Haptics.Play(Haptic.Warning); }
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
             foreach (var h in hazards) h.Tick(sim.Now, sim.Pz, sim.Rx, sim.Ry);
             bullets.Sync(sim, sim.Path);
@@ -282,7 +283,7 @@ namespace DoomsdayTunnels
             ambience.Tick(sim, sim.Path, dt, S.ReduceMotion);
             post.Tick(sim.BoostEase, State == GameState.Play ? sim.Shield : 100, dt);
         }
-        bool panelWas;
+        bool panelWas, gunWasHot;
 
         void Record(in SimInput q) { log?.Record(q, respawned); respawned = false; ghost?.Advance(Time.fixedDeltaTime); }
 
@@ -308,6 +309,7 @@ namespace DoomsdayTunnels
         {
             foreach (var e in sim.Events)
             {
+                Haptics.Play(Haptics.For(e.Kind));
                 switch (e.Kind)
                 {
                     case SimEventKind.Popup: hud.Popups.Add(new Hud.Popup { Text = e.Text }); break;

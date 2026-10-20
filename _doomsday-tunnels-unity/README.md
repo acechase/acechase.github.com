@@ -97,6 +97,9 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- Haptics (`Input/Haptics.cs`): iPhones get the Taptic Engine through `Assets/Plugins/iOS/DoomsdayHaptics.mm` (impact
+  and notification feedback), Android the view's haptic feedback (no permission needed). A heavy knock on a hit or a wall bounce, light taps on scrapes and
+  pickups, medium for boost, success for the token and a cleared sector, warning for overheated guns and a dry boost.
 - The daily sector (`Tunnel/Daily.cs`): DAILY on the title flies one sector a day that everyone gets, built from the
   date alone (difficulty 4 to 7 and the seed both come from the days since 2026-01-01; the Worker uses the same
   formulas to judge posted times). No spares, one go per attempt; the clear screen shows the time and the device's best
@@ -143,6 +146,8 @@ in `PlayerPrefs` under these keys:
 | `sound` | 1 on (default), 0 muted |
 | `countPlays` | 1 on (default): anonymous daily play counts, once the app is online |
 | `reduceMotion` | 1 to turn off shake, banking, flashes and the tape effects |
+| `haptics` | 1 on (default): a buzz on hits, bounces, boost, the token, a cleared sector, overheated guns |
+| `ghost` | 1 on (default): the ghost of your best run flies alongside |
 | `best` | best score on this device |
 | `pb.<sector>` | fastest time through that sector at the standard flight speed |
 

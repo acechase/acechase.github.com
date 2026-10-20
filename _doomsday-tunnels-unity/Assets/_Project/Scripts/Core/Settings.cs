@@ -54,7 +54,7 @@ namespace DoomsdayTunnels.Core
         readonly IStore store;
         public readonly Tune Tune = new Tune();
         public SteerMode Steer = SteerMode.Stick;
-        public bool InvertTilt, Sound = true, CountPlays = true, ReduceMotion, ShowGhost = true;
+        public bool InvertTilt, Sound = true, CountPlays = true, ReduceMotion, ShowGhost = true, Haptics = true;
         public int Best;
         public string Name = "", LastDay = "";    // the name last posted with; the last day a run was started, for the anonymous player count
 
@@ -68,7 +68,7 @@ namespace DoomsdayTunnels.Core
             InvertTilt = store.GetInt("ctl.invertY", 0) == 1;
             Sound = store.GetInt("sound", 1) == 1;
             CountPlays = store.GetInt("countPlays", 1) == 1;
-            ReduceMotion = store.GetInt("reduceMotion", 0) == 1; ShowGhost = store.GetInt("ghost", 1) == 1;
+            ReduceMotion = store.GetInt("reduceMotion", 0) == 1; ShowGhost = store.GetInt("ghost", 1) == 1; Haptics = store.GetInt("haptics", 1) == 1;
             Best = store.GetInt("best", 0);
             Name = store.GetString("name", ""); LastDay = store.GetString("day", "");
         }
@@ -80,7 +80,7 @@ namespace DoomsdayTunnels.Core
             store.SetInt("ctl.invertY", InvertTilt ? 1 : 0);
             store.SetInt("sound", Sound ? 1 : 0);
             store.SetInt("countPlays", CountPlays ? 1 : 0);
-            store.SetInt("reduceMotion", ReduceMotion ? 1 : 0); store.SetInt("ghost", ShowGhost ? 1 : 0);
+            store.SetInt("reduceMotion", ReduceMotion ? 1 : 0); store.SetInt("ghost", ShowGhost ? 1 : 0); store.SetInt("haptics", Haptics ? 1 : 0);
             store.SetInt("best", Best);
             store.SetString("name", Name ?? ""); store.SetString("day", LastDay ?? "");
             store.Save();
