@@ -13,7 +13,9 @@ namespace DoomsdayTunnels.Audio
         readonly List<(float at, string name)> queued = new List<(float, string)>();
         AudioSource fx, hum; bool muted; float humGain;
 
-        public bool Muted { get => muted; set { muted = value; if (fx) fx.mute = value; if (hum) hum.mute = value; } }
+        public bool Muted { get => muted; set { muted = value; Apply(); } }
+        bool silent; public bool Silent { get => silent; set { silent = value; Apply(); } }      // the title's demo makes no sound
+        void Apply() { bool m = muted || silent; if (fx) fx.mute = m; if (hum) hum.mute = m; }
 
         void Awake()
         {
@@ -36,6 +38,7 @@ namespace DoomsdayTunnels.Audio
         {
             if (name == null) return;
             if (delay > 0) { queued.Add((Time.unscaledTime + delay, name)); return; }
+            if (silent) return;
             var c = Get(name); if (c != null && fx) fx.PlayOneShot(c);
         }
 

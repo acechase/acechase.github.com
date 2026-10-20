@@ -83,7 +83,8 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
   `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
   captures the opening cut scene, advancing a line or two between frames, `-shotpanel` captures the settings panel and
   `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one), and
-  `-shotghost` records a few seconds as sector 1's ghost and flies beside it; `-shotdaily` skips to the end of the daily
+  `-shottouch` draws the thumb controls as a phone would; `-shotattract` waits for the title's demo; `-shotcheer` stages
+  a personal best on the clear screen; `-shotghost` records a few seconds as sector 1's ghost and flies beside it; `-shotdaily` skips to the end of the daily
   sector for its clear screen and today's board.
 
 ```sh
@@ -97,6 +98,16 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- What the web game's changelog added, checked item by item: the title plays itself after six idle seconds (a bot
+  flies a random sector behind the menu, `Flight/Bot.cs`; nothing counts, no sound, any input ends it, and after
+  ninety seconds it rests); the fire and boost buttons are their own gauges (`UI/Hud.Controls.cs`: a bright disc
+  with an icon that drains, dark and hollow when spent, a red blink just before and when pressed anyway, a ring
+  when it comes back), so touch screens drop the BOOST and GUNS bars; celebrations (`UI/Hud.Celebrate.cs`:
+  confetti, a headline in the five sector colours, a line from the cast) for a personal best, a place on the record
+  (when the board has been seen this session) and a best score; the shield bar breaks into pieces when it gives
+  out; the gear and speaker buttons; the web game's two typefaces (Syncopate, Share Tech Mono, both open licences,
+  in `Resources/Fonts`). Not carried over: the manual, the changelog page, offline caching and home-screen
+  install, which a native app has no need of.
 - Haptics (`Input/Haptics.cs`): iPhones get the Taptic Engine through `Assets/Plugins/iOS/DoomsdayHaptics.mm` (impact
   and notification feedback), Android the view's haptic feedback (no permission needed). A heavy knock on a hit or a wall bounce, light taps on scrapes and
   pickups, medium for boost, success for the token and a cleared sector, warning for overheated guns and a dry boost.

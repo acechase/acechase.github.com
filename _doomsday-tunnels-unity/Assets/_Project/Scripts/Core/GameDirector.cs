@@ -29,6 +29,10 @@ namespace DoomsdayTunnels
         public float StateT;
         public ClearBonus Bonus;
         public bool ClearPB;                        // the sector just cleared was a personal best time
+        public int ClearTier; public string ClearQuip = "", ClearPlace = ""; public float ClearBestWas;   // the celebration earned: 1 a personal best, 2 a place on record, 3 the top
+        // The title's demo: after a few idle seconds a random sector is flown by a bot behind the menu. Nothing counts.
+        public bool Attract; bool rested; float idle, attractT; Bot bot;
+        const float AttractAfter = 6f, AttractMax = 90f; const int AttractSectors = 11;
         public string DeadWhy = "", DeadQuip = "";
         public SimEventKind RespawnWhy;
         public bool OverBest;                       // this run beat the best score on the device
@@ -88,15 +92,16 @@ namespace DoomsdayTunnels
             hud.FetchDaily = () => api.FetchDaily(DailyDay ?? Daily.Today(), hud.DailyArrived);
             hud.PostDaily = name => api.PostDaily(name, DailyDay, Mathf.RoundToInt(Bonus.SectorTime * 10), run.Token, (r, err) => { if (r != null) { dailyPosted = true; S.Name = r.name; S.Save(); } hud.DailyPostDone(r, err); });
             ApplySettings();
-            Attract();
+            TitleScreen();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
             // headless build can be checked by eye; "-shotz <metres>" starts that run part-way down the sector (say, just
             // before the fork); "-shotsector <n>" flies that sector instead of sector 1; "-shotscene" captures the opening
             // cut scene instead, a line or two per frame; "-shotpanel" captures the settings panel. Used by the README.
             var args = System.Environment.GetCommandLineArgs();
+            foreach (var a in args) if (a == "-shot") shotting = true;
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -104,8 +109,22 @@ namespace DoomsdayTunnels
         System.Collections.IEnumerator ShotRun(string folder)
         {
             System.IO.Directory.CreateDirectory(folder);
+            if (shotTouch) input.TouchUI = true;
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
+            if (shotAttract)
+            {   // the demo: let the title idle past its threshold, then watch the bot fly
+                shotting = false; yield return new WaitForSeconds(AttractAfter + 2f);
+                for (int i = 0; i < 3; i++) { ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "0" + (i + 2) + "-attract.png")); yield return new WaitForSeconds(3f); }
+                Application.Quit(); yield break;
+            }
+            if (shotCheer)
+            {   // a personal best on the clear screen: plant a slow best, then skip to the end of the sector
+                S.ForgetTime(1); S.RecordTime(1, 999f, true); seenIntro = true; NewGame(); sim.Pz = sim.Sector.Length - 30; latestOverride = new SimInput();
+                yield return new WaitForSeconds(2.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-cheer.png"));
+                yield return new WaitForSeconds(0.8f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "03-cheer.png"));
+                Application.Quit(); yield break;
+            }
             yield return new WaitForSeconds(0.5f);
             if (shotBoard)
             {
@@ -153,13 +172,14 @@ namespace DoomsdayTunnels
             for (int i = 0; i < 4; i++)
             {
                 latestOverride = new SimInput { SteerX = (i % 2 == 0 ? 0.6f : -0.6f), SteerY = i == 1 ? 0.5f : 0f, Fire = true, Boost = i == 3 };
+                if (shotTouch) { input.FireDown = true; input.BoostDown = i == 3; }
                 yield return new WaitForSeconds(2.5f);
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "0" + (i + 2) + "-play.png"));
             }
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -184,9 +204,26 @@ namespace DoomsdayTunnels
             ambience.SetSector(lv.Pal, lv.Length); debris.Sim.Clear(); debris.SetHaze(lv.Pal.Haze); lights.Lights.Clear();
         }
 
-        void Attract() { level = 1; DailyMode = false; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
+        void TitleScreen() { level = 1; DailyMode = false; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; rested = false; idle = 0; }
+        void StartAttract()
+        {
+            Attract = true; attractT = 0; idle = 0; audio.Silent = true; Haptics.Enabled = false; hud.ClearParty();
+            AttractLevel();
+        }
+        void AttractLevel()
+        {   // a fresh random sector, flown as a player would get it, clock and all
+            sim.Score = 0; sim.Shield = 100; sim.Lives = 0; sim.Invuln = 0; DailyMode = false;
+            level = 1 + Random.Range(0, AttractSectors); LoadSector(level); bot = new Bot(Random.Range(1, 1 << 30));
+            State = GameState.Play; Paused = false; hud.Popups.Clear(); log = null; ghost = null;
+        }
+        void EndAttract(bool rest)
+        {
+            Attract = false; audio.Silent = false; Haptics.Enabled = S.Haptics; hud.Flash = 0; rig.Shake = 0; hud.Popups.Clear(); audio.CancelQueued();
+            TitleScreen(); rested = rest; StateT = 1;                      // the plain title, ready: the tap that ended the demo can launch the game
+        }
         void StartLevel(int n)
         {
+            hud.ClearParty();
             Debug.Log("[Doomsday] Sector " + n); level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true;
             // every run is recorded; the best one through this sector flies alongside as a ghost
             log = new InputLog(sim, S.Tune); respawned = false;
@@ -221,7 +258,7 @@ namespace DoomsdayTunnels
             if (StateT < 0.6f) return;
             if (State == GameState.Over && DailyMode) StartDaily();
             else if (State == GameState.Title || State == GameState.Over) NewGame();
-            else if (State == GameState.Clear && DailyMode) Attract();
+            else if (State == GameState.Clear && DailyMode) TitleScreen();
             else if (State == GameState.Clear) { int n = level; var sc = Script.For(n); if (sc != null) PlayScene(sc, () => StartLevel(n)); else StartLevel(n); }
         }
 
@@ -232,6 +269,11 @@ namespace DoomsdayTunnels
             input.Reserved = input.TouchUI && State == GameState.Play && !Paused ? hud.PauseScreenRect : Rect.zero;
             latest = input.Read();
             if (latestOverride.HasValue) latest = latestOverride.Value;
+            // the demo: any input ends it and then does what it would have done anyway
+            if (Attract && (input.Advance || input.PauseKey || latest.Fire || latest.Boost || Mathf.Abs(latest.SteerX) + Mathf.Abs(latest.SteerY) > 0.3f)) EndAttract(false);
+            if (Attract) { attractT += dt; bot.Think(sim, dt); latest = bot.Input; if (attractT > AttractMax) EndAttract(true); }
+            else if (State == GameState.Title && !hud.Modal && !rested && !shotting) { idle += dt; if (idle > AttractAfter) StartAttract(); }
+            else idle = 0;
             if (hud.Modal)
             {
                 if (input.PauseKey) { hud.PanelOpen = false; hud.BoardOpen = false; hud.PostOpen = false; }
@@ -250,6 +292,7 @@ namespace DoomsdayTunnels
                 if (input.Advance)
                 {
                     if (tuneable && hud.TuneHit(input.TapPos)) { hud.PanelOpen = true; }
+                    else if (tuneable && hud.MuteHit(input.TapPos)) { S.Sound = !S.Sound; S.Save(); ApplySettings(); }
                     else if (api != null && (State == GameState.Title || State == GameState.Over) && hud.ScoresHit(input.TapPos)) hud.OpenBoard();
                     else if (State == GameState.Title && hud.DailyHit(input.TapPos)) StartDaily();
                     else if (CanPostDaily && hud.DailyPostHit(input.TapPos)) hud.OpenDailyPost(S.Name);
@@ -346,6 +389,7 @@ namespace DoomsdayTunnels
 
         void OnSectorClear()
         {
+            if (Attract) { AttractLevel(); return; }
             Bonus = sim.SectorClear();
             if (DailyMode)
             {   // the daily sector: a time, a best for today, and the screen that offers to post it
@@ -358,9 +402,22 @@ namespace DoomsdayTunnels
             SaveBest();
             bool fair = S.Tune.FairSpeed, best = fair && (S.BestTime(level) <= 0 || Bonus.SectorTime < S.BestTime(level));
             if (best && log != null) S.SaveGhost(level, log.Serialize());        // the ghost is the best run so far, from its very first time through
+            ClearBestWas = S.BestTime(level);
             ClearPB = S.RecordTime(level, Bonus.SectorTime, fair); run.SectorCleared(level, Bonus.SectorTime, fair);
             ghost = null;
-            audio.Play("clear"); if (ClearPB) audio.Play("cheerSmall", 0.5f);
+            // A time for the record book gets the full fanfare; beating your own best for the sector gets a smaller one.
+            // The record is the shared top three for this sector, when the board has been seen this session.
+            int place = 0;
+            if (fair && run.Token != null && hud.Board != null) foreach (var st in hud.Board.times) if (st.sector == level)
+            {
+                int t = Mathf.RoundToInt(Bonus.SectorTime * 10); bool mineAlready = false; int faster = 0;
+                foreach (var r in st.top) { if (r.name == S.Name) { if (r.t <= t) mineAlready = true; } else if (r.t <= t) faster++; }
+                if (!mineAlready) place = faster + 1; if (place > 3) place = 0;
+            }
+            ClearTier = place == 1 ? 3 : place > 0 ? 2 : ClearPB ? 1 : 0;
+            ClearPlace = place == 1 ? "1ST" : place == 2 ? "2ND" : place == 3 ? "3RD" : "";
+            ClearQuip = ClearTier > 1 ? Quips.Pick(Quips.Record) : ClearTier == 1 ? Quips.Pick(Quips.PbTime) : "";
+            if (ClearTier > 1) Celebrate(ClearTier, 0); else { audio.Play("clear"); if (ClearTier == 1) Celebrate(1, 0.5f); }
             hud.Flash = 1; hud.FlashColor = Palette.Ink;
             level++; State = GameState.Clear; StateT = 0;
         }
@@ -369,6 +426,7 @@ namespace DoomsdayTunnels
         void LoseShip(SimEventKind why)
         {
             hud.Flash = 1; hud.FlashColor = Palette.Warn; rig.Shake = 1; audio.Play("boom"); post.Hit(1.5f);
+            if (Attract) { sparks.ScreenBurst(0, 0, Palette.Warn, 40); AttractLevel(); return; }      // the bot lost its ship or the clock ran out: just another sector
             sparks.ScreenBurst(0, 0, Palette.Warn, 40); sparks.ScreenBurst(0, 0, Palette.Ink, 20);
             if (why == SimEventKind.ShipLost)
             {   // the ship comes apart: hull chunks, a shockwave and a flash where it was
@@ -390,9 +448,16 @@ namespace DoomsdayTunnels
             OverBest = bestWas > 0 && (int)sim.Score > bestWas;                                 // a first ever run has nothing to beat
             DeadQuip = Quips.Pick(OverBest ? Quips.BestScore : why == SimEventKind.ShipLost ? Quips.Ship : Quips.Time);
             DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest();
-            if (DailyMode) OverBest = false; else if (OverBest) audio.Play("cheerBig", 0.9f);
+            if (DailyMode) OverBest = false; else if (OverBest) Celebrate(2, 0.9f);
             run.Sector = level; run.Ended = true;
             if (api != null) api.EndRun(run.Token, level, run.Cleared, Mathf.RoundToInt(run.Seconds), S.CountPlays);
+        }
+        // Tier 1: a personal best. Tier 2: a place in the record book. Tier 3: the very top of it.
+        void Celebrate(int tier, float delay)
+        {
+            audio.Play(tier > 2 ? "cheerGrand" : tier > 1 ? "cheerBig" : "cheerSmall", delay);
+            hud.Party(new[] { 0, 36, 70, 110 }[tier], delay + 0.1f, new[] { 0, 0, 16, 44 }[tier], Time.time);
+            if (tier > 1) Haptics.Play(Haptic.Success);
         }
         void SaveBest() { if (sim.Score > S.Best) { S.Best = (int)sim.Score; S.Save(); } }
 

@@ -31,7 +31,7 @@ namespace DoomsdayTunnels.UI
         public void DrawScene(ScenePlayer sc, InputReader input, float now)
         {
             var sh = sc.Shot; var ln = sc.Cur; var who = Script.Who[ln.Who];
-            float dh = Mathf.Round(Mathf.Max(88 * u, H * 0.27f)), ph = H - dh; bool typing = sc.Typing;
+            float dh = Mathf.Round(Mathf.Max(104 * u, H * 0.33f)), ph = H - dh; bool typing = sc.Typing;
             int vh = Mathf.Clamp(Mathf.RoundToInt(PixelCanvas.VW * ph / W), 96, 180);
             if (canvas == null) canvas = new PixelCanvas(vh); else canvas.Resize(vh);
             Sets.Paint(canvas, sh.Bg, sc.T, ln.Who, typing, sh, ln, out var title);
@@ -51,25 +51,31 @@ namespace DoomsdayTunnels.UI
             Box(b.x, b.y, b.width, b.height, Palette.Void, 0.5f);
             Box(b.x, b.y, b.width, u, Palette.Ink); Box(b.x, b.yMax - u, b.width, u, Palette.Ink); Box(b.x, b.y, u, b.height, Palette.Ink); Box(b.xMax - u, b.y, u, b.height, Palette.Ink);
             Text("SKIP >>", b.center.x, b.center.y, 12 * u, Palette.Ink, TextAnchor.MiddleCenter);
-            // dialogue
-            float x0 = 22 * u, x1 = W - 22 * u;
-            Box(0, ph, W, 2 * u, who.Col);
-            Text(who.Name, x0, ph + 10 * u, 11 * u, who.Col, TextAnchor.UpperLeft, true);
+            // dialogue: a panel under the picture, edged in the speaker's colour, with their name on a tab
+            float x0 = 26 * u, x1 = W - 26 * u;
+            Box(0, ph, W, dh, Palette.Void); Box(0, ph, W, 2.5f * u, who.Col);
+            Box(10 * u, ph + 10 * u, W - 20 * u, dh - 20 * u, Color.Lerp(who.Col, Palette.Void, 0.9f)); Outline(new Rect(10 * u, ph + 10 * u, W - 20 * u, dh - 20 * u), Color.Lerp(who.Col, Palette.Void, 0.45f), u);
+            float nameW = 0; { display.fontSize = Mathf.RoundToInt(12 * u); nameW = display.CalcSize(new GUIContent(who.Name)).x + 20 * u; }
+            Box(x0 - 8 * u, ph + 2.5f * u, nameW, 20 * u, who.Col); Text(who.Name, x0 - 8 * u + nameW / 2, ph + 12.5f * u, 12 * u, Palette.Void, TextAnchor.MiddleCenter, true);
             string key = sc.I + ":" + sc.LineNo + ":" + Mathf.RoundToInt(W) + ":" + Mathf.RoundToInt(H);
             if (wrapKey != key)
             {
-                float fs = 16 * u;
-                do { wrap = Wrap(ln.Text, x1 - x0, fs); if (wrap.Count * fs * 1.35f <= dh - 36 * u) break; fs *= 0.9f; } while (fs > 9);
+                float fs = 21 * u;
+                do { wrap = Wrap(ln.Text, x1 - x0, fs); if (wrap.Count * fs * 1.3f <= dh - 52 * u) break; fs *= 0.92f; } while (fs > 10);
                 wrapKey = key; wrapFs = fs;
             }
             int left = sc.Shown;
             for (int i = 0; i < wrap.Count; i++)
             {
                 var s = wrap[i];
-                if (left > 0) Text(s.Substring(0, Mathf.Min(s.Length, left)), x0, ph + 30 * u + i * wrapFs * 1.35f, wrapFs, Palette.Ink);
+                if (left > 0) Text(s.Substring(0, Mathf.Min(s.Length, left)), x0, ph + 34 * u + i * wrapFs * 1.3f, wrapFs, Palette.Ink);
                 left -= s.Length + 1;
             }
-            if (!typing && (now * 2) % 1 < 0.6f) Text(input.TouchUI ? "TAP TO CONTINUE" : "SPACE TO CONTINUE", x1, H - 22 * u, 12 * u, Palette.Dim, TextAnchor.UpperRight);
+            if (!typing && (now * 2) % 1 < 0.6f)
+            {   // a small arrow, pulsing, and the hint beside it
+                Text(input.TouchUI ? "TAP TO CONTINUE" : "SPACE TO CONTINUE", x1 - 16 * u, H - 26 * u, 11 * u, Palette.Dim, TextAnchor.UpperRight);
+                for (int k = 0; k < 4; k++) Box(x1 - 10 * u + k * 2 * u, H - 24 * u + k * 1.5f * u, 2 * u, 8 * u - k * 3 * u, who.Col);
+            }
         }
 
         List<string> Wrap(string text, float maxW, float fs)
