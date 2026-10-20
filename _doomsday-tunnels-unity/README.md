@@ -66,15 +66,18 @@ while; later ones are quick.
 ## Checking it works
 
 - Edit-mode tests (sector generator determinism, the RNG and the fork layout against the web game, the flight model,
-  the fork and the ship token):
+  the fork and the ship token, the story script, the scene player and every cut-scene set). With
+  `DT3D_SCENE_SHOTS` set to a folder, the cut-scene test also writes one PNG per set there, to be looked at:
 
 ```sh
 "$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/dt3d-tests.xml
+DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults /tmp/dt3d-tests.xml
 ```
 
 - Screenshots without a phone: build **Doomsday > Build > macOS (debug)** and run it with a folder to write to.
   It plays a few seconds of sector 1 on its own and saves frames there. Add `-shotz <metres>` to start that
   run part-way down the sector: sector 1's fork is at 420 m, so `-shotz 370` shows the widening and the split.
+  `-shotscene` instead captures the opening cut scene, advancing a line or two between frames.
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740

@@ -4,13 +4,14 @@ using DoomsdayTunnels.Flight;
 using DoomsdayTunnels.Fx;
 using DoomsdayTunnels.Hazards;
 using DoomsdayTunnels.Input;
+using DoomsdayTunnels.Story;
 using DoomsdayTunnels.Tunnel;
 using DoomsdayTunnels.UI;
 using UnityEngine;
 
 namespace DoomsdayTunnels
 {
-    public enum GameState { Title, Play, Clear, Respawn, Over }
+    public enum GameState { Title, Play, Clear, Respawn, Over, Scene }
 
     /// <summary>
     /// The game: one of these in the scene. Owns the simulation, builds the world for each sector, feeds input in,
@@ -26,8 +27,12 @@ namespace DoomsdayTunnels
         public float StateT;
         public int Best;
         public ClearBonus Bonus;
-        public string DeadWhy = "";
+        public string DeadWhy = "", DeadQuip = "";
         public SimEventKind RespawnWhy;
+        public bool OverBest;                       // this run beat the best score on the device
+        int bestWas; bool seenIntro;
+        readonly ScenePlayer scene = new ScenePlayer();
+        public ScenePlayer Scene => scene;
 
         readonly FlightSim sim = new FlightSim();
         readonly Tune tune = new Tune();
@@ -52,9 +57,11 @@ namespace DoomsdayTunnels
             Attract();
             // Debug: "-shot <folder>" on the command line plays a few seconds unattended and saves screenshots there, so a
             // headless build can be checked by eye; "-shotz <metres>" starts that run part-way down sector 1 (say, just
-            // before the fork). Used by the verification notes in the README.
+            // before the fork); "-shotscene" captures the opening cut scene instead, a line or two per frame. Used by the
+            // verification notes in the README.
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
+            foreach (var a in args) if (a == "-shotscene") shotScene = true;
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -65,7 +72,19 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(1.5f);
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "01-title.png"));
             yield return new WaitForSeconds(0.5f);
-            NewGame(); if (shotZ > 0) sim.Pz = shotZ;
+            if (shotScene)
+            {
+                NewGame();                                                   // the intro plays first
+                for (int i = 0; i < 6 && State == GameState.Scene; i++)
+                {
+                    yield return new WaitForSeconds(1.6f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "0" + (i + 2) + "-scene.png"));
+                    yield return null; scene.Advance(); scene.Advance();     // finish the sentence, then the next line
+                }
+                yield return new WaitForSeconds(0.5f);
+                Application.Quit(); yield break;
+            }
+            seenIntro = true; NewGame(); if (shotZ > 0) sim.Pz = shotZ;
             for (int i = 0; i < 4; i++)
             {
                 latestOverride = new SimInput { SteerX = (i % 2 == 0 ? 0.6f : -0.6f), SteerY = i == 1 ? 0.5f : 0f, Fire = true, Boost = i == 3 };
@@ -75,7 +94,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ;
+        SimInput? latestOverride; float shotZ; bool shotScene;
 
         void LoadSector(int n)
         {
@@ -91,13 +110,19 @@ namespace DoomsdayTunnels
 
         void Attract() { level = 1; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
         void StartLevel(int n) { level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); }
-        void NewGame() { sim.Score = 0; sim.Shield = 100; sim.Lives = G.StartSpares; sim.Invuln = 0; StartLevel(1); }
+        void NewGame()
+        {
+            bestWas = Best; OverBest = false;
+            sim.Score = 0; sim.Shield = 100; sim.Lives = G.StartSpares; sim.Invuln = 0;
+            if (!seenIntro) { seenIntro = true; PlayScene(Script.Intro(), () => StartLevel(1)); } else StartLevel(1);
+        }
+        void PlayScene(Shot[] shots, System.Action done) { scene.Play(shots, done); State = GameState.Scene; StateT = 0; Paused = false; hud.Popups.Clear(); }
 
         void Advance()
         {
             if (StateT < 0.6f) return;
             if (State == GameState.Title || State == GameState.Over) NewGame();
-            else if (State == GameState.Clear) StartLevel(level);
+            else if (State == GameState.Clear) { int n = level; var sc = Script.For(n); if (sc != null) PlayScene(sc, () => StartLevel(n)); else StartLevel(n); }
         }
 
         void Update()
@@ -105,8 +130,17 @@ namespace DoomsdayTunnels
             float dt = Time.deltaTime; StateT += dt; hud.Tick(dt);
             latest = input.Read();
             if (latestOverride.HasValue) latest = latestOverride.Value;
-            if (input.PauseKey && State == GameState.Play) Paused = !Paused;
-            if (input.Advance) { if (State == GameState.Play) { if (Paused) Paused = false; } else Advance(); }
+            if (State == GameState.Scene)
+            {
+                scene.Update(dt);
+                if (input.PauseKey) scene.End();                                                  // escape skips the scene
+                else if (input.Advance) { if (hud.SkipHit(input.TapPos)) scene.End(); else scene.Advance(); }
+            }
+            else
+            {
+                if (input.PauseKey && State == GameState.Play) Paused = !Paused;
+                if (input.Advance) { if (State == GameState.Play) { if (Paused) Paused = false; } else Advance(); }
+            }
             if (State == GameState.Title) { sim.Now += dt; sim.Pz = Mathf.Min(sim.Pz + 14 * dt, (sim.Sector.Fork?.Z0 ?? sim.Sector.Length) - 90); }   // the idle cruise stops short of the fork
             if (State == GameState.Respawn && StateT > 2) FinishRespawn();
             foreach (var h in hazards) h.Tick(sim.Now, sim.Pz);
@@ -165,13 +199,19 @@ namespace DoomsdayTunnels
             sparks.ScreenBurst(0, 0, Palette.Warn, 40); sparks.ScreenBurst(0, 0, Palette.Ink, 20);
             if (sim.Lives <= 0) { GameOver(why); return; }
             sim.Lives--; RespawnWhy = why; State = GameState.Respawn; StateT = 0;
+            DeadQuip = Quips.Pick(why == SimEventKind.ShipLost ? Quips.SpareShip : Quips.SpareTime);
         }
         void FinishRespawn()
         {
             if (RespawnWhy == SimEventKind.ShipLost) { sim.Respawn(); State = GameState.Play; StateT = 0; hud.Popups.Add(new Hud.Popup { Text = "NEW SHIP" }); }
             else { StartLevel(level); sim.Invuln = 1.5f; hud.Popups.Add(new Hud.Popup { Text = "CLOCK RESET" }); }   // out of time: the sector starts over with a fresh clock
         }
-        void GameOver(SimEventKind why) { DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest(); }
+        void GameOver(SimEventKind why)
+        {
+            OverBest = bestWas > 0 && (int)sim.Score > bestWas;                                 // a first ever run has nothing to beat
+            DeadQuip = Quips.Pick(OverBest ? Quips.BestScore : why == SimEventKind.ShipLost ? Quips.Ship : Quips.Time);
+            DeadWhy = why == SimEventKind.ShipLost ? "SHIP LOST" : "CORE DETONATED"; State = GameState.Over; StateT = 0; SaveBest();
+        }
         void SaveBest() { if (sim.Score > Best) { Best = (int)sim.Score; PlayerPrefs.SetInt("best", Best); PlayerPrefs.Save(); } }
 
         void OnGUI() { hud.Draw(this, sim, input); }

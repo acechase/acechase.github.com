@@ -25,11 +25,13 @@ namespace DoomsdayTunnels.Input
         /// <summary>True once per frame when the player tapped or pressed to advance a screen.</summary>
         public bool Advance;
         public bool PauseKey;
+        /// <summary>Where the advancing tap or click landed, in screen coordinates; (-1, -1) for a key press.</summary>
+        public Vector2 TapPos = new Vector2(-1, -1);
 
         public SimInput Read()
         {
             var inp = new SimInput();
-            Advance = false; PauseKey = false;
+            Advance = false; PauseKey = false; TapPos = new Vector2(-1, -1);
             var kb = Keyboard.current;
             if (kb != null)
             {
@@ -54,7 +56,7 @@ namespace DoomsdayTunnels.Input
             var ts = Touchscreen.current;
             if (ts != null) ReadTouches(ts, ref inp);
             var mouse = Mouse.current;
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame && (ts == null || !AnyTouch(ts))) Advance = true;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame && (ts == null || !AnyTouch(ts))) { Advance = true; TapPos = mouse.position.ReadValue(); }
             return inp;
         }
 
@@ -72,7 +74,7 @@ namespace DoomsdayTunnels.Input
                 if (id == fireId) { fireSeen = true; continue; }
                 if (id == boostId) { boostSeen = true; continue; }
                 if (!t.press.wasPressedThisFrame) continue;                 // a touch we never claimed (started on a button)
-                Advance = true;
+                Advance = true; TapPos = p;
                 if (p.x < Screen.width * 0.5f) { if (stickId < 0) { stickId = id; StickAnchor = p; StickPos = p; Stick = Vector2.zero; StickDown = true; stickSeen = true; } }
                 else if (Vector2.Distance(p, BoostCentre) < BoostRadius * 1.3f) { boostId = id; boostSeen = true; }
                 else { fireId = id; fireSeen = true; }
