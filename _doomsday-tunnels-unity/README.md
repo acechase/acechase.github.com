@@ -98,8 +98,14 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- Everything on screen is sized in the web game's unit, the screen height in points over 400 (`UI/SafeArea.U`), scaled
+  back to device pixels through `Screen.dpi`, so text on a 3x phone is the size the web game draws it, not a third.
+- Discs, rings, arcs and capped strokes in the HUD go through IMGUI's anti-aliased rounded-rectangle path
+  (`Disc`, `Circle`, `RoundBox` in `UI/Hud.cs`), not pixel boxes, so the thumb gauges have clean edges.
+- A wall hit is unmistakable: the ship's nose is held touching the slab, the hull is knocked back and tumbles on a
+  spring, and the slab flashes white and settles to its dented shade, on every bounce.
 - The HUD lays itself out inside the phone's safe area (`UI/SafeArea.cs`): nothing sits under the Dynamic Island or the
-  home bar. `-shotsafe` fakes those insets on a Mac. The exit of every sector is a lit gate, a white frame inside two in
+  home bar. `-shotsafe` fakes those insets on a Mac, and `-shotdpr 2.9` a phone's pixel density. The exit of every sector is a lit gate, a white frame inside two in
   the sector's colour with strips chasing toward it, and clearing it sets off a ring and a blaze of light. The ship is
   drawn small enough that its wings stay inside the collision margins, and a red slab counts from 14 cm rather than
   the web's 5 cm, so a visible wing never passes through a wall before the hit lands. The aiming reticle shows in every

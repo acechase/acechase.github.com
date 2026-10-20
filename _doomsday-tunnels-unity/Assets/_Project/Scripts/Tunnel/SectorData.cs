@@ -26,6 +26,7 @@ namespace DoomsdayTunnels.Tunnel
         public Rect4[] Rects;              // walls
         public GateBlock[] Blocks;         // gates
         public bool Hit;                   // wall: the ship ran into it
+        public int Bounces;                // wall: how many times, so the view can flash on every one
         public bool Alive = true;          // mine
         public float Phase, Sway;          // mine: side-to-side motion
         public bool Taken, Gone, Hinted;   // pickups

@@ -99,8 +99,8 @@ namespace DoomsdayTunnels.UI
         void GearIcon(Vector2 c, float r)
         {
             float k = r / 20; int n = 8;
-            for (int i = 0; i < n; i++) { var m = GUI.matrix; Rot(i * 360f / n, c); Box(c.x - 2.2f * k, c.y - 10 * k, 4.4f * k, 20 * k, Palette.Ink); GUI.matrix = m; }
-            Ring(c, 7.2f * k, Palette.Ink, 1); Ring(c, 3.6f * k, Palette.Void, 1);
+            for (int i = 0; i < n; i++) { var m = GUI.matrix; Rot(i * 360f / n, c); RoundBox(new Rect(c.x - 2.2f * k, c.y - 10 * k, 4.4f * k, 20 * k), 1.2f * k, Palette.Ink); GUI.matrix = m; }
+            Disc(c, 7.2f * k, Palette.Ink, 1); Disc(c, 3.6f * k, Palette.Void, 1);
         }
     }
 }

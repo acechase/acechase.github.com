@@ -15,6 +15,8 @@ namespace DoomsdayTunnels.Hazards
         TunnelPath path; Material baseMat; int seen = -1;
         Renderer[] parts; Transform spin;
         float kick, kickVel; bool passed;    // a mine nudged by a near miss swings on a spring
+        float flashT = -9; int hits;         // a wall lights up white where the ship hit it, then settles to its dented shade
+        static readonly int TintId = Shader.PropertyToID("_Tint"), IntensityId = Shader.PropertyToID("_Intensity");
         static readonly Color WallFill = Color.Lerp(Palette.Warn, Palette.Void, 0.48f), WallHit = Color.Lerp(Palette.Warn, Palette.Void, 0.82f);
 
         public static HazardView Create(SectorObject o, TunnelPath path, Material unlit, Palette pal, Transform parent)
@@ -127,6 +129,11 @@ namespace DoomsdayTunnels.Hazards
             if (gameObject.activeSelf != near) gameObject.SetActive(near);
             if (!near) return;
             if (Obj.Version != seen) Refresh();
+            if (Obj.Kind == ObjKind.Wall && Time.time - flashT < 0.6f)
+            {   // the flash: bright, then back to the hit shade
+                float k = 1 - (Time.time - flashT) / 0.6f; k *= k;
+                foreach (var p in parts) { p.material.SetColor(TintId, Color.Lerp(WallHit, Color.white, k)); p.material.SetFloat(IntensityId, 1 + 2.5f * k); }
+            }
             switch (Obj.Kind)
             {
                 case ObjKind.Mine:
@@ -151,7 +158,7 @@ namespace DoomsdayTunnels.Hazards
             seen = Obj.Version;
             switch (Obj.Kind)
             {
-                case ObjKind.Wall: if (Obj.Hit) foreach (var p in parts) p.material.SetColor("_Tint", WallHit); break;
+                case ObjKind.Wall: if (Obj.Hit) { foreach (var p in parts) p.material.SetColor(TintId, WallHit); flashT = Time.time; hits++; } break;
                 case ObjKind.Gate:
                     for (int i = 0; i < parts.Length; i++)
                     {

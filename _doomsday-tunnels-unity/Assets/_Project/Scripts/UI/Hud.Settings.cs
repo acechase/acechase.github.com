@@ -17,18 +17,18 @@ namespace DoomsdayTunnels.UI
 
         static Rect TuneRect(float w, float h, float u) => new Rect(16 * u, h - 50 * u, 38 * u, 38 * u);
         static Rect MuteRect(float w, float h, float u) => new Rect(w - 54 * u, 12 * u, 38 * u, 38 * u);
-        public bool MuteHit(Vector2 screenPos) => Hit(screenPos, MuteRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
+        public bool MuteHit(Vector2 screenPos) => Hit(screenPos, MuteRect(SafeArea.W, SafeArea.H, UI.SafeArea.U), 8);
         static Rect PauseRect(float w, float u) => new Rect(w - 48 * u, 10 * u, 38 * u, 38 * u);
 
         /// <summary>The pause button in Unity screen coordinates (y up), for the input reader to keep clear of.</summary>
-        public Rect PauseScreenRect { get { float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f); var r = PauseRect(SafeArea.W, uu); var bl = SafeArea.ToScreen(new Vector2(r.x - 8 * uu, r.yMax + 8 * uu)); return new Rect(bl.x, bl.y, r.width + 16 * uu, r.height + 16 * uu); } }
+        public Rect PauseScreenRect { get { float uu = UI.SafeArea.U; var r = PauseRect(SafeArea.W, uu); var bl = SafeArea.ToScreen(new Vector2(r.x - 8 * uu, r.yMax + 8 * uu)); return new Rect(bl.x, bl.y, r.width + 16 * uu, r.height + 16 * uu); } }
 
-        public bool TuneHit(Vector2 screenPos) => Hit(screenPos, TuneRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
-        public bool PauseHit(Vector2 screenPos) => Hit(screenPos, PauseRect(SafeArea.W, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
+        public bool TuneHit(Vector2 screenPos) => Hit(screenPos, TuneRect(SafeArea.W, SafeArea.H, UI.SafeArea.U), 10);
+        public bool PauseHit(Vector2 screenPos) => Hit(screenPos, PauseRect(SafeArea.W, UI.SafeArea.U), 8);
         static bool Hit(Vector2 screenPos, Rect r, float pad)
         {
             if (screenPos.x < 0) return false;
-            float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f); var g = SafeArea.ToGui(screenPos); float gx = g.x, gy = g.y;
+            float uu = UI.SafeArea.U; var g = SafeArea.ToGui(screenPos); float gx = g.x, gy = g.y;
             return gx > r.x - pad * uu && gx < r.xMax + pad * uu && gy > r.y - pad * uu && gy < r.yMax + pad * uu;
         }
 
@@ -37,12 +37,12 @@ namespace DoomsdayTunnels.UI
         void DrawTuneButton()
         {
             var r = TuneRect(W, H, u); float rad = r.width / 2;
-            Ring(r.center, rad, Palette.Void, 0.5f); DashedRing(r.center, rad, Palette.Ink, 0.9f, 0); GearIcon(r.center, rad * 0.75f);
+            Disc(r.center, rad, Palette.Void, 0.5f); Circle(r.center, rad, 1.5f * u, Palette.Ink, 0.9f); GearIcon(r.center, rad * 0.75f);
         }
         void DrawMuteButton(bool sound)
         {
             var r = MuteRect(W, H, u); float rad = r.width / 2;
-            Ring(r.center, rad, sound ? Palette.Ink : Palette.Void, 0.5f); DashedRing(r.center, rad, Palette.Ink, 0.9f, 0); SpeakerIcon(r.center, rad * 0.8f, !sound);
+            Disc(r.center, rad, sound ? Palette.Ink : Palette.Void, 0.5f); Circle(r.center, rad, 1.5f * u, Palette.Ink, 0.9f); SpeakerIcon(r.center, rad * 0.8f, !sound);
         }
         void BrokenBar(float x, float y, float w, float h, float t)
         {
