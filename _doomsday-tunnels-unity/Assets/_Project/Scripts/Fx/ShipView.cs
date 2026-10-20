@@ -22,7 +22,7 @@ namespace DoomsdayTunnels.Fx
 
         public void Init(Material unlit, Material additive)
         {
-            body = new GameObject("Body").transform; body.SetParent(transform, false); body.localScale = Vector3.one * 0.8f;
+            body = new GameObject("Body").transform; body.SetParent(transform, false); body.localScale = Vector3.one * 0.62f;      // small enough that its wings stay inside the collision margins
             // The hull: a flat dart, nose forward. Vertices: nose, left tip, right tip, spine top, keel.
             var v = new List<Vector3> { new Vector3(0, 0, 0.42f), new Vector3(-0.34f, 0, -0.3f), new Vector3(0.34f, 0, -0.3f), new Vector3(0, 0.11f, -0.2f), new Vector3(0, -0.06f, -0.2f), new Vector3(0, 0.02f, -0.34f) };
             var tris = new[] { 0, 3, 1, 0, 2, 3, 0, 1, 4, 0, 4, 2, 1, 3, 5, 3, 2, 5, 1, 5, 4, 5, 2, 4 };

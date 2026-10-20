@@ -33,6 +33,8 @@ namespace DoomsdayTunnels.Core
         // Red walls are solid: the ship is held BounceBack metres short of one, thrown back at BounceRecoil m/s at least,
         // and shoved sideways toward the nearest gap at BounceShove m/s.
         public const float BounceBack = 0.4f, BounceRecoil = 5f, BounceShove = 3.2f;
+        public const float WallMargin = 0.14f;  // how close the ship's centre gets to a red slab before it counts (the web used 0.05; the ship is visible now)
+        public const float MineShotRadius = 0.45f;
 
         // Aiming (tilt mode): how far the stick can swing the guns, and the depth the aim point is drawn at
         public const float AimMaxX = 0.24f, AimMaxY = 0.17f, AimDepth = 20f;

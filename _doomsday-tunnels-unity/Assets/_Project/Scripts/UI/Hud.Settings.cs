@@ -17,18 +17,18 @@ namespace DoomsdayTunnels.UI
 
         static Rect TuneRect(float w, float h, float u) => new Rect(16 * u, h - 50 * u, 38 * u, 38 * u);
         static Rect MuteRect(float w, float h, float u) => new Rect(w - 54 * u, 12 * u, 38 * u, 38 * u);
-        public bool MuteHit(Vector2 screenPos) => Hit(screenPos, MuteRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
+        public bool MuteHit(Vector2 screenPos) => Hit(screenPos, MuteRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
         static Rect PauseRect(float w, float u) => new Rect(w - 48 * u, 10 * u, 38 * u, 38 * u);
 
         /// <summary>The pause button in Unity screen coordinates (y up), for the input reader to keep clear of.</summary>
-        public Rect PauseScreenRect { get { float sw = Screen.width, sh = Screen.height, uu = Mathf.Clamp(sh / 400f, 0.75f, 1.7f); var r = PauseRect(sw, uu); return new Rect(r.x - 8 * uu, sh - r.yMax - 8 * uu, r.width + 16 * uu, r.height + 16 * uu); } }
+        public Rect PauseScreenRect { get { float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f); var r = PauseRect(SafeArea.W, uu); var bl = SafeArea.ToScreen(new Vector2(r.x - 8 * uu, r.yMax + 8 * uu)); return new Rect(bl.x, bl.y, r.width + 16 * uu, r.height + 16 * uu); } }
 
-        public bool TuneHit(Vector2 screenPos) => Hit(screenPos, TuneRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
-        public bool PauseHit(Vector2 screenPos) => Hit(screenPos, PauseRect(Screen.width, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
+        public bool TuneHit(Vector2 screenPos) => Hit(screenPos, TuneRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
+        public bool PauseHit(Vector2 screenPos) => Hit(screenPos, PauseRect(SafeArea.W, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
         static bool Hit(Vector2 screenPos, Rect r, float pad)
         {
             if (screenPos.x < 0) return false;
-            float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f), gx = screenPos.x, gy = Screen.height - screenPos.y;
+            float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f); var g = SafeArea.ToGui(screenPos); float gx = g.x, gy = g.y;
             return gx > r.x - pad * uu && gx < r.xMax + pad * uu && gy > r.y - pad * uu && gy < r.yMax + pad * uu;
         }
 
@@ -84,7 +84,7 @@ namespace DoomsdayTunnels.UI
             }
             thumb.fixedWidth = thumb.fixedHeight = track.fixedHeight = 18 * u;
             float cw = Mathf.Min(W - 24 * u, 600 * u), ch = Mathf.Min(H - 12 * u, 330 * u), cx0 = (W - cw) / 2, cy0 = (H - ch) / 2, pad = 14 * u;
-            Box(0, 0, W, H, Palette.Void, 0.6f);
+            Full(Palette.Void, 0.6f);
             Box(cx0, cy0, cw, ch, Palette.Void, 0.92f); Outline(new Rect(cx0, cy0, cw, ch), Palette.Dim, u);
             float x = cx0 + pad, y = cy0 + 12 * u, right = cx0 + cw - pad;
             Text("CONTROLS AND FEEL", x, y + 13 * u, 14 * u, Palette.Ink, TextAnchor.MiddleLeft, true);

@@ -20,8 +20,8 @@ namespace DoomsdayTunnels.UI
 
         static Rect ScoresRect(float w, float h, float u) => new Rect(64 * u, h - 46 * u, 96 * u, 30 * u);
         static Rect PostRect(float w, float h, float u) => new Rect(w / 2 - 70 * u, h / 2 + 40 * u, 140 * u, 30 * u);
-        public bool ScoresHit(Vector2 screenPos) => Hit(screenPos, ScoresRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
-        public bool PostHit(Vector2 screenPos) => Hit(screenPos, PostRect(Screen.width, Screen.height, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
+        public bool ScoresHit(Vector2 screenPos) => Hit(screenPos, ScoresRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 10);
+        public bool PostHit(Vector2 screenPos) => Hit(screenPos, PostRect(SafeArea.W, SafeArea.H, Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f)), 8);
 
         void DrawScoresButton() { var r = ScoresRect(W, H, u); Box(r.x, r.y, r.width, r.height, Palette.Void, 0.5f); Outline(r, Palette.Ink, u); Text("SCORES", r.center.x, r.center.y, 12 * u, Palette.Ink, TextAnchor.MiddleCenter); }
         void DrawPostButton() { var r = PostRect(W, H, u); Box(r.x, r.y, r.width, r.height, Palette.Gate, 0.9f); Text("POST SCORE", r.center.x, r.center.y, 12 * u, Palette.Void, TextAnchor.MiddleCenter, true); }
@@ -40,7 +40,7 @@ namespace DoomsdayTunnels.UI
         void Card(out float cx0, out float cy0, out float cw, out float ch)
         {
             cw = Mathf.Min(W - 24 * u, 640 * u); ch = Mathf.Min(H - 12 * u, 340 * u); cx0 = (W - cw) / 2; cy0 = (H - ch) / 2;
-            Box(0, 0, W, H, Palette.Void, 0.6f);
+            Full(Palette.Void, 0.6f);
             Box(cx0, cy0, cw, ch, Palette.Void, 0.94f); Outline(new Rect(cx0, cy0, cw, ch), Palette.Dim, u);
         }
 

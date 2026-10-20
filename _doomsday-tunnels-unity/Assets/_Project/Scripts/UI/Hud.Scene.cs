@@ -23,8 +23,8 @@ namespace DoomsdayTunnels.UI
         public bool SkipHit(Vector2 screenPos)
         {
             if (screenPos.x < 0) return false;
-            float sw = Screen.width, sh = Screen.height, uu = Mathf.Clamp(sh / 400f, 0.75f, 1.7f);
-            var b = SkipRect(sw, uu); float gx = screenPos.x, gy = sh - screenPos.y;
+            float uu = Mathf.Clamp(Screen.height / 400f, 0.75f, 1.7f);
+            var b = SkipRect(SafeArea.W, uu); var g = SafeArea.ToGui(screenPos); float gx = g.x, gy = g.y;
             return gx > b.x - 10 * uu && gx < b.xMax + 10 * uu && gy < b.yMax + 12 * uu;
         }
 
@@ -37,9 +37,11 @@ namespace DoomsdayTunnels.UI
             Sets.Paint(canvas, sh.Bg, sc.T, ln.Who, typing, sh, ln, out var title);
             canvas.Upload();
             float pw = Mathf.Min(W, ph * PixelCanvas.VW / vh), pxh = pw * vh / PixelCanvas.VW, px0 = (W - pw) / 2, py0 = (ph - pxh) / 2, scale = pw / PixelCanvas.VW;
-            Box(0, 0, W, H, Palette.Void);
+            Full(Palette.Void);
             GUI.DrawTexture(new Rect(px0, py0, pw, pxh), canvas.Texture);
             if (title.Text != null) Chrome(title.Text, px0 + title.Cx * scale, py0 + title.Cy * scale, title.Size * scale, pw - 28 * scale, scale);
+            // the picture's edges fall off a little, like a tube
+            for (int i = 0; i < 5; i++) { float a = 0.12f; Box(px0, py0 + i * 3 * u, pw, 3 * u, Palette.Void, a); Box(px0, py0 + pxh - (i + 1) * 3 * u, pw, 3 * u, Palette.Void, a); Box(px0 + i * 4 * u, py0, 4 * u, pxh, Palette.Void, a); Box(px0 + pw - (i + 1) * 4 * u, py0, 4 * u, pxh, Palette.Void, a); }
             // worn video tape: scan lines, a drifting tracking band, a burst of static on every cut
             for (float y = py0; y < py0 + pxh; y += 3) Box(px0, y, pw, 1, Palette.Void, 0.14f);
             if (!ReduceMotion) Box(px0, py0 + ((sc.T * 0.23f) % 1) * (pxh + 40) - 30, pw, 10 * u, Palette.Ink, 0.07f);

@@ -45,7 +45,7 @@ namespace DoomsdayTunnels.UI
                 if (t > p.Life) { confetti.RemoveAt(i); continue; }
                 float e = 1 - Mathf.Exp(-p.K * t), x = p.X + p.Vx * e / p.K + Mathf.Sin(t * p.Wf + p.Ph) * 10 * u * e, y = p.Y + (p.Vy - p.Vt) * e / p.K + p.Vt * t;
                 float alpha = Mathf.Min(1, (p.Life - t) / 0.6f), rot = (p.Ph + p.Vr * t) * Mathf.Rad2Deg;
-                var m = GUI.matrix; GUIUtility.RotateAroundPivot(rot, new Vector2(x, y));
+                var m = GUI.matrix; Rot(rot, new Vector2(x, y));
                 if (p.Kind == 2) Ring(new Vector2(x, y), s * 0.38f, p.Col, alpha);
                 else if (p.Kind == 3) { float lw = Mathf.Max(1.5f, s * 0.26f); Bar(new Vector2(x - s, y + s * 0.3f), new Vector2(x - s * 0.33f, y - s * 0.3f), lw, p.Col, alpha); Bar(new Vector2(x - s * 0.33f, y - s * 0.3f), new Vector2(x + s * 0.33f, y + s * 0.3f), lw, p.Col, alpha); Bar(new Vector2(x + s * 0.33f, y + s * 0.3f), new Vector2(x + s, y - s * 0.3f), lw, p.Col, alpha); }
                 else
@@ -83,7 +83,7 @@ namespace DoomsdayTunnels.UI
         {
             float a = r * (ReduceMotion ? 0.85f : 0.65f + 0.35f * Mathf.Sin(now * 7 + ph)), b = a * 0.24f;
             Box(x - a, y - b / 2, 2 * a, b, Palette.Gate); Box(x - b / 2, y - a, b, 2 * a, Palette.Gate);
-            var m = GUI.matrix; GUIUtility.RotateAroundPivot(45, new Vector2(x, y)); Box(x - a * 0.55f, y - b / 2, a * 1.1f, b, Palette.Gate); Box(x - b / 2, y - a * 0.55f, b, a * 1.1f, Palette.Gate); GUI.matrix = m;
+            var m = GUI.matrix; Rot(45, new Vector2(x, y)); Box(x - a * 0.55f, y - b / 2, a * 1.1f, b, Palette.Gate); Box(x - b / 2, y - a * 0.55f, b, a * 1.1f, Palette.Gate); GUI.matrix = m;
         }
 
         // Sound: a speaker with sound waves on a lit button, or with a line through it on a dark one when muted.
@@ -99,7 +99,7 @@ namespace DoomsdayTunnels.UI
         void GearIcon(Vector2 c, float r)
         {
             float k = r / 20; int n = 8;
-            for (int i = 0; i < n; i++) { var m = GUI.matrix; GUIUtility.RotateAroundPivot(i * 360f / n, c); Box(c.x - 2.2f * k, c.y - 10 * k, 4.4f * k, 20 * k, Palette.Ink); GUI.matrix = m; }
+            for (int i = 0; i < n; i++) { var m = GUI.matrix; Rot(i * 360f / n, c); Box(c.x - 2.2f * k, c.y - 10 * k, 4.4f * k, 20 * k, Palette.Ink); GUI.matrix = m; }
             Ring(c, 7.2f * k, Palette.Ink, 1); Ring(c, 3.6f * k, Palette.Void, 1);
         }
     }

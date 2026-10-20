@@ -117,11 +117,14 @@ namespace DoomsdayTunnels.UI
             }
         }
 
+        /// <summary>Rotates what is drawn next about a point, in the HUD's own coordinates (Unity's helper ignores the safe-area shift).</summary>
+        static void Rot(float deg, Vector2 pivot) => GUI.matrix = GUI.matrix * Matrix4x4.TRS(pivot, Quaternion.Euler(0, 0, deg), Vector3.one) * Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
+
         /// <summary>A thick line between two points, as a rotated box.</summary>
         void Bar(Vector2 a, Vector2 b, float w, Color col, float alpha)
         {
             var d = b - a; float len = d.magnitude; if (len < 0.01f) return;
-            var m = GUI.matrix; GUIUtility.RotateAroundPivot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, a);
+            var m = GUI.matrix; Rot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, a);
             Box(a.x, a.y - w / 2, len, w, col, alpha);
             GUI.matrix = m;
         }
