@@ -15,6 +15,7 @@ namespace DoomsdayTunnels.Fx
     public sealed class ShipView : MonoBehaviour
     {
         public bool Visible = true;
+        public bool Ghost;                       // the replay of a best run: edges only, dim, no engine
         Transform body; Renderer hull, edges, flare; Material hullMat, edgeMat, flareMat;
         float bank, pitch, yaw, sparkCd;
         static readonly int TintId = Shader.PropertyToID("_Tint");
@@ -33,8 +34,9 @@ namespace DoomsdayTunnels.Fx
             var lines = new Mesh { name = "ShipEdges" }; var lv = new List<Vector3>(); foreach (var p in v) lv.Add(p * 1.02f); lines.SetVertices(lv); lines.SetColors(cols);
             lines.SetIndices(new[] { 0, 1, 0, 2, 1, 2, 0, 3, 3, 1, 3, 2, 0, 4, 4, 1, 4, 2, 3, 5, 1, 5, 2, 5 }, MeshTopology.Lines, 0);
             edges = Part(lines, unlit, out edgeMat); edgeMat.SetColor(TintId, Palette.Ink); edgeMat.SetFloat("_Intensity", 2.6f); edgeMat.SetFloat("_Lit", 0f);
+            if (Ghost) { hull.enabled = false; edgeMat.SetColor(TintId, Palette.Dim); edgeMat.SetFloat("_Intensity", 1.3f); }
             // The engine flare: an additive slab behind the tail that stretches with speed.
-            var fl = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(fl.GetComponent<Collider>()); fl.transform.SetParent(body, false);
+            var fl = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(fl.GetComponent<Collider>()); fl.transform.SetParent(body, false); if (Ghost) fl.SetActive(false);
             fl.transform.localPosition = new Vector3(0, 0, -0.45f); fl.transform.localScale = new Vector3(0.14f, 0.07f, 0.3f);
             flare = fl.GetComponent<Renderer>(); flareMat = new Material(additive); flareMat.SetFloat("_Intensity", 1.4f); flare.sharedMaterial = flareMat; flare.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
@@ -55,11 +57,12 @@ namespace DoomsdayTunnels.Fx
             bool show = Visible && (sim.Playing || sim.Shield > 0);
             if (gameObject.activeSelf != show) gameObject.SetActive(show);
             if (!show) return;
-            transform.position = path.World(sim.Rx, sim.Ry, sim.Pz);
+            transform.position = path.World(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen);
             var fwd = path.Tangent(sim.Pz + 1.5f); var upv = path.Up(sim.Pz + 1.5f);
             float k = Mathf.Min(1, dt * 8);
             bank += (-sim.Vx * 0.22f - bank) * k; pitch += (sim.Vy * 0.09f - pitch) * k; yaw += (sim.Vx * 0.05f - yaw) * k;
             transform.rotation = Quaternion.LookRotation(fwd, upv) * Quaternion.Euler(-pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, bank * Mathf.Rad2Deg);
+            if (Ghost) { edgeMat.SetColor("_Haze", haze); return; }                 // a ghost is just its outline: no engine, no damage
             // the engine: longer and brighter under boost, flickering a little
             float len = 0.3f + 0.5f * sim.BoostEase + 0.05f * Mathf.Sin(sim.Now * 40);
             flare.transform.localScale = new Vector3(0.14f + 0.06f * sim.BoostEase, 0.07f + 0.03f * sim.BoostEase, len);

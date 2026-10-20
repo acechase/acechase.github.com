@@ -82,7 +82,8 @@ DT3D_SCENE_SHOTS=/tmp/dt3d-scenes "$UNITY" -batchmode -nographics -projectPath "
   run part-way down the sector: sector 1's fork is at 420 m, so `-shotz 370` shows the widening and the split.
   `-shotsector 6` flies that sector instead (6 is the first Part Two sector, in hollow neon). `-shotscene` instead
   captures the opening cut scene, advancing a line or two between frames, `-shotpanel` captures the settings panel and
-  `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one).
+  `-shotboard` opens the scoreboard (needs an `OnlineConfig.json`; `wrangler dev` in the API folder serves a local one), and
+  `-shotghost` records a few seconds as sector 1's ghost and flies beside it.
 
 ```sh
 Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3d-shots -shotz 370 -screen-fullscreen 0 -screen-width 1600 -screen-height 740
@@ -95,6 +96,10 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
   game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
   never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
   start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
+- Ghosts. Every run through a sector is recorded as its inputs (`Flight/InputLog.cs`, five bytes a step); the best
+  fair-speed run is kept on the device (`ghost.<sector>`) and flies alongside next time as a dim outline
+  (`Flight/GhostRunner.cs` replays it in a sim of its own). The flight model is deterministic, so the replay is
+  exact; the live sim is fed the same quantised input the log keeps. Off in settings with GHOST OF YOUR BEST.
 - Red walls are solid. The web game lets the ship punch through for a shield hit; here it bounces off, is shoved
   toward the nearest gap, and has to pick its speed back up (boost helps). Only the first hit on a wall costs shield.
 

@@ -47,6 +47,8 @@ namespace DoomsdayTunnels
         ShipView ship; DebrisView debris; Shockwaves shocks; Ambience ambience; PostFx post;
         readonly DynamicLights lights = new DynamicLights();
         ApiClient api; readonly RunLog run = new RunLog();
+        InputLog log; GhostRunner ghost; ShipView ghostShip; bool respawned;
+        public float GhostTime => ghost != null ? ghost.Seconds : 0;
         public bool Online => api != null;
         public bool CanPost => api != null && run.Token != null && !run.Posted && sim.Score > 0;
         public Quality Quality { get; private set; }
@@ -69,6 +71,7 @@ namespace DoomsdayTunnels
             Quality = Quality.Detect(); lights.Budget = Quality.Lights; post = new PostFx(Quality);
             Debug.Log("[Doomsday] Quality " + Quality.Tier + " on " + SystemInfo.deviceModel);
             ship = new GameObject("Ship").AddComponent<ShipView>(); ship.Init(Unlit, Additive);
+            ghostShip = new GameObject("Ghost").AddComponent<ShipView>(); ghostShip.Ghost = true; ghostShip.Init(Unlit, Additive); ghostShip.gameObject.SetActive(false);
             debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
             shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
             ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, cam, Quality);
@@ -87,7 +90,7 @@ namespace DoomsdayTunnels
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -123,6 +126,14 @@ namespace DoomsdayTunnels
                 Application.Quit(); yield break;
             }
             seenIntro = true; NewGame();
+            if (shotGhost)
+            {   // fly a few seconds, keep that as the sector's ghost, then fly again on another line beside it
+                latestOverride = new SimInput { SteerX = -0.5f, Fire = true }; yield return new WaitForSeconds(4f);
+                S.SaveGhost(1, log.Serialize()); StartLevel(1); latestOverride = new SimInput { SteerX = 0.6f, SteerY = -0.3f };
+                yield return new WaitForSeconds(2.5f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-ghost.png"));
+                yield return new WaitForSeconds(1f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "03-ghost.png"));
+                yield return new WaitForSeconds(0.5f); Application.Quit(); yield break;
+            }
             if (shotSector > 1) StartLevel(shotSector);
             if (shotZ > 0) sim.Pz = shotZ;
             Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");
@@ -135,7 +146,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -160,7 +171,13 @@ namespace DoomsdayTunnels
         }
 
         void Attract() { level = 1; LoadSector(1); sim.Playing = false; State = GameState.Title; StateT = 0; }
-        void StartLevel(int n) { Debug.Log("[Doomsday] Sector " + n); level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true; }
+        void StartLevel(int n)
+        {
+            Debug.Log("[Doomsday] Sector " + n); level = n; LoadSector(n); State = GameState.Play; StateT = 0; Paused = false; hud.Popups.Clear(); input.Tilt.NeedCal = true;
+            // every run is recorded; the best one through this sector flies alongside as a ghost
+            log = new InputLog(sim, S.Tune); respawned = false;
+            var saved = S.ShowGhost ? S.Ghost(n) : null; ghost = saved != null ? GhostRunner.From(saved, n) : null;
+        }
         void NewGame()
         {
             bestWas = S.Best; OverBest = false; audio.CancelQueued();
@@ -222,6 +239,9 @@ namespace DoomsdayTunnels
             bullets.Sync(sim, sim.Path);
             rig.Place(sim, sim.Path, S.Tune.Sway, dt);
             ship.Place(sim, sim.Path, pal.Line, pal.Haze, dt, sparks);
+            bool showGhost = ghost != null && !ghost.Done && (State == GameState.Play || State == GameState.Respawn);
+            if (ghostShip.gameObject.activeSelf != showGhost) ghostShip.gameObject.SetActive(showGhost);
+            if (showGhost) ghostShip.Place(ghost.Sim, sim.Path, pal.Line, pal.Haze, dt, sparks);
             audio.Engine(State == GameState.Play && !Paused, sim.Speed, sim.BoostEase, dt);
             // the game's lights: the engine, the shots in flight, the ship token, and whatever is flashing
             lights.BeginFrame();
@@ -236,12 +256,14 @@ namespace DoomsdayTunnels
         }
         bool panelWas;
 
+        void Record(in SimInput q) { log?.Record(q, respawned); respawned = false; ghost?.Advance(Time.fixedDeltaTime); }
+
         void SetPaused(bool p) { Paused = p; if (!p) input.Tilt.NeedCal = true; }     // resuming re-centres the tilt to how the phone is held now
 
         void FixedUpdate()
         {
-            if (State == GameState.Play && !Paused) { sim.Step(Time.fixedDeltaTime, latest); Drain(); }
-            else if (State == GameState.Respawn || State == GameState.Over) { sim.Step(Time.fixedDeltaTime, default); Drain(); }   // coasting: it may still pass the fork
+            if (State == GameState.Play && !Paused) { var q = InputLog.Quantise(latest); sim.Step(Time.fixedDeltaTime, q); Record(q); Drain(); }
+            else if (State == GameState.Respawn || State == GameState.Over) { sim.Step(Time.fixedDeltaTime, default); if (State == GameState.Respawn) Record(default); Drain(); }   // coasting: it may still pass the fork
         }
 
         void OnApplicationPause(bool paused) { if (paused && State == GameState.Play) Paused = true; }
@@ -295,7 +317,10 @@ namespace DoomsdayTunnels
         void OnSectorClear()
         {
             Bonus = sim.SectorClear(); SaveBest();
-            ClearPB = S.RecordTime(level, Bonus.SectorTime, S.Tune.FairSpeed); run.SectorCleared(level, Bonus.SectorTime, S.Tune.FairSpeed);
+            bool fair = S.Tune.FairSpeed, best = fair && (S.BestTime(level) <= 0 || Bonus.SectorTime < S.BestTime(level));
+            if (best && log != null) S.SaveGhost(level, log.Serialize());        // the ghost is the best run so far, from its very first time through
+            ClearPB = S.RecordTime(level, Bonus.SectorTime, fair); run.SectorCleared(level, Bonus.SectorTime, fair);
+            ghost = null;
             audio.Play("clear"); if (ClearPB) audio.Play("cheerSmall", 0.5f);
             hud.Flash = 1; hud.FlashColor = Palette.Ink;
             level++; State = GameState.Clear; StateT = 0;
@@ -318,7 +343,7 @@ namespace DoomsdayTunnels
         }
         void FinishRespawn()
         {
-            if (RespawnWhy == SimEventKind.ShipLost) { sim.Respawn(); State = GameState.Play; StateT = 0; input.Tilt.NeedCal = true; hud.Popups.Add(new Hud.Popup { Text = "NEW SHIP" }); }
+            if (RespawnWhy == SimEventKind.ShipLost) { sim.Respawn(); respawned = true; State = GameState.Play; StateT = 0; input.Tilt.NeedCal = true; hud.Popups.Add(new Hud.Popup { Text = "NEW SHIP" }); }
             else { StartLevel(level); sim.Invuln = 1.5f; hud.Popups.Add(new Hud.Popup { Text = "CLOCK RESET" }); }   // out of time: the sector starts over with a fresh clock
         }
         void GameOver(SimEventKind why)
