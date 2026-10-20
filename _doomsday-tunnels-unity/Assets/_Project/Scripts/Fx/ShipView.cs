@@ -16,29 +16,29 @@ namespace DoomsdayTunnels.Fx
     {
         public bool Visible = true;
         public bool Ghost;                       // the replay of a best run: edges only, dim, no engine
-        Transform body; Renderer hull, edges, flare; Material hullMat, edgeMat, flareMat;
+        Transform body; Renderer hull, edges; readonly Renderer[] flares = new Renderer[2], cores = new Renderer[2]; Material hullMat, edgeMat, flareMat, coreMat; Vector3[] nozzles;
         float bank, pitch, yaw, sparkCd; Vector3 jolt, joltVel; float tumble, tumbleVel;
         static readonly int TintId = Shader.PropertyToID("_Tint");
 
         public void Init(Material unlit, Material additive)
         {
-            body = new GameObject("Body").transform; body.SetParent(transform, false); body.localScale = Vector3.one * 0.62f;      // small enough that its wings stay inside the collision margins
-            // The hull: a flat dart, nose forward. Vertices: nose, left tip, right tip, spine top, keel.
-            var v = new List<Vector3> { new Vector3(0, 0, 0.42f), new Vector3(-0.34f, 0, -0.3f), new Vector3(0.34f, 0, -0.3f), new Vector3(0, 0.11f, -0.2f), new Vector3(0, -0.06f, -0.2f), new Vector3(0, 0.02f, -0.34f) };
-            var tris = new[] { 0, 3, 1, 0, 2, 3, 0, 1, 4, 0, 4, 2, 1, 3, 5, 3, 2, 5, 1, 5, 4, 5, 2, 4 };
-            var mesh = new Mesh { name = "Ship" }; mesh.SetVertices(v); mesh.SetIndices(tris, MeshTopology.Triangles, 0);
-            var cols = new List<Color>(); for (int i = 0; i < v.Count; i++) cols.Add(Color.white); mesh.SetColors(cols);
-            mesh.RecalculateNormals(); mesh.RecalculateBounds();
-            hull = Part(mesh, unlit, out hullMat); hullMat.SetColor(TintId, Color.Lerp(Palette.Ink, Palette.Void, 0.8f)); hullMat.SetFloat("_Intensity", 1f); hullMat.SetFloat("_Lit", 0.3f);
-            // The edges: the same dart as lines, a hair outside the hull so they always show.
-            var lines = new Mesh { name = "ShipEdges" }; var lv = new List<Vector3>(); foreach (var p in v) lv.Add(p * 1.02f); lines.SetVertices(lv); lines.SetColors(cols);
-            lines.SetIndices(new[] { 0, 1, 0, 2, 1, 2, 0, 3, 3, 1, 3, 2, 0, 4, 4, 1, 4, 2, 3, 5, 1, 5, 2, 5 }, MeshTopology.Lines, 0);
+            body = new GameObject("Body").transform; body.SetParent(transform, false); body.localScale = Vector3.one * 0.55f;      // small enough that its wings stay inside the collision margins
+            ShipMesh.Build(out var mesh, out var lines, out nozzles);
+            hull = Part(mesh, unlit, out hullMat); hullMat.SetColor(TintId, Color.Lerp(Palette.Ink, Palette.Void, 0.78f)); hullMat.SetFloat("_Intensity", 1f); hullMat.SetFloat("_Lit", 0.5f);
             edges = Part(lines, unlit, out edgeMat); edgeMat.SetColor(TintId, Palette.Ink); edgeMat.SetFloat("_Intensity", 2.6f); edgeMat.SetFloat("_Lit", 0f);
             if (Ghost) { hull.enabled = false; edgeMat.SetColor(TintId, Palette.Dim); edgeMat.SetFloat("_Intensity", 1.3f); }
-            // The engine flare: an additive slab behind the tail that stretches with speed.
-            var fl = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(fl.GetComponent<Collider>()); fl.transform.SetParent(body, false); if (Ghost) fl.SetActive(false);
-            fl.transform.localPosition = new Vector3(0, 0, -0.45f); fl.transform.localScale = new Vector3(0.14f, 0.07f, 0.3f);
-            flare = fl.GetComponent<Renderer>(); flareMat = new Material(additive); flareMat.SetFloat("_Intensity", 1.4f); flare.sharedMaterial = flareMat; flare.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // The engine flares: an additive cone behind each nozzle that stretches with speed, and a hot core inside it.
+            flareMat = new Material(additive); flareMat.SetFloat("_Intensity", 1.4f);
+            coreMat = new Material(additive); coreMat.SetFloat("_Intensity", 2.2f); coreMat.SetColor(TintId, Color.white);
+            for (int i = 0; i < 2; i++)
+            {
+                var fl = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(fl.GetComponent<Collider>()); fl.transform.SetParent(body, false); if (Ghost) fl.SetActive(false);
+                fl.transform.localPosition = nozzles[i] + new Vector3(0, 0, -0.15f); fl.transform.localScale = new Vector3(0.09f, 0.09f, 0.3f);
+                flares[i] = fl.GetComponent<Renderer>(); flares[i].sharedMaterial = flareMat; flares[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var co = GameObject.CreatePrimitive(PrimitiveType.Cube); Destroy(co.GetComponent<Collider>()); co.transform.SetParent(body, false); if (Ghost) co.SetActive(false);
+                co.transform.localPosition = nozzles[i] + new Vector3(0, 0, -0.06f); co.transform.localScale = new Vector3(0.045f, 0.045f, 0.12f);
+                cores[i] = co.GetComponent<Renderer>(); cores[i].sharedMaterial = coreMat; cores[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         Renderer Part(Mesh m, Material baseMat, out Material mat)
@@ -50,7 +50,7 @@ namespace DoomsdayTunnels.Fx
             return r;
         }
 
-        public Vector3 EnginePos => body.TransformPoint(new Vector3(0, 0, -0.45f));
+        public Vector3 EnginePos => body.TransformPoint(new Vector3(0, -0.045f, -0.55f));
         /// <summary>A knock: the hull is shoved back along the tunnel and tumbles, then settles on a spring.</summary>
         public void Jolt(float back, float spin) { joltVel += new Vector3(0, 0, -back); tumbleVel += spin; }
 
@@ -68,9 +68,15 @@ namespace DoomsdayTunnels.Fx
             transform.rotation = Quaternion.LookRotation(fwd, upv) * Quaternion.Euler(-pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, bank * Mathf.Rad2Deg);
             if (Ghost) { edgeMat.SetColor("_Haze", haze); return; }                 // a ghost is just its outline: no engine, no damage
             // the engine: longer and brighter under boost, flickering a little
-            float len = 0.3f + 0.5f * sim.BoostEase + 0.05f * Mathf.Sin(sim.Now * 40);
-            flare.transform.localScale = new Vector3(0.14f + 0.06f * sim.BoostEase, 0.07f + 0.03f * sim.BoostEase, len);
-            flare.transform.localPosition = new Vector3(0, 0, -0.3f - len * 0.5f);
+            float len = 0.28f + 0.55f * sim.BoostEase + 0.04f * Mathf.Sin(sim.Now * 40);
+            for (int i = 0; i < 2; i++)
+            {
+                float fl = len * (1 + 0.06f * Mathf.Sin(sim.Now * 37 + i * 2));
+                flares[i].transform.localScale = new Vector3(0.09f + 0.05f * sim.BoostEase, 0.09f + 0.05f * sim.BoostEase, fl);
+                flares[i].transform.localPosition = nozzles[i] + new Vector3(0, 0, -fl * 0.5f);
+                cores[i].transform.localScale = new Vector3(0.045f, 0.045f, 0.1f + 0.25f * sim.BoostEase);
+                cores[i].transform.localPosition = nozzles[i] + new Vector3(0, 0, -(0.1f + 0.25f * sim.BoostEase) * 0.5f);
+            }
             flareMat.SetColor(TintId, Color.Lerp(lineCol, Color.white, 0.3f + 0.5f * sim.BoostEase));
             // damage: edges go from white toward warning red, sparks when nearly gone
             float dmg = 1 - Mathf.Clamp01(sim.Shield / 60f);

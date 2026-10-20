@@ -22,8 +22,10 @@ namespace DoomsdayTunnels.Fx
         /// <summary>A push in a screen-space direction (x right, y up), in metres, that springs back.</summary>
         public void Impulse(Vector2 dir, float amount) { if (!ReduceMotion) kickVel += new Vector3(dir.x, dir.y, 0) * amount; }
 
+        public bool Free;                       // a screenshot run has taken the camera
         public void Place(FlightSim sim, TunnelPath path, float sway, float dt)
         {
+            if (Free) return;
             float back = Chase ? 2.9f : 0f, up = Chase ? 0.36f : 0f;
             var target = new Vector3(sim.Rx * (Chase ? 0.55f : 1f), sim.Ry * (Chase ? 0.4f : 1f) + up, 0);
             follow += (target - follow) * Mathf.Min(1, dt * 9);

@@ -23,6 +23,7 @@ namespace DoomsdayTunnels
     {
         [Tooltip("Base material with the Doomsday/Unlit shader; every surface is an instance of it.")] public Material Unlit;
         [Tooltip("Base material with the Doomsday/UnlitAdd shader, for sparks and shot glow.")] public Material Additive;
+        [Tooltip("Base material with the Doomsday/Portal shader, for the exit's iris.")] public Material Portal;
 
         public GameState State = GameState.Title;
         public bool Paused;
@@ -82,7 +83,7 @@ namespace DoomsdayTunnels
             ghostShip = new GameObject("Ghost").AddComponent<ShipView>(); ghostShip.Ghost = true; ghostShip.Init(Unlit, Additive); ghostShip.gameObject.SetActive(false);
             debris = new GameObject("Debris").AddComponent<DebrisView>(); debris.Init(Unlit); debris.Sim.Cap = Quality.DebrisCap;
             shocks = new GameObject("Shockwaves").AddComponent<Shockwaves>(); shocks.Init(Additive); shocks.Enabled = Quality.Shockwaves;
-            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, Unlit, cam, Quality);
+            ambience = new GameObject("Ambience").AddComponent<Ambience>(); ambience.Init(Additive, Unlit, Portal, cam, Quality);
             scene.Sound = n => audio.Play(n);
             var cfg = OnlineConfig.Load();
             if (cfg.Enabled) { api = new GameObject("Online").AddComponent<ApiClient>(); api.Config = cfg; }
@@ -102,7 +103,7 @@ namespace DoomsdayTunnels
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotdpr") { float.TryParse(args[i + 1], out float d); UI.SafeArea.FakeDpr = d; }   // preview a phone's pixel density on a Mac
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; if (a == "-shotship") shotShip = true; }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -170,7 +171,25 @@ namespace DoomsdayTunnels
             }
             if (shotSector > 1) StartLevel(shotSector);
             if (shotZ > 0) sim.Pz = shotZ;
-            if (shotEnd) { sim.Pz = sim.Sector.Length - 75; latestOverride = new SimInput { SteerX = 0.1f }; yield return new WaitForSeconds(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "02-exit.png")); yield return new WaitForSeconds(1.3f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "03-exit.png")); yield return new WaitForSeconds(1.2f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "04-exit.png")); Application.Quit(); yield break; }
+            if (shotShip)
+            {   // the ship from close behind, from the side, and under boost
+                latestOverride = new SimInput(); sim.Pz = 60; yield return new WaitForSeconds(0.5f);
+                var cam = rig.Cam.transform; rig.Free = true;
+                foreach (var (name, off, look) in new[] { ("back", new Vector3(0.9f, 0.5f, -1.8f), Vector3.zero), ("side", new Vector3(2.0f, 0.4f, -0.3f), Vector3.zero), ("front", new Vector3(-1.2f, 0.6f, 1.9f), Vector3.zero) })
+                {
+                    var at = ship.transform.position; cam.position = at + off; cam.LookAt(at + look); yield return new WaitForSeconds(0.4f);
+                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "ship-" + name + ".png")); yield return new WaitForSeconds(0.3f);
+                }
+                latestOverride = new SimInput { Boost = true }; yield return new WaitForSeconds(1.2f);
+                { var at = ship.transform.position; cam.position = at + new Vector3(1.1f, 0.5f, -2.2f); cam.LookAt(at); yield return new WaitForSeconds(0.3f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "ship-boost.png")); yield return new WaitForSeconds(0.3f); }
+                Application.Quit(); yield break;
+            }
+            if (shotEnd)
+            {   // the exit from three distances: the iris shut, half open, and wide
+                latestOverride = new SimInput();
+                foreach (var back in new[] { 80f, 40f, 14f }) { sim.Pz = sim.Sector.Length - back; sim.Speed = 2f; yield return new WaitForSeconds(0.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "exit-" + (int)back + "m.png")); yield return new WaitForSeconds(0.3f); }
+                Application.Quit(); yield break;
+            }
             Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");
             for (int i = 0; i < 4; i++)
             {
@@ -182,7 +201,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer, shotSafe, shotEnd;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer, shotSafe, shotEnd, shotShip;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
@@ -296,6 +315,7 @@ namespace DoomsdayTunnels
                 {
                     if (tuneable && hud.TuneHit(input.TapPos)) { hud.PanelOpen = true; }
                     else if (tuneable && hud.MuteHit(input.TapPos)) { S.Sound = !S.Sound; S.Save(); ApplySettings(); }
+                    else if (tuneable && State != GameState.Title && hud.MenuHit(input.TapPos)) { if (api != null && State == GameState.Play && !run.Ended) { run.Ended = true; api.EndRun(run.Token, level, run.Cleared, Mathf.RoundToInt(run.Seconds), S.CountPlays); } TitleScreen(); }
                     else if (api != null && (State == GameState.Title || State == GameState.Over) && hud.ScoresHit(input.TapPos)) hud.OpenBoard();
                     else if (State == GameState.Title && hud.DailyHit(input.TapPos)) StartDaily();
                     else if (CanPostDaily && hud.DailyPostHit(input.TapPos)) hud.OpenDailyPost(S.Name);
@@ -327,9 +347,10 @@ namespace DoomsdayTunnels
             debris.Sim.Tick(dt, (z, br) => br >= 0 ? G.HW : sim.Path.BuiltHalfWidth(z)); debris.Sync(sim.Path);
             shocks.Tick(dt);
             ambience.Tick(sim, sim.Path, dt, S.ReduceMotion);
+            if (ambience.Open > 0 && !portalSaid && State == GameState.Play) { portalSaid = true; audio.Play("portal"); } else if (ambience.Open <= 0) portalSaid = false;
             post.Tick(sim.BoostEase, State == GameState.Play ? sim.Shield : 100, dt);
         }
-        bool panelWas, gunWasHot;
+        bool panelWas, gunWasHot; float hitStop; bool portalSaid;
 
         void Record(in SimInput q) { log?.Record(q, respawned); respawned = false; ghost?.Advance(Time.fixedDeltaTime); }
 
@@ -337,6 +358,7 @@ namespace DoomsdayTunnels
 
         void FixedUpdate()
         {
+            if (hitStop > 0) { hitStop -= Time.fixedDeltaTime; return; }                    // a hit freezes the world for a few frames
             if (State == GameState.Play && !Paused) { var q = InputLog.Quantise(latest); sim.Step(Time.fixedDeltaTime, q); Record(q); Drain(); }
             else if (State == GameState.Respawn || State == GameState.Over) { sim.Step(Time.fixedDeltaTime, default); if (State == GameState.Respawn) Record(default); Drain(); }   // coasting: it may still pass the fork
         }
@@ -372,7 +394,7 @@ namespace DoomsdayTunnels
                     case SimEventKind.Fork: OnFork(e.Count); break;
                     case SimEventKind.ScreenBurst: sparks.ScreenBurst(e.X, e.Y, e.Color, e.Count); break;
                     case SimEventKind.Flash: hud.Flash = 1; hud.FlashColor = e.Color; break;
-                    case SimEventKind.Shake: rig.Shake = 1; ship.Jolt(3f, -8f); break;      // a crash or a wall bounce: the hull is knocked back and tumbles
+                    case SimEventKind.Shake: rig.Shake = 1; ship.Jolt(4f, -10f); if (!Attract) hitStop = 0.09f; break;      // a crash or a wall bounce: the hull is knocked back and tumbles, and the world freezes for a beat
                     case SimEventKind.SectorClear: OnSectorClear(); break;
                     case SimEventKind.ShipLost: case SimEventKind.TimeOut: LoseShip(e.Kind); break;
                     default: if (Sounds.TryGetValue(e.Kind, out var snd)) audio.Play(snd); break;

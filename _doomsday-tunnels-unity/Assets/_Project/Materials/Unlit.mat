@@ -25,10 +25,12 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _Cull: 0
     - _FogAmount: 1
     - _FogDepth: 76
     - _FogPow: 1.3
     - _Intensity: 1
+    - _Lit: 1
     m_Colors:
     - _Haze: {r: 0, g: 0, b: 0, a: 1}
     - _Tint: {r: 1, g: 1, b: 1, a: 1}
