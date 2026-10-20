@@ -54,7 +54,7 @@ namespace DoomsdayTunnels.Fx
             // the exit: a disc at the far end that pulses slowly and swells as the ship closes in
             float left = length - sim.Pz;
             var at = path.World(0, 0, length);
-            glow.position = at; glow.rotation = Quaternion.LookRotation(Vector3.forward);
+            glow.position = at; glow.rotation = path.Rotation(length);
             float pulse = reduceMotion ? 1 : 0.9f + 0.1f * Mathf.Sin(sim.Now * 2.2f);
             glow.localScale = Vector3.one * Mathf.Lerp(3.4f, 9f, Mathf.Clamp01(1 - left / 120f)) * pulse;
             // motes ahead of the ship, in the tunnel it is in, drifting down a little

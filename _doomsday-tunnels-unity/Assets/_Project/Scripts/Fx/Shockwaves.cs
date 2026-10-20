@@ -6,7 +6,7 @@ namespace DoomsdayTunnels.Fx
     /// <summary>Expanding rings in the tunnel's cross-section plane where something blew up or the ship hit something.</summary>
     public sealed class Shockwaves : MonoBehaviour
     {
-        struct Wave { public Vector3 At; public Color Col; public float T, Dur, Size; }
+        struct Wave { public Vector3 At; public Quaternion Rot; public Color Col; public float T, Dur, Size; }
         readonly List<Wave> waves = new List<Wave>();
         readonly List<Transform> pool = new List<Transform>();
         readonly List<Renderer> rends = new List<Renderer>();
@@ -32,7 +32,7 @@ namespace DoomsdayTunnels.Fx
             quad.SetIndices(new[] { 0, 1, 2, 0, 2, 3 }, MeshTopology.Triangles, 0);
         }
 
-        public void Add(Vector3 at, Color col, float size = 2.6f, float dur = 0.45f) { if (Enabled) waves.Add(new Wave { At = at, Col = col, Size = size, Dur = dur }); }
+        public void Add(Vector3 at, Quaternion rot, Color col, float size = 2.6f, float dur = 0.45f) { if (Enabled) waves.Add(new Wave { At = at, Rot = rot, Col = col, Size = size, Dur = dur }); }
 
         public void Tick(float dt)
         {
@@ -50,7 +50,7 @@ namespace DoomsdayTunnels.Fx
                 if (pool[i].gameObject.activeSelf != on) pool[i].gameObject.SetActive(on);
                 if (!on) continue;
                 var w = waves[i]; float t = w.T / w.Dur, ease = 1 - (1 - t) * (1 - t);
-                pool[i].position = w.At; pool[i].localScale = Vector3.one * Mathf.Lerp(0.3f, w.Size, ease);
+                pool[i].position = w.At; pool[i].rotation = w.Rot; pool[i].localScale = Vector3.one * Mathf.Lerp(0.3f, w.Size, ease);
                 var c = w.Col; c.a = (1 - t) * 0.9f;
                 blocks[i].SetColor(TintId, c); rends[i].SetPropertyBlock(blocks[i]);
             }

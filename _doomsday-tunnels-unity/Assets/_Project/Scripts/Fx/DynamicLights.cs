@@ -35,15 +35,16 @@ namespace DoomsdayTunnels.Fx
         }
 
         /// <summary>Picks the lights that matter most from the camera's point of view and hands them to the shaders.</summary>
-        public void Apply(Vector3 camPos)
+        public void Apply(Vector3 camPos, Vector3 camForward)
         {
-            int n = Select(camPos, pos, col);
+            int n = Select(camPos, camForward, pos, col);
             Shader.SetGlobalVectorArray(PosId, pos); Shader.SetGlobalVectorArray(ColId, col); Shader.SetGlobalInt(CountId, n);
         }
 
         /// <summary>Fills `p` and `c` with the chosen lights, nearest first; returns how many. Pure, so it can be tested.</summary>
-        public int Select(Vector3 camPos, Vector4[] p, Vector4[] c)
+        public int Select(Vector3 camPos, Vector3 camForward, Vector4[] p, Vector4[] c)
         {
+            fwd = camForward;
             all.Clear(); all.AddRange(persistent); all.AddRange(Lights);
             int budget = Mathf.Min(Budget, Max);
             // weight: brightness over distance, so a big explosion far ahead still beats a dim spark by the lens
@@ -56,11 +57,11 @@ namespace DoomsdayTunnels.Fx
             }
             return n;
         }
-        readonly List<Light> all = new List<Light>();
-        static float Score(in Light l, Vector3 cam)
+        readonly List<Light> all = new List<Light>(); Vector3 fwd = Vector3.forward;
+        float Score(in Light l, Vector3 cam)
         {
             float k = l.Fade > 0 ? Mathf.Clamp01(l.Life / l.Fade) : 1;
-            float dz = l.Pos.z - cam.z; if (dz < -3) return -1;                    // behind the camera: never worth a slot
+            float dz = Vector3.Dot(l.Pos - cam, fwd); if (dz < -3) return -1;        // behind the camera: never worth a slot
             return l.Intensity * k * l.Radius / (1 + Mathf.Max(0, dz) * 0.08f);
         }
     }

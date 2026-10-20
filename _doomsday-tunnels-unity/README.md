@@ -90,6 +90,11 @@ Builds/DoomsdayTunnels3D.app/Contents/MacOS/"Doomsday Tunnels 3D" -shot /tmp/dt3
 
 ## What differs from the web game
 
+- The tunnel is a real 3D course (`Tunnel/Course.cs`, `Tunnel/TunnelPath.cs`): climbs, dives, hard bends, loops
+  and corkscrews, drawn from the sector's own second random stream so the obstacle layout still matches the web
+  game draw for draw. Sector 1 only climbs and dives; loops arrive in sector 3 and corkscrews in 4. The flight model
+  never sees any of it: it flies in tunnel coordinates, so sector times stay comparable. The course is logged at the
+  start of each sector ("Sector 3 course: Loop 104-230 ...") for finding a feature with `-shotz`.
 - Red walls are solid. The web game lets the ship punch through for a shield hit; here it bounces off, is shoved
   toward the nearest gap, and has to pick its speed back up (boost helps). Only the first hit on a wall costs shield.
 

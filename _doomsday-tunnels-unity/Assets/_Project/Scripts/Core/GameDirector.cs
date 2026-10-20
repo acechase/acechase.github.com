@@ -148,6 +148,7 @@ namespace DoomsdayTunnels
         void LoadSector(int n)
         {
             var lv = SectorGenerator.Make(n, S.Tune);
+            { var sb = new System.Text.StringBuilder("[Doomsday] Sector " + n + " course:"); foreach (var f in lv.Course.Features) sb.Append(' ').Append(f.Kind).Append(' ').Append((int)f.S0).Append('-').Append((int)f.S1); Debug.Log(sb.ToString()); }
             sim.StartSector(lv, S.Tune);
             tunnel.Build(lv, sim.Path, Unlit);
             foreach (var h in hazards) if (h) Destroy(h.gameObject);
@@ -227,7 +228,7 @@ namespace DoomsdayTunnels
             if (ship.gameObject.activeSelf) lights.Hold(ship.EnginePos, pal.Line, 2.6f, 0.25f + 0.5f * sim.BoostEase);
             for (int i = 0; i < sim.Bullets.Count && i < 4; i++) { var b = sim.Bullets[i]; lights.Hold(sim.Path.World(b.X, b.Y, b.Z + 1.3f, b.Branch), pal.Line, 1.8f, 0.22f); }
             foreach (var h in hazards) if (h.Obj.Kind == ObjKind.Ship && !h.Obj.Taken && !h.Dropped && h.gameObject.activeSelf) lights.Hold(h.transform.position, Palette.Pick, 4f, 0.7f + 0.25f * Mathf.Sin(sim.Now * 5));
-            lights.Tick(dt); lights.Apply(rig.transform.position);
+            lights.Tick(dt); lights.Apply(rig.transform.position, rig.transform.forward);
             debris.Sim.Tick(dt, (z, br) => br >= 0 ? G.HW : sim.Path.BuiltHalfWidth(z)); debris.Sync(sim.Path);
             shocks.Tick(dt);
             ambience.Tick(sim, sim.Path, dt, S.ReduceMotion);
@@ -267,7 +268,7 @@ namespace DoomsdayTunnels
                             else if (e.Count >= 4) lights.Flash(at, e.Color, 2.5f, 0.8f, 0.15f);
                             break;
                         }
-                    case SimEventKind.Shock: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); shocks.Add(at, e.Color); lights.Flash(at, e.Color, 7f, 2f, 0.4f); break; }
+                    case SimEventKind.Shock: { var at = sim.Path.World(e.X, e.Y, e.Z, e.Branch); shocks.Add(at, sim.Path.Rotation(e.Z), e.Color); lights.Flash(at, e.Color, 7f, 2f, 0.4f); break; }
                     case SimEventKind.Hit: audio.Play("hit"); post.Hit(1f); rig.Impulse(new Vector2(Random.value - 0.5f, Random.value - 0.5f).normalized, 0.9f); break;
                     case SimEventKind.Scrape: audio.Play("scrape"); rig.Impulse(new Vector2(-sim.ScrapeX, sim.ScrapeY), 0.35f); post.Hit(0.3f); break;
                     case SimEventKind.Fork: OnFork(e.Count); break;
@@ -309,7 +310,7 @@ namespace DoomsdayTunnels
             {   // the ship comes apart: hull chunks, a shockwave and a flash where it was
                 var at = sim.Path.World(sim.Rx, sim.Ry, sim.Pz); sparks.Burst(at, Palette.Warn, 30, 5f); sparks.Burst(at, Palette.Ink, 20, 6f);
                 debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 18, Palette.Ink, 0.14f, 3f); debris.Sim.Burst(sim.Rx, sim.Ry, sim.Pz, sim.Path.Chosen, 8, Palette.Warn, 0.1f, 3f);
-                shocks.Add(at, Palette.Warn, 4f, 0.6f); lights.Flash(at, Palette.Warn, 10f, 4f, 0.6f);
+                shocks.Add(at, sim.Path.Rotation(sim.Pz), Palette.Warn, 4f, 0.6f); lights.Flash(at, Palette.Warn, 10f, 4f, 0.6f);
             }
             if (sim.Lives <= 0) { GameOver(why); return; }
             sim.Lives--; RespawnWhy = why; State = GameState.Respawn; StateT = 0;

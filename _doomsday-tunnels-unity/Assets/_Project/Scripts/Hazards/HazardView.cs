@@ -42,7 +42,7 @@ namespace DoomsdayTunnels.Hazards
 
         void Build(Palette pal)
         {
-            transform.position = path.World(0, 0, Obj.Z, Obj.Branch);
+            transform.position = path.World(0, 0, Obj.Z, Obj.Branch); transform.rotation = path.Rotation(Obj.Z);
             float haze = 1f;
             switch (Obj.Kind)
             {
