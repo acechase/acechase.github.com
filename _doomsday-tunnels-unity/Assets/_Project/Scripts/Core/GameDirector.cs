@@ -101,6 +101,7 @@ namespace DoomsdayTunnels
             var args = System.Environment.GetCommandLineArgs();
             foreach (var a in args) if (a == "-shot") shotting = true;
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotz") float.TryParse(args[i + 1], out shotZ);
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-gate") { int.TryParse(args[i + 1], out int g); Ambience.Style = g; }   // try a look for the exit
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotdpr") { float.TryParse(args[i + 1], out float d); UI.SafeArea.FakeDpr = d; }   // preview a phone's pixel density on a Mac
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
             foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; if (a == "-shotship") shotShip = true; }
@@ -187,7 +188,7 @@ namespace DoomsdayTunnels
             if (shotEnd)
             {   // the exit from three distances: the iris shut, half open, and wide
                 latestOverride = new SimInput();
-                foreach (var back in new[] { 80f, 40f, 14f }) { sim.Pz = sim.Sector.Length - back; sim.Speed = 2f; yield return new WaitForSeconds(0.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "exit-" + (int)back + "m.png")); yield return new WaitForSeconds(0.3f); }
+                foreach (var back in new[] { 60f, 30f, 12f }) { sim.Pz = sim.Sector.Length - back; sim.Speed = 2f; yield return new WaitForSeconds(0.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "exit-" + (int)back + "m.png")); yield return new WaitForSeconds(0.3f); }
                 Application.Quit(); yield break;
             }
             Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");

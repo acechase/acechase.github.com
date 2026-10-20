@@ -38,7 +38,7 @@ namespace DoomsdayTunnels.Core
         // when a wing would clip it. The web game used a 5 cm margin with no ship to see.
         public const float ShipNose = 0.42f, ShipSpan = 0.24f, BounceBack = 0.02f;
         public const float WallMargin = ShipSpan;
-        public const float MineShotRadius = 0.45f;
+        public const float MineShotRadius = 0.52f;
 
         // Aiming (tilt mode): how far the stick can swing the guns, and the depth the aim point is drawn at
         public const float AimMaxX = 0.24f, AimMaxY = 0.17f, AimDepth = 20f;

@@ -122,7 +122,7 @@ namespace DoomsdayTunnels.UI
                 Text("VEL " + Mathf.RoundToInt(sim.Speed * 12).ToString("000") + (sim.Boosting ? "  BOOST" : ""), W / 2, H - 22 * u, (sim.Boosting ? 14 : 12) * u, sim.Boosting ? Palette.Ink : Palette.Dim, TextAnchor.UpperCenter);
                 for (int i = 0; i < Popups.Count; i++) { var p = Popups[i]; var c = Palette.Pick; c.a = Mathf.Clamp01(1 - p.T / 1.2f); Text(p.Text, W / 2, H * 0.3f - p.T * 34 * u, 18 * u, c, TextAnchor.MiddleCenter); }
             }
-            if (state == GameState.Play && !g.Paused) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);
+            if (state == GameState.Play && !g.Paused) DrawReticle(g.Cam, sim.Path.World(sim.Rx + sim.AimSX * G.AimDepth, sim.Ry - 0.09f + sim.AimSY * G.AimDepth, sim.Pz + G.AimDepth), sim.GunHot);   // where a shot fired now would be, 20 m on
             DrawControls(sim, input, state, now);
             if (state == GameState.Play && !g.Paused && input.TouchUI) DrawPauseButton();
             DrawOverlay(g, sim, input);
@@ -153,7 +153,7 @@ namespace DoomsdayTunnels.UI
             var state = g.State; if (state == GameState.Play && !g.Paused && !g.Attract) return;
             float cx = W / 2, cy = H / 2, big = Mathf.Min(44 * u, W * 0.06f); bool blink = (sim.Now * 1.6f) % 1 < 0.65f; float now = Time.time;
             string go = input.TouchUI ? "TAP" : "PRESS SPACE";
-            Full(Palette.Void, g.Attract ? 0.65f : state == GameState.Title ? 0.4f : 0.55f);
+            Full(Palette.Void, g.Attract ? 0.65f : state == GameState.Title ? 0.4f : state == GameState.Clear ? 0.72f : 0.55f);   // the clear screen sits over the portal: dim it well
             if (g.Attract) { state = GameState.Title; }
             if (state != GameState.Respawn) { DrawTuneButton(); DrawMuteButton(g.S.Sound); }
             if (state != GameState.Respawn && state != GameState.Title && !g.Attract) DrawMenuButton();
