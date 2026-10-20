@@ -104,7 +104,7 @@ namespace DoomsdayTunnels
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-gate") { int.TryParse(args[i + 1], out int g); Ambience.Style = g; }   // try a look for the exit
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotdpr") { float.TryParse(args[i + 1], out float d); UI.SafeArea.FakeDpr = d; }   // preview a phone's pixel density on a Mac
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsector") int.TryParse(args[i + 1], out shotSector);
-            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; if (a == "-shotship") shotShip = true; }
+            foreach (var a in args) { if (a == "-shotscene") shotScene = true; if (a == "-shotpanel") shotPanel = true; if (a == "-shotboard") shotBoard = true; if (a == "-shotghost") shotGhost = true; if (a == "-shotdaily") shotDaily = true; if (a == "-shottouch") shotTouch = true; if (a == "-shotattract") shotAttract = true; if (a == "-shotcheer") shotCheer = true; if (a == "-shotsafe") shotSafe = true; if (a == "-shotend") shotEnd = true; if (a == "-shotship") shotShip = true; if (a == "-shotapproach") { shotEnd = true; shotApproach = true; } }
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shot") StartCoroutine(ShotRun(args[i + 1]));
             Debug.Log("[Doomsday] Ready: sector " + sim.Sector.N + ", " + hazards.Count + " objects");
         }
@@ -188,7 +188,7 @@ namespace DoomsdayTunnels
             if (shotEnd)
             {   // the exit from three distances: the iris shut, half open, and wide
                 latestOverride = new SimInput();
-                foreach (var back in new[] { 60f, 30f, 12f }) { sim.Pz = sim.Sector.Length - back; sim.Speed = 2f; yield return new WaitForSeconds(0.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "exit-" + (int)back + "m.png")); yield return new WaitForSeconds(0.3f); }
+                foreach (var back in shotApproach ? new[] { 60f, 48f, 38f, 30f, 23f, 17f, 12f, 8f, 5f, 2.5f } : new[] { 60f, 30f, 12f }) { sim.Pz = sim.Sector.Length - back; sim.Speed = 2f; yield return new WaitForSeconds(0.6f); ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, "exit-" + (int)back + "m.png")); yield return new WaitForSeconds(0.3f); }
                 Application.Quit(); yield break;
             }
             Debug.Log("[Doomsday] Shot run: sector " + sim.Sector.N + " from " + sim.Pz + " m (args: " + string.Join(" ", System.Environment.GetCommandLineArgs()) + ")");
@@ -202,7 +202,7 @@ namespace DoomsdayTunnels
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
         }
-        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer, shotSafe, shotEnd, shotShip;
+        SimInput? latestOverride; float shotZ; int shotSector; bool shotScene, shotPanel, shotBoard, shotGhost, shotDaily, shotting, shotTouch, shotAttract, shotCheer, shotSafe, shotEnd, shotShip, shotApproach;
 
         /// <summary>Settings that views hold a copy of: pushed whenever the panel closes.</summary>
         void ApplySettings()
