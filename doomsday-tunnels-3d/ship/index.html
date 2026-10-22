@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doomsday Tunnels 3D: the pilot's reference sheet</title>
+<meta name="description" content="The ship you fly in Doomsday Tunnels 3D, drawn from the nose and labelled with the flight model's own numbers: guns, shield, boost, hitbox and warp, after the Tunnels of Armageddon manual.">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../../doomsday-tunnels/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="../../doomsday-tunnels/icon-180.png?v=2">
+<link rel="preload" href="fonts/BarlowCondensed-SemiBold.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/Barlow-Regular.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/BarlowCondensed-SemiBold.woff) format("woff")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/BarlowCondensed-Bold.woff) format("woff")}
+@font-face{font-family:"Barlow";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/Barlow-Regular.woff) format("woff")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/IBMPlexMono-Regular.woff) format("woff")}
+  /* Layout: one manual page. A line drawing of the ship seen from the nose with callouts on leader lines, as the
+     Tunnels of Armageddon manual drew its ship; three field photographs; the rental company's data plate. */
+  :root {
+    --paper: #fbfaf6; --ink: #161616; --rule: #c9c5bb; --faint: #6b675f; --stamp: #c0392b; --plate: #f1efe8;
+    --label: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark } }
+  :root[data-theme="dark"] { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark }
+  html { background: var(--paper); -webkit-text-size-adjust: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--body); margin: 0; padding: 28px max(16px, env(safe-area-inset-left, 0px)) 56px max(16px, env(safe-area-inset-right, 0px)); }
+  a { color: inherit; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--stamp); outline-offset: 3px; }
+  .page { max-width: 880px; margin: 0 auto; display: grid; gap: 36px; }
+  header { display: grid; gap: 6px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+  .eyebrow { font-family: var(--label); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; color: var(--faint); }
+  h1 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(30px, 6vw, 46px); line-height: 1; margin: 0; text-wrap: balance; }
+  header p { margin: 4px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.45; }
+  figure { margin: 0; }
+  svg { width: 100%; height: auto; display: block; max-width: 100%; }
+  .lab { font-family: var(--label); font-weight: 600; font-size: 17px; letter-spacing: .04em; text-transform: uppercase; fill: var(--ink); }
+  .sub { font-family: var(--label); font-weight: 500; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; fill: var(--faint); }
+  .ship { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+  .ship .fill { fill: var(--paper); }
+  .ship .thin { stroke-width: 1.4; }
+  .lead { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+  .dot { fill: var(--ink); }
+  .ghost { stroke-dasharray: 5 5; }
+  figcaption { font-family: var(--label); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-top: 10px; }
+  .photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .photos figure { display: grid; gap: 6px; min-width: 0; }
+  .photos img { width: 100%; height: auto; display: block; border: 1px solid var(--rule); }
+  .photos figcaption { margin: 0; }
+  @media (max-width: 560px) { .photos { grid-template-columns: 1fr; } }
+  .plate { border: 2px solid var(--ink); background: var(--plate); padding: 18px 20px; display: grid; gap: 14px; }
+  .plate h2 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 20px; margin: 0; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .plate h2 span { font-family: var(--mono); font-weight: 500; font-size: 13px; letter-spacing: 0; color: var(--faint); }
+  .plate table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .plate td { padding: 6px 0; border-top: 1px solid var(--rule); vertical-align: top; }
+  .plate td:first-child { font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 13.5px; width: 34%; padding-right: 12px; }
+  .stamp { align-self: start; justify-self: end; transform: rotate(-6deg); border: 3px solid var(--stamp); color: var(--stamp); font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .12em; font-size: 15px; padding: 4px 10px; opacity: .85; }
+  .note { font-size: 15px; line-height: 1.5; max-width: 62ch; color: var(--ink); margin: 0; }
+  .note em { font-style: normal; font-family: var(--mono); font-size: 13px; }
+  footer { font-size: 13px; color: var(--faint); border-top: 1px solid var(--rule); padding-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">Doomsday Tunnels 3D &middot; Pilot's reference &middot; Sheet 1 of 1</div>
+    <h1>The ship you are flying is a rental</h1>
+    <p>Prestige Rocket Rental vehicle, light grey with a white stripe down the spine, red wings and tail, yellow nozzles. Seen here from the nose, the way the Tunnels of Armageddon manual drew its own. Every figure on this sheet is the number the flight model actually uses.</p>
+  </header>
+
+  <figure>
+    <svg viewBox="0 0 820 660" role="img" aria-label="Line drawing of the rental ship from the front with labelled parts">
+      <!-- callouts: label text, then a leader line to the part and a dot on it -->
+      <g>
+        <text class="lab" x="40" y="54">Type 1 laser cannon, twin</text>
+        <text class="sub" x="40" y="72">18 shots unbroken, then the guns overheat &middot; 30 m range</text>
+        <polyline class="lead" points="160,80 160,120 377,384"/><circle class="dot" cx="377" cy="384" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="410" y="42" text-anchor="middle">Tail fin</text>
+        <text class="sub" x="410" y="60" text-anchor="middle">Red, like the wings &middot; the rental livery</text>
+        <polyline class="lead" points="410,68 410,268"/><circle class="dot" cx="410" cy="270" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="780" y="54" text-anchor="end">Canopy &amp; 3-D targeting reticle</text>
+        <text class="sub" x="780" y="72" text-anchor="end">Tilt steering swings the guns: the reticle shows where</text>
+        <polyline class="lead" points="660,80 660,120 436,326"/><circle class="dot" cx="436" cy="326" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="40" y="214">White spine stripe</text>
+        <text class="sub" x="40" y="232">Nose to canopy &middot; cosmetic, but it is how you know it is yours</text>
+        <polyline class="lead" points="200,240 290,300 410,350"/><circle class="dot" cx="410" cy="350" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="780" y="214" text-anchor="end">Twin headlamps</text>
+        <text class="sub" x="780" y="232" text-anchor="end">22&deg; cones, 34 m reach, brighter under boost</text>
+        <polyline class="lead" points="640,240 560,320 443,384"/><circle class="dot" cx="443" cy="384" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="40" y="330">Shield emitter</text>
+        <text class="sub" x="40" y="348">100 units &middot; wall 20 &middot; gate 18 &middot; mine 16 &middot; scrape 11 a second</text>
+        <polyline class="lead" points="150,356 150,372 356,372"/><circle class="dot" cx="358" cy="372" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="780" y="330" text-anchor="end">Superbooster</text>
+        <text class="sub" x="780" y="348" text-anchor="end">&times;1.5 speed &middot; 6 s reserve &middot; a shove back into the seat</text>
+        <polyline class="lead" points="670,356 670,372 464,372"/><circle class="dot" cx="462" cy="372" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="40" y="452">Wing, 0.24 m half span</text>
+        <text class="sub" x="40" y="470">A red slab is met by the nose and the wing tips</text>
+        <polyline class="lead" points="130,430 219,355"/><circle class="dot" cx="219" cy="353" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="780" y="452" text-anchor="end">Neon outline</text>
+        <text class="sub" x="780" y="470" text-anchor="end">The edges, lit &middot; all a ghost of your best run shows</text>
+        <polyline class="lead" points="690,430 601,355"/><circle class="dot" cx="601" cy="353" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="40" y="566">Engine nacelle, twin &middot; nozzle ring</text>
+        <text class="sub" x="40" y="584">Embers 12 a second, 110 under boost &middot; orange, turning yellow</text>
+        <polyline class="lead" points="200,540 280,470 339,391"/><circle class="dot" cx="339" cy="391" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="780" y="566" text-anchor="end">Warp drive</text>
+        <text class="sub" x="780" y="584" text-anchor="end">420 m/s at every exit &middot; 2.6 s to the clear card</text>
+        <polyline class="lead" points="640,540 560,470 481,391"/><circle class="dot" cx="481" cy="391" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="300" y="640" text-anchor="middle">Nose</text>
+        <text class="sub" x="300" y="656" text-anchor="middle">0.42 m ahead of centre: what a slab stops first</text>
+        <polyline class="lead" points="330,622 395,500 410,372"/><circle class="dot" cx="410" cy="368" r="3.5"/>
+      </g>
+      <g>
+        <text class="lab" x="560" y="640" text-anchor="middle">Contact shadow</text>
+        <text class="sub" x="560" y="656" text-anchor="middle">Spreads as you climb &middot; does not fly</text>
+        <polyline class="lead" points="540,622 500,520 470,478"/><circle class="dot" cx="468" cy="476" r="3.5"/>
+      </g>
+
+      <!-- the ship, from the nose: fin, wings, fuselage, canopy, nacelles, nose, guns, shadow -->
+      <g class="ship">
+        <ellipse class="ghost thin" cx="410" cy="478" rx="78" ry="12"/>
+        <polygon class="fill" points="405,340 415,340 413,270 407,270"/>
+        <polygon class="fill" points="360,378 219,357 219,349 360,368"/>
+        <polygon class="fill" points="460,378 601,357 601,349 460,368"/>
+        <path class="fill" d="M 358 372 C 358 328 462 328 462 372 C 462 408 358 408 358 372 Z"/>
+        <path class="fill" d="M 386 340 C 386 312 434 312 434 340 Z"/>
+        <line class="thin" x1="386" y1="340" x2="434" y2="340"/>
+        <circle class="fill" cx="339" cy="391" r="26"/><circle class="thin" cx="339" cy="391" r="13"/><circle class="dot" cx="339" cy="391" r="3"/>
+        <circle class="fill" cx="481" cy="391" r="26"/><circle class="thin" cx="481" cy="391" r="13"/><circle class="dot" cx="481" cy="391" r="3"/>
+        <line x1="410" y1="358" x2="410" y2="342"/>
+        <circle class="fill" cx="410" cy="366" r="7"/>
+        <circle class="thin" cx="377" cy="384" r="5"/><circle class="thin" cx="443" cy="384" r="5"/>
+      </g>
+    </svg>
+    <figcaption>Fig. 1 &middot; Front elevation, not to scale. Length about 0.7 m, span 0.48 m, in a tunnel 2.6 m wide and 1.7 m high.</figcaption>
+  </figure>
+
+  <div class="photos">
+    <figure><img src="shots/ship-side.png" alt="The ship from the side, flying down a blue banded tunnel" width="900" height="675" loading="lazy"><figcaption>Fig. 2 &middot; Port side, sector 1</figcaption></figure>
+    <figure><img src="shots/ship-front.png" alt="The ship from ahead and above" width="900" height="675" loading="lazy"><figcaption>Fig. 3 &middot; From ahead</figcaption></figure>
+    <figure><img src="shots/ship-boost.png" alt="The ship from behind under boost, nozzles blazing" width="900" height="675" loading="lazy"><figcaption>Fig. 4 &middot; Under boost</figcaption></figure>
+  </div>
+
+  <section class="plate">
+    <h2>Vehicle data plate <span>Prestige Rocket Rental &middot; mileage plan: Earth</span></h2>
+    <table>
+      <tr><td>Cruise</td><td>20 m/s in sector 1, 2 m/s more each sector, 38 m/s at most. Boost multiplies by 1.5.</td></tr>
+      <tr><td>Boost reserve</td><td>6 s with the button held; refilled by a boost pickup.</td></tr>
+      <tr><td>Guns</td><td>Shots fly 95 m/s faster than the ship, 30 m ahead. 18 in a row overheat the guns; they return once cooled to 30 percent.</td></tr>
+      <tr><td>Shield</td><td>100 units. Red wall 20, gate block 18, mine 16, fork stub 18, moving hazard 16, scraping 11 a second. A shield pickup is 25; a cleared sector refills 20.</td></tr>
+      <tr><td>Spare ships</td><td>None to start, five at most. One waits at the end of any sector whose ship token you grabbed (it is always down the dark branch).</td></tr>
+      <tr><td>Hitbox</td><td>Nose 0.42 m ahead of centre, wings 0.24 m to each side, hull 0.10 m above and below. A fresh ship is untouchable for 3 s.</td></tr>
+      <tr><td>Off a red wall</td><td>Held just short of it, thrown back at 5 m/s or 30 percent of your speed, and shoved toward the nearest gap, far enough to clear it and no further.</td></tr>
+      <tr><td>Warp</td><td>Climbs to 420 m/s over 1.4 s; white-out at 1.5 s; the clear card at 2.6 s.</td></tr>
+    </table>
+    <div class="stamp">Return with shield at received level</div>
+  </section>
+
+  <p class="note">Debbie at Prestige Rocket Rental would like it noted that the vehicle has left the planet, which is a different mileage plan, and that in the event the pilot does not make it back, the company <em>will</em> be billing the estate.</p>
+
+  <footer>Figures from the game's flight constants as of 22 October 2026. Drawn after the ship diagram in the Tunnels of Armageddon manual (California Dreams, 1989). Doomsday Tunnels 3D is the native remake of <a href="../../doomsday-tunnels/">Doomsday Tunnels</a>, which plays in the browser. Fonts: Barlow and Barlow Condensed by Jeremy Tribby, IBM Plex Mono by IBM, both under the SIL Open Font License (see <a href="fonts/README.txt">fonts</a>).</footer>
+</div>
+</body>
+</html>
