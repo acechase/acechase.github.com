@@ -36,9 +36,10 @@
   h1 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(30px, 6vw, 46px); line-height: 1; margin: 0; text-wrap: balance; }
   header p { margin: 4px 0 0; max-width: 62ch; font-size: 16px; line-height: 1.45; }
   figure { margin: 0; }
-  svg { width: 100%; height: auto; display: block; max-width: 100%; }
+  .diagram { min-width: 0; overflow-x: auto; }
+  .diagram svg { width: 100%; min-width: 640px; height: auto; display: block; }
   .lab { font-family: var(--label); font-weight: 600; font-size: 17px; letter-spacing: .04em; text-transform: uppercase; fill: var(--ink); }
-  .sub { font-family: var(--label); font-weight: 500; font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; fill: var(--faint); }
+  .sub { font-family: var(--label); font-weight: 500; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; fill: var(--faint); }
   .ship { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
   .ship .fill { fill: var(--paper); }
   .ship .thin { stroke-width: 1.4; }
@@ -68,95 +69,87 @@
   <header>
     <div class="eyebrow">Doomsday Tunnels 3D &middot; Pilot's reference &middot; Sheet 1 of 1</div>
     <h1>The ship you are flying is a rental</h1>
-    <p>Prestige Rocket Rental vehicle, light grey with a white stripe down the spine, red wings and tail, yellow nozzles. Seen here from the nose, the way the Tunnels of Armageddon manual drew its own. Every figure on this sheet is the number the flight model actually uses.</p>
+    <p>Prestige Rocket Rental vehicle, light grey with a white stripe down the spine, red wings and tail, yellow nozzles. Seen here from the nose, the way the Tunnels of Armageddon manual drew its own. The data plate below carries the numbers the flight model actually uses.</p>
   </header>
 
-  <figure>
-    <svg viewBox="0 0 820 660" role="img" aria-label="Line drawing of the rental ship from the front with labelled parts">
-      <!-- callouts: label text, then a leader line to the part and a dot on it -->
+  <figure class="diagram">
+    <svg viewBox="0 0 860 550" role="img" aria-label="Line drawing of the rental ship from the front with labelled parts">
+      <!-- Callouts sit in two columns clear of the drawing (left column ends at x=232, right column starts at
+           x=628) and each leader leaves its label at the column's inner edge, so no line crosses any text. -->
       <g>
-        <text class="lab" x="40" y="54">Type 1 laser cannon, twin</text>
-        <text class="sub" x="40" y="72">18 shots unbroken, then the guns overheat &middot; 30 m range</text>
-        <polyline class="lead" points="160,80 160,120 377,384"/><circle class="dot" cx="377" cy="384" r="3.5"/>
+        <text class="lab" x="430" y="42" text-anchor="middle">Tail fin</text>
+        <text class="sub" x="430" y="60" text-anchor="middle">Red, like the wings</text>
+        <polyline class="lead" points="430,68 430,266"/><circle class="dot" cx="430" cy="270" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="410" y="42" text-anchor="middle">Tail fin</text>
-        <text class="sub" x="410" y="60" text-anchor="middle">Red, like the wings &middot; the rental livery</text>
-        <polyline class="lead" points="410,68 410,268"/><circle class="dot" cx="410" cy="270" r="3.5"/>
+        <text class="lab" x="232" y="110" text-anchor="end">Canopy</text>
+        <text class="sub" x="232" y="128" text-anchor="end">One seat, no passengers</text>
+        <polyline class="lead" points="244,115 404,331"/><circle class="dot" cx="407" cy="334" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="780" y="54" text-anchor="end">Canopy &amp; 3-D targeting reticle</text>
-        <text class="sub" x="780" y="72" text-anchor="end">Tilt steering swings the guns: the reticle shows where</text>
-        <polyline class="lead" points="660,80 660,120 436,326"/><circle class="dot" cx="436" cy="326" r="3.5"/>
+        <text class="lab" x="628" y="110">Headlamps, twin</text>
+        <text class="sub" x="628" y="128">Brighter under boost</text>
+        <polyline class="lead" points="616,115 454,349"/><circle class="dot" cx="451" cy="353" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="40" y="214">White spine stripe</text>
-        <text class="sub" x="40" y="232">Nose to canopy &middot; cosmetic, but it is how you know it is yours</text>
-        <polyline class="lead" points="200,240 290,300 410,350"/><circle class="dot" cx="410" cy="350" r="3.5"/>
+        <text class="lab" x="232" y="210" text-anchor="end">Wing</text>
+        <text class="sub" x="232" y="228" text-anchor="end">The tips catch walls</text>
+        <polyline class="lead" points="244,215 299,352"/><circle class="dot" cx="300" cy="355" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="780" y="214" text-anchor="end">Twin headlamps</text>
-        <text class="sub" x="780" y="232" text-anchor="end">22&deg; cones, 34 m reach, brighter under boost</text>
-        <polyline class="lead" points="640,240 560,320 443,384"/><circle class="dot" cx="443" cy="384" r="3.5"/>
+        <text class="lab" x="628" y="210">Edge lighting</text>
+        <text class="sub" x="628" y="228">Ghost runs show only these lines</text>
+        <polyline class="lead" points="616,215 561,352"/><circle class="dot" cx="560" cy="355" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="40" y="330">Shield emitter</text>
-        <text class="sub" x="40" y="348">100 units &middot; wall 20 &middot; gate 18 &middot; mine 16 &middot; scrape 11 a second</text>
-        <polyline class="lead" points="150,356 150,372 356,372"/><circle class="dot" cx="358" cy="372" r="3.5"/>
+        <text class="lab" x="232" y="310" text-anchor="end">Shield emitter</text>
+        <text class="sub" x="232" y="328" text-anchor="end">100 units when full</text>
+        <polyline class="lead" points="244,315 379,359"/><circle class="dot" cx="382" cy="360" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="780" y="330" text-anchor="end">Superbooster</text>
-        <text class="sub" x="780" y="348" text-anchor="end">&times;1.5 speed &middot; 6 s reserve &middot; a shove back into the seat</text>
-        <polyline class="lead" points="670,356 670,372 464,372"/><circle class="dot" cx="462" cy="372" r="3.5"/>
+        <text class="lab" x="628" y="310">Superbooster</text>
+        <text class="sub" x="628" y="328">Half again the speed, 6 s a tank</text>
+        <polyline class="lead" points="616,315 481,359"/><circle class="dot" cx="478" cy="360" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="40" y="452">Wing, 0.24 m half span</text>
-        <text class="sub" x="40" y="470">A red slab is met by the nose and the wing tips</text>
-        <polyline class="lead" points="130,430 219,355"/><circle class="dot" cx="219" cy="353" r="3.5"/>
+        <text class="lab" x="232" y="410" text-anchor="end">Engine nacelle, twin</text>
+        <text class="sub" x="232" y="428" text-anchor="end">Yellow nozzles, loud under boost</text>
+        <polyline class="lead" points="244,415 330,392"/><circle class="dot" cx="333" cy="391" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="780" y="452" text-anchor="end">Neon outline</text>
-        <text class="sub" x="780" y="470" text-anchor="end">The edges, lit &middot; all a ghost of your best run shows</text>
-        <polyline class="lead" points="690,430 601,355"/><circle class="dot" cx="601" cy="353" r="3.5"/>
+        <text class="lab" x="628" y="410">Warp drive</text>
+        <text class="sub" x="628" y="428">Fires at every sector exit</text>
+        <polyline class="lead" points="616,415 530,392"/><circle class="dot" cx="527" cy="391" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="40" y="566">Engine nacelle, twin &middot; nozzle ring</text>
-        <text class="sub" x="40" y="584">Embers 12 a second, 110 under boost &middot; orange, turning yellow</text>
-        <polyline class="lead" points="200,540 280,470 339,391"/><circle class="dot" cx="339" cy="391" r="3.5"/>
+        <text class="lab" x="232" y="510" text-anchor="end">Type 1 laser cannon, twin</text>
+        <text class="sub" x="232" y="528" text-anchor="end">18 shots before they overheat</text>
+        <polyline class="lead" points="244,515 299,378"/><circle class="dot" cx="300" cy="374" r="3.5"/>
       </g>
       <g>
-        <text class="lab" x="780" y="566" text-anchor="end">Warp drive</text>
-        <text class="sub" x="780" y="584" text-anchor="end">420 m/s at every exit &middot; 2.6 s to the clear card</text>
-        <polyline class="lead" points="640,540 560,470 481,391"/><circle class="dot" cx="481" cy="391" r="3.5"/>
-      </g>
-      <g>
-        <text class="lab" x="300" y="640" text-anchor="middle">Nose</text>
-        <text class="sub" x="300" y="656" text-anchor="middle">0.42 m ahead of centre: what a slab stops first</text>
-        <polyline class="lead" points="330,622 395,500 410,372"/><circle class="dot" cx="410" cy="368" r="3.5"/>
-      </g>
-      <g>
-        <text class="lab" x="560" y="640" text-anchor="middle">Contact shadow</text>
-        <text class="sub" x="560" y="656" text-anchor="middle">Spreads as you climb &middot; does not fly</text>
-        <polyline class="lead" points="540,622 500,520 470,478"/><circle class="dot" cx="468" cy="476" r="3.5"/>
+        <text class="lab" x="628" y="510">Contact shadow</text>
+        <text class="sub" x="628" y="528">Your height above the floor</text>
+        <polyline class="lead" points="616,515 503,484"/><circle class="dot" cx="500" cy="483" r="3.5"/>
       </g>
 
-      <!-- the ship, from the nose: fin, wings, fuselage, canopy, nacelles, nose, guns, shadow -->
+      <!-- the ship, from the nose: shadow, fin, wings with gun pods, fuselage, canopy, headlamps, nacelles, nose -->
       <g class="ship">
-        <ellipse class="ghost thin" cx="410" cy="478" rx="78" ry="12"/>
-        <polygon class="fill" points="405,340 415,340 413,270 407,270"/>
-        <polygon class="fill" points="360,378 219,357 219,349 360,368"/>
-        <polygon class="fill" points="460,378 601,357 601,349 460,368"/>
-        <path class="fill" d="M 358 372 C 358 328 462 328 462 372 C 462 408 358 408 358 372 Z"/>
-        <path class="fill" d="M 386 340 C 386 312 434 312 434 340 Z"/>
-        <line class="thin" x1="386" y1="340" x2="434" y2="340"/>
-        <circle class="fill" cx="339" cy="391" r="26"/><circle class="thin" cx="339" cy="391" r="13"/><circle class="dot" cx="339" cy="391" r="3"/>
-        <circle class="fill" cx="481" cy="391" r="26"/><circle class="thin" cx="481" cy="391" r="13"/><circle class="dot" cx="481" cy="391" r="3"/>
-        <line x1="410" y1="358" x2="410" y2="342"/>
-        <circle class="fill" cx="410" cy="366" r="7"/>
-        <circle class="thin" cx="377" cy="384" r="5"/><circle class="thin" cx="443" cy="384" r="5"/>
+        <ellipse class="ghost thin" cx="430" cy="478" rx="78" ry="12"/>
+        <polygon class="fill" points="425,340 435,340 433,270 427,270"/>
+        <polygon class="fill" points="380,378 262,357 262,349 380,368"/>
+        <polygon class="fill" points="480,378 598,357 598,349 480,368"/>
+        <circle class="fill" cx="300" cy="371" r="6"/><circle class="fill" cx="560" cy="371" r="6"/>
+        <path class="fill" d="M 378 372 C 378 328 482 328 482 372 C 482 408 378 408 378 372 Z"/>
+        <path class="fill" d="M 406 340 C 406 312 454 312 454 340 Z"/>
+        <line class="thin" x1="406" y1="340" x2="454" y2="340"/>
+        <circle class="thin" cx="409" cy="353" r="3.5"/><circle class="thin" cx="451" cy="353" r="3.5"/>
+        <circle class="fill" cx="359" cy="391" r="26"/><circle class="thin" cx="359" cy="391" r="13"/><circle class="dot" cx="359" cy="391" r="3"/>
+        <circle class="fill" cx="501" cy="391" r="26"/><circle class="thin" cx="501" cy="391" r="13"/><circle class="dot" cx="501" cy="391" r="3"/>
+        <line x1="430" y1="358" x2="430" y2="342"/>
+        <circle class="fill" cx="430" cy="366" r="7"/>
       </g>
     </svg>
-    <figcaption>Fig. 1 &middot; Front elevation, not to scale. Length about 0.7 m, span 0.48 m, in a tunnel 2.6 m wide and 1.7 m high.</figcaption>
+    <figcaption>Fig. 1 &middot; Front elevation, not to scale. Nose first, then the wing tips, then the hull: that is the order a wall meets them. Length about 0.7 m, span 0.48 m, in a tunnel 2.6 m wide and 1.7 m high.</figcaption>
   </figure>
 
   <div class="photos">
