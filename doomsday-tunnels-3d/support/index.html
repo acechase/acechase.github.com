@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doomsday Tunnels 3D: support</title>
+<meta name="description" content="Help with Doomsday Tunnels 3D for iPhone: how to play, the controls, the daily sector, the supporter purchase, and how to get in touch.">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../../doomsday-tunnels/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="../../doomsday-tunnels/icon-180.png?v=2">
+<link rel="preload" href="../ship/fonts/BarlowCondensed-SemiBold.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="../ship/fonts/Barlow-Regular.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(../ship/fonts/BarlowCondensed-SemiBold.woff) format("woff")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:700;font-display:swap;src:url(../ship/fonts/BarlowCondensed-Bold.woff) format("woff")}
+@font-face{font-family:"Barlow";font-style:normal;font-weight:400;font-display:swap;src:url(../ship/fonts/Barlow-Regular.woff) format("woff")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(../ship/fonts/IBMPlexMono-Regular.woff) format("woff")}
+  /* Layout: a page from the pilot's manual, the same paper, rules and faces as the ship sheet. */
+  :root {
+    --paper: #fbfaf6; --ink: #161616; --rule: #c9c5bb; --faint: #6b675f; --stamp: #c0392b; --plate: #f1efe8;
+    --label: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark } }
+  :root[data-theme="dark"] { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark }
+  html { background: var(--paper); -webkit-text-size-adjust: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; margin: 0; padding: 28px max(16px, env(safe-area-inset-left, 0px)) 56px max(16px, env(safe-area-inset-right, 0px)); }
+  a { color: inherit; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--stamp); outline-offset: 3px; }
+  .page { max-width: 760px; margin: 0 auto; display: grid; gap: 32px; }
+  header { display: grid; gap: 6px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+  .eyebrow { font-family: var(--label); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; color: var(--faint); }
+  .eyebrow a { text-decoration: none; } .eyebrow a:hover { text-decoration: underline; }
+  h1 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(30px, 6vw, 46px); line-height: 1; margin: 0; text-wrap: balance; }
+  h2 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 22px; margin: 0; }
+  h3 { font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 17px; margin: 0; }
+  header p, section p, li { max-width: 64ch; }
+  p { margin: 0; }
+  section { display: grid; gap: 12px; }
+  ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .moment { border: 2px solid var(--ink); background: var(--plate); padding: 14px 18px; display: grid; gap: 8px; }
+  dl { margin: 0; display: grid; gap: 8px; }
+  dl div { display: grid; grid-template-columns: 11em 1fr; gap: 12px; border-top: 1px solid var(--rule); padding-top: 8px; }
+  dt { font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 14px; }
+  dd { margin: 0; min-width: 0; }
+  @media (max-width: 560px) { dl div { grid-template-columns: 1fr; gap: 2px; } }
+  .qa { border-top: 1px solid var(--rule); padding-top: 12px; display: grid; gap: 6px; }
+  kbd, code { font-family: var(--mono); font-size: 14px; }
+  .contact { border: 2px solid var(--ink); background: var(--plate); padding: 16px 18px; display: grid; gap: 8px; }
+  footer { font-size: 13px; color: var(--faint); border-top: 1px solid var(--rule); padding-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">Doomsday Tunnels 3D &middot; Support</div>
+    <h1>Help for pilots</h1>
+    <p>Doomsday Tunnels 3D is a tunnel-flying arcade game for iPhone. Each sector has a core counting down to detonation: fly to the far end before it hits zero, dodging the red walls, shooting the yellow ones and collecting the white cells on the way.</p>
+  </header>
+
+  <section class="contact">
+    <h2>Get in touch</h2>
+    <p>Found a bug, or have a question this page does not answer? <a href="https://github.com/acechase/acechase.github.com/issues">Open an issue on GitHub</a>. Say which iPhone you have and what you were doing when it happened. Every report is read.</p>
+  </section>
+
+  <section>
+    <h2>How to play</h2>
+    <ul>
+      <li><strong>Steer</strong> with your left thumb, anywhere on the left of the screen. <strong>Fire</strong> with your right thumb. The <strong>boost</strong> button gives you speed while its fuel lasts.</li>
+      <li><strong>Red walls</strong> take your shield when you hit them. Dodge them.</li>
+      <li><strong>Yellow walls</strong> break when you shoot them. The guns overheat if you hold the trigger too long.</li>
+      <li><strong>White cells</strong> top up your shield, your boost or your clock, and a ship token earns a spare ship.</li>
+      <li>Losing your shield or running out of time costs a ship. The run ends when the last one goes.</li>
+      <li>Some sectors fork. Either branch reaches the exit.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Questions</h2>
+    <div class="qa">
+      <h3>Can I steer by tilting the phone?</h3>
+      <p>Yes. Tap the gear button on the title screen, then <strong>Tilt phone</strong> under Steering. Tilt then steers and your left thumb aims the guns. Tilt re-centres to however you are holding the phone each time a sector starts or the game resumes. <strong>Invert tilt up/down</strong> is there too.</p>
+    </div>
+    <div class="qa">
+      <h3>The steering feels too fast or too slow.</h3>
+      <p>The same gear button opens seven feel sliders, for steering speed, snap, flight speed and more. <strong>Reset sliders</strong> puts them back. Sector times only count for the records at the standard flight speed.</p>
+    </div>
+    <div class="qa">
+      <h3>Why can I hear the game with the silent switch on?</h3>
+      <p>The game plays through the silent switch, like a music app. The speaker button at the top right of the screens between runs turns all sound off. Music and sound effects can also be switched separately in the settings.</p>
+    </div>
+    <div class="qa">
+      <h3>What is the daily sector?</h3>
+      <p>A new sector every day, the same for everyone. Tap <strong>Daily</strong> on the title screen, fly it as many times as you like, and post your best time to that day's board.</p>
+    </div>
+    <div class="qa">
+      <h3>What is the faint ship flying beside me?</h3>
+      <p>Your ghost: a replay of your fastest run through that sector. Beat it and the new run becomes the ghost. You can turn it off in the settings.</p>
+    </div>
+    <div class="qa">
+      <h3>How do I get on the scoreboard?</h3>
+      <p>When a run ends, tap <strong>Post score</strong> and type a name of up to 12 characters. Posting is always optional and needs a connection. A name is not an account, so anyone can type any name. To have a name removed, <a href="https://github.com/acechase/acechase.github.com/issues">open an issue on GitHub</a>.</p>
+    </div>
+    <div class="qa">
+      <h3>What does the supporter purchase do?</h3>
+      <p>The game is free and nothing is locked. After a game it may ask you to support its development with a one-time purchase. Buying it stops that request for good, and a thank-you appears on the credits card. It is the only purchase in the game.</p>
+    </div>
+    <div class="qa">
+      <h3>I bought it, but the request came back on a new phone.</h3>
+      <p>On the request card, or under <strong>Credits</strong> then <strong>Support</strong>, tap <strong>Restore purchase</strong> while signed in to the same Apple Account. The game also checks with Apple when it starts, so it usually restores itself once the phone is online.</p>
+    </div>
+    <div class="qa">
+      <h3>Can I get a refund?</h3>
+      <p>Refunds for App Store purchases are handled by Apple, at <a href="https://reportaproblem.apple.com/">reportaproblem.apple.com</a>.</p>
+    </div>
+    <div class="qa">
+      <h3>Which phones does it run on?</h3>
+      <p>Any iPhone with iOS 15 or later. It plays in landscape only. It also installs on iPad, where it runs as an iPhone app.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>More</h2>
+    <ul>
+      <li><a href="../privacy/">Privacy</a>: what the app sends and what stays on your phone.</li>
+      <li><a href="../ship/">The pilot's reference sheet</a>: the ship you fly, drawn and labelled.</li>
+      <li><a href="../../doomsday-tunnels/">Doomsday Tunnels</a>, the original game, which plays in a web browser.</li>
+    </ul>
+  </section>
+
+  <footer>Doomsday Tunnels 3D is a hobby project by Andrew Chase. Page updated 23 October 2026.</footer>
+</div>
+</body>
+</html>
