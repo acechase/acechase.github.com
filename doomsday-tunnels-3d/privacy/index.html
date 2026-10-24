@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doomsday Tunnels 3D: privacy</title>
+<meta name="description" content="What the Doomsday Tunnels 3D app sends, what its server keeps, and what stays on your phone. No accounts, no ads, no tracking.">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../../doomsday-tunnels/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="../../doomsday-tunnels/icon-180.png?v=2">
+<link rel="preload" href="../ship/fonts/BarlowCondensed-SemiBold.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="../ship/fonts/Barlow-Regular.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(../ship/fonts/BarlowCondensed-SemiBold.woff) format("woff")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:700;font-display:swap;src:url(../ship/fonts/BarlowCondensed-Bold.woff) format("woff")}
+@font-face{font-family:"Barlow";font-style:normal;font-weight:400;font-display:swap;src:url(../ship/fonts/Barlow-Regular.woff) format("woff")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(../ship/fonts/IBMPlexMono-Regular.woff) format("woff")}
+  /* Layout: a page from the pilot's manual, the same paper, rules and faces as the ship sheet. */
+  :root {
+    --paper: #fbfaf6; --ink: #161616; --rule: #c9c5bb; --faint: #6b675f; --stamp: #c0392b; --plate: #f1efe8;
+    --label: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark } }
+  :root[data-theme="dark"] { --paper: #141416; --ink: #ebe9e2; --rule: #3a3a40; --faint: #9a978f; --stamp: #e0564a; --plate: #1d1d21; color-scheme: dark }
+  html { background: var(--paper); -webkit-text-size-adjust: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; margin: 0; padding: 28px max(16px, env(safe-area-inset-left, 0px)) 56px max(16px, env(safe-area-inset-right, 0px)); }
+  a { color: inherit; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--stamp); outline-offset: 3px; }
+  .page { max-width: 760px; margin: 0 auto; display: grid; gap: 32px; }
+  header { display: grid; gap: 6px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+  .eyebrow { font-family: var(--label); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; color: var(--faint); }
+  .eyebrow a { text-decoration: none; } .eyebrow a:hover { text-decoration: underline; }
+  h1 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(30px, 6vw, 46px); line-height: 1; margin: 0; text-wrap: balance; }
+  h2 { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 22px; margin: 0; }
+  h3 { font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 17px; margin: 0; }
+  header p, section p, li { max-width: 64ch; }
+  p { margin: 0; }
+  section { display: grid; gap: 12px; }
+  ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .moment { border: 2px solid var(--ink); background: var(--plate); padding: 14px 18px; display: grid; gap: 8px; }
+  dl { margin: 0; display: grid; gap: 8px; }
+  dl div { display: grid; grid-template-columns: 11em 1fr; gap: 12px; border-top: 1px solid var(--rule); padding-top: 8px; }
+  dt { font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 14px; }
+  dd { margin: 0; min-width: 0; }
+  @media (max-width: 560px) { dl div { grid-template-columns: 1fr; gap: 2px; } }
+  .qa { border-top: 1px solid var(--rule); padding-top: 12px; display: grid; gap: 6px; }
+  kbd, code { font-family: var(--mono); font-size: 14px; }
+  .contact { border: 2px solid var(--ink); background: var(--plate); padding: 16px 18px; display: grid; gap: 8px; }
+  footer { font-size: 13px; color: var(--faint); border-top: 1px solid var(--rule); padding-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow"><a href="../support/">Doomsday Tunnels 3D</a> &middot; Privacy</div>
+    <h1>What the app knows about you</h1>
+    <p>Almost nothing. The game has no accounts, shows no ads, uses no analytics service and does not track you across other apps or websites. Nothing it sends says who you are, apart from a name you choose to type when you post a score.</p>
+  </header>
+
+  <section>
+    <h2>What the game counts</h2>
+    <p>The game keeps daily totals so its maker can tell whether anyone is playing. You can switch this off: <strong>Count my plays</strong> in the settings panel (the gear button). With it off, the game still asks the server for a start time, which it needs if you later post a score, but nothing is added to the totals.</p>
+    <p>The demo that plays by itself on the title screen is not a run. It sends nothing and saves nothing.</p>
+  </section>
+
+  <section>
+    <h2>What is sent, and when</h2>
+    <div class="moment">
+      <h3>When you start a run</h3>
+      <dl>
+        <div><dt>The app sends</dt><dd>That a run has started. Whether it is the first run on this phone today, and the first ever. Whether you are playing by touch, and whether tilt steering is on.</dd></div>
+        <div><dt>The server keeps</dt><dd>One more on that day's totals: runs, players, new players, touch runs and tilt runs. It replies with a start time for this run, which the app hands back if you post a score.</dd></div>
+      </dl>
+    </div>
+    <div class="moment">
+      <h3>When a run ends</h3>
+      <dl>
+        <div><dt>The app sends</dt><dd>The sector you reached, how many sectors you cleared, and how many seconds the run lasted.</dd></div>
+        <div><dt>The server keeps</dt><dd>That day's totals again: runs finished, seconds played and sectors cleared, plus a count of how many runs ended in each sector.</dd></div>
+      </dl>
+    </div>
+    <div class="moment">
+      <h3>When you choose to post a score</h3>
+      <dl>
+        <div><dt>The app sends</dt><dd>The name you typed, your score, the sector you reached, and your time for each sector you cleared in that run.</dd></div>
+        <div><dt>The server keeps</dt><dd>That name with its best score, the sector and the date, and that name's fastest time for each sector. This is the public scoreboard, which anyone playing the app can see.</dd></div>
+      </dl>
+    </div>
+    <div class="moment">
+      <h3>When you choose to post a daily sector time</h3>
+      <dl>
+        <div><dt>The app sends</dt><dd>The name you typed, the day, and your time through that day's sector.</dd></div>
+        <div><dt>The server keeps</dt><dd>That name's fastest time for the day. This is the public daily board.</dd></div>
+      </dl>
+    </div>
+    <p>Looking at a scoreboard sends nothing about you. Only the game's maker can see the daily totals. Days are counted in UTC. The app's scoreboard is kept apart from the web game's.</p>
+  </section>
+
+  <section>
+    <h2>How players are counted without knowing who they are</h2>
+    <p>The app remembers the date you last played. When you start a run it answers one question for the server: is this the first run on this phone today, yes or no? The server adds up the yeses. It never receives anything that could tell two phones apart.</p>
+  </section>
+
+  <section>
+    <h2>What is never stored</h2>
+    <ul>
+      <li>Your IP address. The server uses it for about a minute to slow down spam, as described under <a href="#others">other companies involved</a>, and never writes it down.</li>
+      <li>Your phone's model, its operating system or its screen.</li>
+      <li>Your location.</li>
+      <li>Any ID for you or your phone, including Apple's advertising identifier.</li>
+      <li>A record of individual runs. Only the daily totals above are kept.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What stays on your phone</h2>
+    <p>The app saves a few things on your phone. They are never sent anywhere, apart from the name when you post a score or a time.</p>
+    <ul>
+      <li>Your settings: controls, the feel sliders, sound, music, haptics, the ghost and play counting.</li>
+      <li>Your best score, your best time for each sector, and the ghost of your best run through each sector.</li>
+      <li>Your best time through today's daily sector.</li>
+      <li>The name you last posted, so it is filled in next time.</li>
+      <li>The date you last played.</li>
+      <li>Whether you have bought the supporter purchase.</li>
+    </ul>
+    <p>Deleting the app removes all of it.</p>
+  </section>
+
+  <section>
+    <h2>The supporter purchase</h2>
+    <p>The game is free. After a game it may ask you to support its development with a one-time purchase, which stops that request from appearing again. The purchase is made through Apple. The game's maker never sees your name, your Apple Account or your payment details; the app only learns from Apple whether the purchase has been made, so it can stop asking.</p>
+  </section>
+
+  <section id="others">
+    <h2>Other companies involved</h2>
+    <ul>
+      <li><strong>Apple</strong> delivers the app through the App Store and handles the supporter purchase, under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>.</li>
+      <li><strong>Cloudflare</strong> runs the scoreboard server. To stop one connection from flooding it, the server uses your IP address as a counter inside Cloudflare that lasts about a minute. It is never written to the game's database.</li>
+      <li><strong>GitHub</strong> hosts this page. GitHub <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">logs the IP address of visitors</a> to every site it hosts, for security. The app itself never contacts GitHub, except when you open this page, the support page or the ship sheet from it.</li>
+    </ul>
+    <p>The server's code is public. You can <a href="https://github.com/acechase/acechase.github.com/tree/master/_doomsday-tunnels-api">read exactly what it stores</a>.</p>
+  </section>
+
+  <section>
+    <h2>Removing a name</h2>
+    <p>A posted name is not an account and has no password. The game's maker can remove any entry from the boards. To ask for a name to be taken down, <a href="https://github.com/acechase/acechase.github.com/issues">open an issue on GitHub</a>.</p>
+  </section>
+
+  <section>
+    <h2>Children</h2>
+    <p>The game collects nothing from anyone beyond what this page describes, whatever their age. A child can play without posting a score, and nothing about them leaves the phone except the anonymous daily counts, which can be switched off.</p>
+  </section>
+
+  <footer>Last updated 23 October 2026. If what the app sends ever changes, this page changes first. Doomsday Tunnels 3D is the native remake of <a href="../../doomsday-tunnels/">Doomsday Tunnels</a>, which plays in the browser; that game's own privacy notes are on its <a href="../../doomsday-tunnels/about/">about page</a>.</footer>
+</div>
+</body>
+</html>
