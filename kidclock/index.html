@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KidClock</title>
+<meta name="description" content="KidClock: a fullscreen alarm clock for a converted 2018 Meta Portal. Gentle two-stage wake-ups, offline voice commands, a night mode that keeps the room dark, weather and a quote of the day. Free, open source, no accounts.">
+<meta name="theme-color" content="#f4f6f8">
+<link rel="icon" type="image/png" href="../doomsday-tunnels/icon-192.png?v=2">
+<link rel="preload" href="../fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="../fonts/ShareTechMono-Regular.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Share Tech Mono";font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/ShareTechMono-Regular.woff) format("woff")}
+@font-face{font-family:"Syncopate";font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/Syncopate-Bold.woff) format("woff")}
+:root{
+  color-scheme:light;
+  --paper:#f4f6f8; --ink:#121417; --text:#30343b; --dim:#646b78; --rule:#d3d8e0;
+  --display:"Syncopate","Arial Black",sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --tone:#ffb13b;
+}
+*{box-sizing:border-box}
+html{background:var(--paper);-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--text);font:16px/1.65 var(--mono)}
+.page{max-width:44rem;margin:0 auto;padding:clamp(28px,6vw,72px) 20px 64px}
+a{color:var(--ink);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+p,ul,ol,figure,pre{margin:0 0 1.1rem}
+ul,ol{padding-left:1.3rem}
+li{margin-bottom:.45rem}
+li::marker{color:var(--dim)}
+code,pre{font-family:var(--mono)}
+pre{padding:.9rem 1rem;background:#fff;border:1px solid var(--rule);overflow-x:auto;font-size:.88rem;line-height:1.5}
+strong{color:var(--ink);font-weight:400}
+
+header{margin-bottom:2.6rem}
+.crumb{margin:0 0 1.4rem;font-size:.9rem;color:var(--dim)}
+h1{margin:0 0 1rem;font:700 clamp(2rem,9.5vw,3.8rem)/1.02 var(--display);letter-spacing:-.01em;color:var(--ink)}
+.lede{font-size:1.08rem;color:var(--ink);max-width:36rem}
+.links{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem 1.4rem;margin:1.4rem 0 0}
+.go{display:inline-block;padding:.65rem 1.1rem;background:var(--tone);color:var(--ink);border:2px solid var(--ink);
+  font:700 .78rem/1 var(--display);letter-spacing:.04em;text-decoration:none}
+.go:hover{background:var(--ink);color:var(--paper)}
+
+.shot{margin:0 0 1.6rem}
+.shot img{display:block;width:100%;height:auto;aspect-ratio:1280/800;border:2px solid var(--tone)}
+figcaption{margin-top:.6rem;color:var(--dim);font-size:.9rem}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0 0 2rem}
+.pair figure{margin:0}
+@media (max-width:540px){.pair{grid-template-columns:1fr}}
+
+section{padding-top:2rem;margin-top:2.2rem;border-top:1px solid var(--rule)}
+h2{margin:0 0 1.2rem;font:700 clamp(1rem,4vw,1.2rem)/1.2 var(--display);color:var(--ink)}
+h3{margin:1.6rem 0 .5rem;font:400 1.05rem/1.3 var(--mono);color:var(--ink)}
+.note{color:var(--dim);font-size:.92rem}
+footer{margin-top:3.4rem;padding-top:1.2rem;border-top:1px solid var(--rule);color:var(--dim);font-size:.9rem;max-width:38rem}
+footer p{margin:0}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <p class="crumb"><a href="../">Andrew Chase</a> / KidClock</p>
+  <h1>KidClock</h1>
+  <p class="lede">An alarm clock for a kid's room, built for the 2018 Meta Portal once <a href="https://github.com/fcjr/unmetaportal">unmetaportal</a> has freed it to run plain Android. It wakes gently, keeps the room dark at night, listens for "I'm awake" only while it is supposed to, and never asks anyone to log in to anything.</p>
+  <p class="links">
+    <a class="go" href="https://github.com/acechase/kidclock/releases/latest">Download the APK</a>
+    <a href="https://github.com/acechase/kidclock">Code on GitHub</a>
+    <a href="#install">How to install</a>
+  </p>
+</header>
+
+<main>
+
+<figure class="shot">
+  <img src="sky.webp" width="1280" height="800" alt="The Sky face: a large white 12:20 over a blue gradient with low waves, the date, a small italic quote, the weather in the top-right corner and the next alarm along the bottom.">
+  <figcaption>The Sky face follows the real time of day, from sunrise to stars. Weather, the quote of the day and the next alarm sit around the time.</figcaption>
+</figure>
+
+<section id="what">
+  <h2>What it does</h2>
+  <ul>
+    <li><strong>Two-stage mornings.</strong> A chosen number of minutes before the alarm, a soft sound plays once, the screen brightens with a green okay-to-wake lamp and the morning's quote appears. Saying "I'm awake" or tapping the button cancels that day's alarm. Otherwise the real alarm rings, ramping up over half a minute.</li>
+    <li><strong>Sounds tuned to the research on waking.</strong> Five alarm sounds and five gentle sounds, all synthesized in code: hummable melodies around C5 at 112 BPM rather than mechanical beeps, with a music box, wind chimes, birdsong, a kalimba and a harp for the gentle side. Each has its own volume and a Play button to audition it.</li>
+    <li><strong>Night mode</strong> from 8:30 pm to 6:30 am by default: amber digits on black, the screen dimmed as far as it goes, a red moon that turns into a green sun when it is okay to get up.</li>
+    <li><strong>Voice without a cloud.</strong> "Snooze", "stop" and "I'm awake" are recognised on the device by Vosk. The microphone opens only while an alarm is ringing or a gentle wake-up is in progress, and the camera is never requested at all.</li>
+    <li><strong>Eight faces</strong> to swipe between: Sky, Ocean, Rainbow, Galaxy, Fireflies, Aurora, Meadow and a real Analog dial for learning to read a clock.</li>
+    <li><strong>A quote a day, six actually.</strong> From a library of 260 quotes and bits of advice picked for a bright eleven-year-old, six are drawn each morning; tap the quote to see the next one.</li>
+    <li><strong>Weather</strong> from Open-Meteo with no key, including a 12-hour and 6-day view on double-tap. It is the only thing in the app that uses the network, and when the network goes away the clock carries on and the forecast quietly disappears rather than going stale.</li>
+    <li><strong>Settings behind a two-second hold</strong> on the top-right corner, so stray taps never land in them. Tap the next-alarm line for a plain-language card about that alarm.</li>
+  </ul>
+</section>
+
+<div class="pair">
+  <figure class="shot"><img src="gentle-wake.webp" width="1280" height="800" alt="Gentle wake-up: a bright Sky face with a green lamp, a large quote card and a button labelled I'm awake."><figcaption>Gentle wake-up, with the morning's quote and the "I'm awake" button.</figcaption></figure>
+  <figure class="shot"><img src="night.webp" width="1280" height="800" alt="Night mode: dim amber 9:34 AM on black with a small red crescent moon in the corner."><figcaption>Night mode, as dark as the panel will go.</figcaption></figure>
+  <figure class="shot"><img src="analog.webp" width="1280" height="800" alt="The Analog face: a large dial with a sweeping red second hand beside the digital time and date on cream."><figcaption>The Analog face, for learning to read a clock.</figcaption></figure>
+  <figure class="shot"><img src="aurora.webp" width="1280" height="800" alt="The Aurora face: white digits over green and violet curtains of light above dark mountains."><figcaption>Aurora, one of the eight faces.</figcaption></figure>
+  <figure class="shot"><img src="weather.webp" width="1280" height="800" alt="The weather screen: a temperature curve for the next twelve hours and six days of high and low bars."><figcaption>Double-tap the weather for the next 12 hours and 6 days.</figcaption></figure>
+  <figure class="shot"><img src="settings.webp" width="1280" height="800" alt="Settings: an alarm card with day toggles and a gentle wake-up lead, and a column of switches for night times, sounds, volumes, quotes and weather."><figcaption>Settings: alarms, sounds, volumes, night window, quotes, weather.</figcaption></figure>
+</div>
+
+<section id="install">
+  <h2>How to install</h2>
+  <p>You need a Portal that has been through <a href="https://github.com/fcjr/unmetaportal">unmetaportal</a>, so that it runs ordinary Android apps and you can reach it with <code>adb</code>, and a computer with the Android platform tools. Nothing here needs root, and nothing is irreversible: unmetaportal's disable script puts the launcher back.</p>
+  <ol>
+    <li>Download <code>kidclock-&lt;version&gt;.apk</code> from the <a href="https://github.com/acechase/kidclock/releases/latest">latest release</a>.</li>
+    <li>Install it and grant the microphone:
+<pre>adb install -r -g kidclock-0.1.apk
+adb shell pm grant com.acechase.kidclock android.permission.RECORD_AUDIO</pre></li>
+    <li>Make it the home screen and lock it in:
+<pre>~/unmetaportal/tools/portal-kiosk-enable.sh \
+  --component com.acechase.kidclock/.ClockActivity --set-home --yes
+adb shell dumpsys deviceidle whitelist +com.acechase.kidclock</pre></li>
+    <li>Hold the top-right corner of the clock for two seconds to open Settings. Add an alarm, choose sounds and volumes, set the weather location, then unplug the cable. The clock comes back on its own after a power cut or reboot.</li>
+  </ol>
+  <p class="note">The APK is about 80 MB because it bundles the offline speech model. It is signed with an Android debug key, so to replace it with a build of your own you uninstall first or build with the same keystore.</p>
+</section>
+
+<section id="fork">
+  <h2>Make it your own</h2>
+  <p>The <a href="https://github.com/acechase/kidclock">repository</a> is MIT licensed and small: Kotlin, no Play Services, no third-party UI libraries. Faces are single Canvas classes, sounds are a few dozen lines of additive synthesis each, and the quote library is one JSON file. The README covers building, deploying and the handful of device quirks worth knowing. A JDK 17 and an Android SDK are all it takes.</p>
+</section>
+
+<section id="privacy">
+  <h2>Privacy</h2>
+  <p>No accounts, no analytics, no camera permission. The microphone is used only while an alarm is ringing or a gentle wake-up is in progress, speech is recognised on the device and nothing is recorded. The only network traffic is an optional weather forecast from Open-Meteo for a location you type in (or, until you do, a coarse guess from your IP address).</p>
+</section>
+
+</main>
+
+<footer>
+  <p>Andrew Chase, October 2026. Built with Claude Code. Thanks to Frank Chiarulli Jr. for unmetaportal.</p>
+</footer>
+
+</div>
+</body>
+</html>
