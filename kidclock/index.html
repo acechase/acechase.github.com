@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KidClock</title>
-<meta name="description" content="KidClock: a fullscreen alarm clock for a converted 2018 Meta Portal. Gentle two-stage wake-ups, offline voice commands, a night mode that keeps the room dark, eight looks for the time over seven backgrounds, weather and a quote of the day. Free, open source, no accounts.">
+<meta name="description" content="KidClock: a fullscreen alarm clock for a converted 2018 Meta Portal. Gentle two-stage wake-ups, offline voice commands, a night mode that keeps the room dark, eleven looks for the time over nine backgrounds, holiday designs that appear on their own, weather and a quote of the day. Free, open source, no accounts.">
 <meta name="theme-color" content="#f4f6f8">
 <link rel="icon" type="image/png" href="../doomsday-tunnels/icon-192.png?v=2">
 <link rel="preload" href="../fonts/Syncopate-Bold.woff" as="font" type="font/woff" crossorigin>
@@ -87,8 +87,9 @@ footer p{margin:0}
     <li><strong>Sounds tuned to the research on waking.</strong> Five alarm sounds and five gentle sounds, all synthesized in code: hummable melodies around C5 at 112 BPM rather than mechanical beeps, with a music box, wind chimes, birdsong, a kalimba and a harp for the gentle side. Each has its own volume and a Play button to audition it.</li>
     <li><strong>Night mode</strong> from 8:30 pm to 6:30 am by default: amber digits on black, the screen dimmed as far as it goes, a red moon that turns into a green sun when it is okay to get up. An Always night switch keeps the amber-on-black colours all day at normal brightness.</li>
     <li><strong>Voice without a cloud.</strong> "Snooze", "stop" and "I'm awake" are recognised on the device by Vosk. The microphone opens only while an alarm is ringing or a gentle wake-up is in progress, and the camera is never requested at all.</li>
-    <li><strong>Seven backgrounds</strong> to swipe between: Sky, Ocean, Rainbow, Galaxy, Fireflies, Aurora and Meadow.</li>
-    <li><strong>Eight looks for the time itself</strong>, chosen separately from the background. Hold the time for two seconds and a ring fills under your finger; then swipe sideways through Classic, Bold, Stacked, a real Analog dial for learning to read a clock, Sketch (marker on a paper scrap), Whacky (every digit a different font and tilt), Pixel and Magnets, and tap to keep one. Every look has an amber night version.</li>
+    <li><strong>Nine backgrounds</strong> to swipe between: Sky, Ocean, Rainbow, Galaxy, Fireflies, Aurora, Meadow, Doodle Strings (beaded pink strings hung with hearts doodled in a dozen marker styles, swaying) and Notebook (a ruled page covered in doodled hearts).</li>
+    <li><strong>Eleven looks for the time itself</strong>, chosen separately from the background. Hold the time for two seconds and a ring fills under your finger; then swipe sideways through Classic, Bold, Stacked, a real Analog dial for learning to read a clock, Sketch (marker on a paper scrap), Whacky (every digit a different font and tilt), Pixel, Magnets, Tiara (slim serif digits in champagne rose with a fine tiara on the hour), Marker (Caveat digits with a scribbled pink underline) and Marker Stacked (the stacked layout in pink marker with doodled tiaras), and tap to keep one. Every look has an amber night version.</li>
+    <li><strong>Holiday designs.</strong> New Year's Eve, Valentine's Day, St. Patrick's Day, Easter, the Fourth of July, Halloween, Thanksgiving and Christmas each have their own background and lettering, from a witch hat on the hour to a string of fairy lights. Each appears by itself three days before the holiday and goes away the day after, giving the chosen design back. Swiping to another background or look in the meantime counts as a decision and keeps that choice. A switch in Settings turns the whole thing off.</li>
     <li><strong>A quote a day, six actually.</strong> From a library of 260 quotes and bits of advice picked for a bright eleven-year-old, six are drawn each morning; tap the quote to see the next one.</li>
     <li><strong>Weather</strong> from Open-Meteo with no key, including a 12-hour and 6-day view on double-tap. It is the only thing in the app that uses the network, and when the network goes away the clock carries on and the forecast quietly disappears rather than going stale.</li>
     <li><strong>Settings behind a two-second hold</strong> on the top-right corner, so stray taps never land in them. Tap the next-alarm line for a plain-language card about that alarm.</li>
@@ -97,14 +98,18 @@ footer p{margin:0}
 
 <figure class="shot">
   <img src="looks.webp" width="1280" height="800" alt="Choosing a look: the Sketch look, marker digits reading 1:35 on a torn paper scrap, with a Choose a look banner at the top, chevrons at the edges, and the name Sketch over eight dots at the bottom.">
-  <figcaption>Hold the time, then swipe: the Sketch look, one of eight, over the Sky background.</figcaption>
+  <figcaption>Hold the time, then swipe: the Sketch look, one of eleven, over the Sky background.</figcaption>
 </figure>
 
 <div class="pair">
+  <figure class="shot"><img src="notebook.webp" width="1280" height="800" alt="The Notebook background with the Marker Stacked look: pink marker digits reading 11 over 08 on a ruled page, SATURDAY and the date to the right, and doodled hearts and tiaras everywhere."><figcaption>Notebook, with the Marker Stacked look.</figcaption></figure>
+  <figure class="shot"><img src="doodle-strings.webp" width="1280" height="800" alt="The Doodle Strings background with the Tiara look: plum serif digits reading 11:05 with a small gold tiara on the hour, over beaded pink strings hung with doodled hearts."><figcaption>Doodle Strings, with the Tiara look.</figcaption></figure>
+  <figure class="shot"><img src="halloween.webp" width="1280" height="800" alt="The Halloween design: copper serif digits reading 11:04 with a witch hat on the hour, under a pale moon with a bat, with pumpkin hearts, bat-winged hearts and a cobweb in the corner."><figcaption>Halloween arrives on its own on October 28 and leaves on November 1.</figcaption></figure>
+  <figure class="shot"><img src="christmas.webp" width="1280" height="800" alt="The Christmas design: white serif digits reading 11:05 under a string of glowing fairy lights, with snow, holly in the corners and candy-cane striped hearts."><figcaption>Christmas, with its fairy lights and candy-cane hearts.</figcaption></figure>
   <figure class="shot"><img src="gentle-wake.webp" width="1280" height="800" alt="Gentle wake-up: a bright Sky face with a green lamp, a large quote card and a button labelled I'm awake."><figcaption>Gentle wake-up, with the morning's quote and the "I'm awake" button.</figcaption></figure>
   <figure class="shot"><img src="night.webp" width="1280" height="800" alt="Night mode: dim amber 9:34 AM on black with a small red crescent moon in the corner."><figcaption>Night mode, as dark as the panel will go.</figcaption></figure>
   <figure class="shot"><img src="analog.webp" width="1280" height="800" alt="The Analog look: a large white dial with a sweeping red second hand on the Sky background, beside the digital time, the date and the quote."><figcaption>The Analog look, for learning to read a clock.</figcaption></figure>
-  <figure class="shot"><img src="aurora.webp" width="1280" height="800" alt="The Aurora background: white digits over green and violet curtains of light above dark mountains."><figcaption>Aurora, one of the seven backgrounds.</figcaption></figure>
+  <figure class="shot"><img src="aurora.webp" width="1280" height="800" alt="The Aurora background: white digits over green and violet curtains of light above dark mountains."><figcaption>Aurora, one of the nine backgrounds.</figcaption></figure>
   <figure class="shot"><img src="magnets.webp" width="1280" height="800" alt="The Magnets look: each digit of 1:38 on its own tilted coloured tile, PM on a purple one, the date on a white tile."><figcaption>Magnets: fridge tiles.</figcaption></figure>
   <figure class="shot"><img src="whacky.webp" width="1280" height="800" alt="The Whacky look: 1:40 with every digit in a different font, colour and tilt, shadows falling upward, PM in a balloon, the date riding a wave and a pink and yellow checkerboard floor."><figcaption>Whacky, for mornings that need it.</figcaption></figure>
   <figure class="shot"><img src="weather.webp" width="1280" height="800" alt="The weather screen: a temperature curve for the next twelve hours and six days of high and low bars."><figcaption>Double-tap the weather for the next 12 hours and 6 days.</figcaption></figure>
@@ -117,14 +122,14 @@ footer p{margin:0}
   <ol>
     <li>Download <code>kidclock-&lt;version&gt;.apk</code> from the <a href="https://github.com/acechase/kidclock/releases/latest">latest release</a>.</li>
     <li>Install it and grant the microphone:
-<pre>adb install -r -g kidclock-0.2.apk
+<pre>adb install -r -g kidclock-0.3.apk
 adb shell pm grant com.acechase.kidclock android.permission.RECORD_AUDIO</pre></li>
     <li>Make it the home screen and lock it in:
 <pre>~/unmetaportal/tools/portal-kiosk-enable.sh \
   --component com.acechase.kidclock/.ClockActivity --set-home --yes
 adb shell dumpsys deviceidle whitelist +com.acechase.kidclock</pre></li>
     <li>Hold the top-right corner of the clock for two seconds to open Settings. Add an alarm, choose sounds and volumes, set the weather location, then unplug the cable. The clock comes back on its own after a power cut or reboot.</li>
-    <li>Swipe to pick a background. Hold the time for two seconds, then swipe, to pick a look.</li>
+    <li>Swipe to pick a background. Hold the time for two seconds, then swipe, to pick a look. Holiday designs take over by themselves for a few days around each holiday.</li>
   </ol>
   <p class="note">The APK is about 80 MB because it bundles the offline speech model. It is signed with an Android debug key, so to replace it with a build of your own you uninstall first or build with the same keystore.</p>
 </section>
